@@ -155,7 +155,7 @@ export const KnockoutMatchCard = ({
 
         {/* Score Section - Center with Team Names beside scores */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg min-w-[350px]">
+          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg min-w-[350px] flex justify-center">
             {isFinished ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground truncate max-w-[80px]">{match.homeTeam.name}</span>
