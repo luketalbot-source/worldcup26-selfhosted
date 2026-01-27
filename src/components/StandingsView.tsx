@@ -5,7 +5,7 @@ import { GroupStandings } from './GroupStandings';
 import { getTeamsByGroup } from '@/data/teams';
 import { GroupStanding } from '@/types/match';
 
-const groups = ['A', 'B', 'C', 'D', 'E', 'F'];
+const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
 // Mock standings - in production, these would come from an API
 const generateMockStandings = (group: string): GroupStanding[] => {

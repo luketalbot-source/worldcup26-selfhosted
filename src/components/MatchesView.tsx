@@ -11,7 +11,7 @@ import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn } from 'lucide-react';
 
-const groups = ['A', 'B', 'C', 'D', 'E', 'F'];
+const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
 export const MatchesView = () => {
   const [activeStage, setActiveStage] = useState<'groups' | 'knockout'>('groups');
