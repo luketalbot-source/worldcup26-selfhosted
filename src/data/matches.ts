@@ -30,8 +30,9 @@ const createMatch = (
 
 // All times are in ET (Eastern Time) - the standard reference for FIFA World Cup 2026
 export const groupStageMatches: Match[] = [
-  // ============ TEST MATCH (22:00 Germany time) ============
+  // ============ TEST MATCHES ============
   createMatch('TEST1', 'eng', 'bra', 'January 27, 2026', '16:00', 'Test Stadium', 'Test City', 'A'),
+  createMatch('TEST2', 'fra', 'arg', 'January 27, 2026', '21:00', 'Test Stadium', 'Test City', 'A', 'live', 2, 1),
 
   // ============ MATCHDAY 1 ============
   
