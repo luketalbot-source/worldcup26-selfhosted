@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 import { KnockoutMatch } from '@/data/knockoutMatches';
 import { Prediction } from '@/types/match';
 import { ScoreSelector } from './ScoreSelector';
-import { MapPin, Clock, Check, Lock } from 'lucide-react';
+import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFlagUrl } from '@/lib/flagUtils';
 import { useMatchTime } from '@/hooks/useMatchTime';
+import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 
 interface KnockoutMatchCardProps {
   match: KnockoutMatch;
@@ -67,6 +68,16 @@ export const KnockoutMatchCard = ({
     });
   };
 
+  // Calculate points for finished matches with predictions
+  const predictionResult = isFinished && prediction 
+    ? calculatePredictionPoints(
+        prediction.homeScore,
+        prediction.awayScore,
+        match.homeScore ?? null,
+        match.awayScore ?? null
+      )
+    : null;
+
   const homeFlagUrl = getFlagUrl(match.homeTeam.code);
   const awayFlagUrl = getFlagUrl(match.awayTeam.code);
 
@@ -79,9 +90,13 @@ export const KnockoutMatchCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`relative overflow-hidden rounded-2xl shadow-card border h-[250px] ${
-        isHighlighted 
-          ? 'border-fifa-gold/50' 
-          : 'border-border/50'
+        predictionResult?.resultType === 'exact' 
+          ? 'ring-2 ring-fifa-gold border-fifa-gold/50' 
+          : predictionResult?.resultType === 'correct'
+            ? 'ring-2 ring-fifa-green border-fifa-green/50'
+            : isHighlighted 
+              ? 'border-fifa-gold/50' 
+              : 'border-border/50'
       } ${disabled ? 'opacity-80' : ''}`}
     >
       {/* Background Flags Container */}
@@ -248,9 +263,22 @@ export const KnockoutMatchCard = ({
         )}
 
         {/* Result comparison for finished matches */}
-        {isFinished && prediction && (
-          <div className="py-1.5 px-3 rounded-lg text-xs font-medium text-center backdrop-blur-sm bg-white/90 text-muted-foreground">
-            Your prediction: {prediction.homeScore} - {prediction.awayScore}
+        {isFinished && prediction && predictionResult && (
+          <div className={`py-1.5 px-3 rounded-lg text-xs font-medium text-center backdrop-blur-sm flex items-center justify-center gap-2 ${
+            predictionResult.resultType === 'exact' 
+              ? 'bg-fifa-gold/90 text-white' 
+              : predictionResult.resultType === 'correct'
+                ? 'bg-fifa-green/90 text-white'
+                : 'bg-white/90 text-muted-foreground'
+          }`}>
+            {predictionResult.resultType === 'exact' && <Zap className="w-3 h-3" />}
+            {predictionResult.resultType === 'correct' && <Check className="w-3 h-3" />}
+            <span>
+              {prediction.homeScore} - {prediction.awayScore}
+              {predictionResult.resultType === 'exact' && ' · Exact! +3 pts'}
+              {predictionResult.resultType === 'correct' && ' · Correct result +1 pt'}
+              {predictionResult.resultType === 'wrong' && ' · Wrong · 0 pts'}
+            </span>
           </div>
         )}
 
