@@ -1,7 +1,14 @@
 import { motion } from 'framer-motion';
-import { Trophy } from 'lucide-react';
+import { Trophy, LogIn, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
+  const { user, signOut } = useAuth();
+  const { profile } = useProfile(user?.id);
+  const navigate = useNavigate();
+
   return (
     <header className="gradient-navy text-white sticky top-0 z-50">
       <div className="container py-4">
@@ -20,10 +27,21 @@ export const Header = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🇺🇸</span>
-            <span className="text-2xl">🇲🇽</span>
-            <span className="text-2xl">🇨🇦</span>
+          <div className="flex items-center gap-3">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium hidden sm:block">{profile?.displayName || 'User'}</span>
+                <span className="text-xl">{profile?.avatarEmoji || '👤'}</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate('/auth')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline">Log In</span>
+              </button>
+            )}
           </div>
         </motion.div>
       </div>

@@ -1,20 +1,44 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { MatchCard } from './MatchCard';
 import { GroupTabs } from './GroupTabs';
-import { groupStageMatches, getMatchesByGroup } from '@/data/matches';
+import { getMatchesByGroup } from '@/data/matches';
 import { usePredictions } from '@/hooks/usePredictions';
+import { useAuth } from '@/contexts/AuthContext';
+import { LogIn } from 'lucide-react';
 
 const groups = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 export const MatchesView = () => {
   const [activeGroup, setActiveGroup] = useState('A');
   const { addPrediction, getPrediction } = usePredictions();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   
   const matches = getMatchesByGroup(activeGroup);
 
   return (
     <div className="space-y-4">
+      {!user && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-center justify-between"
+        >
+          <p className="text-sm text-foreground">
+            <strong>Log in</strong> to save your predictions!
+          </p>
+          <button
+            onClick={() => navigate('/auth')}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground font-semibold text-sm"
+          >
+            <LogIn className="w-4 h-4" />
+            Log In
+          </button>
+        </motion.div>
+      )}
+      
       <div className="sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">
         <GroupTabs 
           groups={groups} 
@@ -36,6 +60,7 @@ export const MatchesView = () => {
             match={match}
             prediction={getPrediction(match.id)}
             onPredict={addPrediction}
+            disabled={!user}
           />
         ))}
       </motion.div>

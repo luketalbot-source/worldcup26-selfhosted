@@ -1,21 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Match, Prediction } from '@/types/match';
 import { ScoreSelector } from './ScoreSelector';
-import { MapPin, Clock, Check } from 'lucide-react';
+import { MapPin, Clock, Check, Lock } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface MatchCardProps {
   match: Match;
   prediction?: Prediction;
   onPredict: (matchId: string, homeScore: number, awayScore: number) => void;
+  disabled?: boolean;
 }
 
-export const MatchCard = ({ match, prediction, onPredict }: MatchCardProps) => {
+export const MatchCard = ({ match, prediction, onPredict, disabled = false }: MatchCardProps) => {
   const [homeScore, setHomeScore] = useState(prediction?.homeScore ?? 0);
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
   const [hasEdited, setHasEdited] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+
+  // Reset scores when prediction changes (e.g., after fetch)
+  useEffect(() => {
+    if (prediction) {
+      setHomeScore(prediction.homeScore);
+      setAwayScore(prediction.awayScore);
+    }
+  }, [prediction]);
 
   const handleScoreChange = (team: 'home' | 'away', score: number) => {
+    if (disabled) return;
     setHasEdited(true);
     if (team === 'home') {
       setHomeScore(score);
@@ -24,9 +37,13 @@ export const MatchCard = ({ match, prediction, onPredict }: MatchCardProps) => {
     }
   };
 
-  const handleSave = () => {
-    onPredict(match.id, homeScore, awayScore);
+  const handleSave = async () => {
+    if (disabled) return;
+    setIsSaving(true);
+    await onPredict(match.id, homeScore, awayScore);
     setHasEdited(false);
+    setIsSaving(false);
+    toast({ title: 'Prediction saved!', description: `${match.homeTeam.code} ${homeScore} - ${awayScore} ${match.awayTeam.code}` });
   };
 
   const isFinished = match.status === 'finished';
@@ -41,7 +58,7 @@ export const MatchCard = ({ match, prediction, onPredict }: MatchCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       className={`relative overflow-hidden rounded-2xl bg-card shadow-card border border-border/50 ${
         isCorrect ? 'ring-2 ring-fifa-green' : ''
-      }`}
+      } ${disabled ? 'opacity-80' : ''}`}
     >
       {/* Group Badge */}
       {match.group && (
@@ -82,12 +99,14 @@ export const MatchCard = ({ match, prediction, onPredict }: MatchCardProps) => {
               <div className="flex items-center gap-2">
                 <ScoreSelector 
                   value={homeScore} 
-                  onChange={(v) => handleScoreChange('home', v)} 
+                  onChange={(v) => handleScoreChange('home', v)}
+                  disabled={disabled}
                 />
                 <span className="text-lg text-muted-foreground font-medium">:</span>
                 <ScoreSelector 
                   value={awayScore} 
-                  onChange={(v) => handleScoreChange('away', v)} 
+                  onChange={(v) => handleScoreChange('away', v)}
+                  disabled={disabled}
                 />
               </div>
             )}
@@ -115,7 +134,12 @@ export const MatchCard = ({ match, prediction, onPredict }: MatchCardProps) => {
         {/* Prediction Section */}
         {!isFinished && (
           <div className="mt-4">
-            {isPredicted && !hasEdited ? (
+            {disabled ? (
+              <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-muted text-muted-foreground text-sm">
+                <Lock className="w-4 h-4" />
+                Log in to save predictions
+              </div>
+            ) : isPredicted && !hasEdited ? (
               <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-primary/10 text-primary text-sm font-medium">
                 <Check className="w-4 h-4" />
                 Predicted: {prediction.homeScore} - {prediction.awayScore}
@@ -125,14 +149,14 @@ export const MatchCard = ({ match, prediction, onPredict }: MatchCardProps) => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSave}
-                disabled={!hasEdited && !isPredicted}
+                disabled={isSaving || (!hasEdited && !isPredicted)}
                 className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
                   hasEdited
                     ? 'bg-accent text-accent-foreground shadow-md'
                     : 'bg-muted text-muted-foreground'
                 }`}
               >
-                {isPredicted ? 'Update Prediction' : 'Save Prediction'}
+                {isSaving ? 'Saving...' : (isPredicted ? 'Update Prediction' : 'Save Prediction')}
               </motion.button>
             )}
           </div>
