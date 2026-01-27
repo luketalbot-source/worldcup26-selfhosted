@@ -106,7 +106,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
               <img 
                 src={homeFlagUrl} 
                 alt={match.homeTeam.name}
-                className="absolute inset-0 w-full h-full object-cover object-center"
+                className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
               />
               {/* Gradient fade to white on right - stronger fade */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-white to-100%" />
@@ -127,7 +127,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
               <img 
                 src={awayFlagUrl} 
                 alt={match.awayTeam.name}
-                className="absolute inset-0 w-full h-full object-cover object-center"
+                className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
               />
               {/* Gradient fade to white on left - stronger fade */}
               <div className="absolute inset-0 bg-gradient-to-l from-transparent from-40% to-white to-100%" />
