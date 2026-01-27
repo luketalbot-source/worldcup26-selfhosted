@@ -77,7 +77,7 @@ export const KnockoutMatchCard = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl shadow-card border h-[200px] ${
+      className={`relative overflow-hidden rounded-2xl shadow-card border h-[250px] ${
         isHighlighted 
           ? 'border-fifa-gold/50' 
           : 'border-border/50'
