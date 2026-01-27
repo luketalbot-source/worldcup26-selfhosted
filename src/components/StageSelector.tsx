@@ -1,14 +1,32 @@
 import { motion } from 'framer-motion';
-import { Calendar, Swords } from 'lucide-react';
+import { Calendar, Swords, Clock } from 'lucide-react';
 
 interface StageSelectorProps {
-  activeStage: 'groups' | 'knockout';
-  onStageChange: (stage: 'groups' | 'knockout') => void;
+  activeStage: 'today' | 'groups' | 'knockout';
+  onStageChange: (stage: 'today' | 'groups' | 'knockout') => void;
+  todayCount?: number;
 }
 
-export const StageSelector = ({ activeStage, onStageChange }: StageSelectorProps) => {
+export const StageSelector = ({ activeStage, onStageChange, todayCount = 0 }: StageSelectorProps) => {
   return (
     <div className="flex gap-2 p-1 bg-muted rounded-xl">
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => onStageChange('today')}
+        className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
+          activeStage === 'today'
+            ? 'bg-accent text-accent-foreground shadow-md'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <Clock className="w-4 h-4" />
+        Today
+        {todayCount > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-background/50">
+            {todayCount}
+          </span>
+        )}
+      </motion.button>
       <motion.button
         whileTap={{ scale: 0.95 }}
         onClick={() => onStageChange('groups')}
