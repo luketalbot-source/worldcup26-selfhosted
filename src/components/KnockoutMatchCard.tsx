@@ -132,14 +132,6 @@ export const KnockoutMatchCard = ({
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white backdrop-blur-sm">
               {match.bracketPosition}
             </span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm ${
-              match.stage === 'final' 
-                ? 'bg-fifa-gold/80 text-white' 
-                : 'bg-fifa-coral/80 text-white'
-            }`}>
-              {match.stage === 'final' && <Trophy className="w-3 h-3 inline mr-1" />}
-              {stageLabels[match.stage]}
-            </span>
             <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
               <Clock className="w-3 h-3" />
               <span>{match.date}</span>
