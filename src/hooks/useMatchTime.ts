@@ -2,29 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { parse, format, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz';
 
-// Map of venue cities to their IANA timezone
-const cityTimezones: Record<string, string> = {
-  // US Eastern Time
-  'New York': 'America/New_York',
-  'Miami': 'America/New_York',
-  'Atlanta': 'America/New_York',
-  'Philadelphia': 'America/New_York',
-  'Boston': 'America/New_York',
-  // US Central Time
-  'Houston': 'America/Chicago',
-  'Dallas': 'America/Chicago',
-  'Kansas City': 'America/Chicago',
-  // US Pacific Time
-  'Los Angeles': 'America/Los_Angeles',
-  'San Francisco': 'America/Los_Angeles',
-  'Seattle': 'America/Los_Angeles',
-  // Canada
-  'Vancouver': 'America/Vancouver',
-  'Toronto': 'America/Toronto',
-  // Mexico
-  'Mexico City': 'America/Mexico_City',
-  'Guadalajara': 'America/Mexico_City',
-};
+// All match times in the data are stored in ET (Eastern Time)
+// This is the standard reference timezone used by FIFA for World Cup 2026
+const MATCH_DATA_TIMEZONE = 'America/New_York';
 
 interface MatchTimeResult {
   localDate: string;
@@ -37,20 +17,17 @@ interface MatchTimeResult {
 
 /**
  * Parse a match date and time string into a UTC Date object
- * Takes venue city to determine the source timezone
+ * All match times are stored in ET (Eastern Time)
  */
-const parseMatchDateTime = (dateStr: string, timeStr: string, city: string): Date => {
-  // Parse "June 11, 2026" and "12:00" format
+const parseMatchDateTime = (dateStr: string, timeStr: string): Date => {
+  // Parse "June 11, 2026" and "15:00" format
   const fullDateTimeStr = `${dateStr} ${timeStr}`;
   
-  // Parse the date in the venue's local timezone
+  // Parse the date string
   const parsed = parse(fullDateTimeStr, 'MMMM d, yyyy HH:mm', new Date());
   
-  // Get the timezone for this city (default to ET if not found)
-  const venueTimezone = cityTimezones[city] || 'America/New_York';
-  
-  // Convert from venue local time to UTC
-  const utcDate = fromZonedTime(parsed, venueTimezone);
+  // Convert from ET to UTC
+  const utcDate = fromZonedTime(parsed, MATCH_DATA_TIMEZONE);
   
   return utcDate;
 };
@@ -79,7 +56,7 @@ const formatCountdown = (minutesUntilLock: number): string => {
 /**
  * Hook to calculate match time information including local time display and lock status
  */
-export const useMatchTime = (dateStr: string, timeStr: string, city: string): MatchTimeResult => {
+export const useMatchTime = (dateStr: string, timeStr: string): MatchTimeResult => {
   const [now, setNow] = useState(new Date());
   
   // Update the current time every minute
@@ -92,7 +69,7 @@ export const useMatchTime = (dateStr: string, timeStr: string, city: string): Ma
   }, []);
   
   return useMemo(() => {
-    const matchDateTime = parseMatchDateTime(dateStr, timeStr, city);
+    const matchDateTime = parseMatchDateTime(dateStr, timeStr);
     
     // Calculate minutes until match starts (lock is 30 min before)
     const minutesUntilStart = differenceInMinutes(matchDateTime, now);
@@ -116,18 +93,18 @@ export const useMatchTime = (dateStr: string, timeStr: string, city: string): Ma
       countdownText,
       matchDateTime,
     };
-  }, [dateStr, timeStr, city, now]);
+  }, [dateStr, timeStr, now]);
 };
 
 /**
  * Check if a match is locked (within 30 minutes of start or already started/finished)
  */
-export const isMatchLocked = (dateStr: string, timeStr: string, city: string, status: string): boolean => {
+export const isMatchLocked = (dateStr: string, timeStr: string, status: string): boolean => {
   if (status === 'live' || status === 'finished') {
     return true;
   }
   
-  const matchDateTime = parseMatchDateTime(dateStr, timeStr, city);
+  const matchDateTime = parseMatchDateTime(dateStr, timeStr);
   const now = new Date();
   const minutesUntilStart = differenceInMinutes(matchDateTime, now);
   

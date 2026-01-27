@@ -29,7 +29,7 @@ export const KnockoutMatchCard = ({
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  const { localDate, localTime, isLocked, countdownText } = useMatchTime(match.date, match.time, match.city);
+  const { localDate, localTime, isLocked, countdownText } = useMatchTime(match.date, match.time);
 
   // Match is locked if it's within 30 min of start, live, or finished
   const isMatchLocked = isLocked || match.status === 'live' || match.status === 'finished';
