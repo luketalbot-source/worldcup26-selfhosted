@@ -154,7 +154,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
 
         {/* Score Section - Center with Team Names beside scores */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg min-w-[350px] flex justify-center">
+          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg flex justify-center">
             {(isFinished || isLive) ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
