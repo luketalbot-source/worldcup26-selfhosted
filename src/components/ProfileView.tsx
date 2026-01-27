@@ -104,27 +104,54 @@ export const ProfileView = () => {
           
           {isEditing ? (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm text-white/70">Pick your emoji</label>
-                <Input
-                  type="text"
-                  value={editAvatar}
-                  onChange={(e) => {
-                    // Only allow emoji characters (take the last character if pasting multiple)
-                    const value = e.target.value;
-                    if (value === '') {
-                      setEditAvatar('👤');
-                    } else {
-                      // Get the last emoji/character
-                      const chars = [...value];
-                      setEditAvatar(chars[chars.length - 1]);
-                    }
-                  }}
-                  placeholder="Enter any emoji"
-                  className="w-20 h-20 mx-auto text-center text-4xl bg-white/20 border-white/30 rounded-full"
-                  maxLength={2}
-                />
+              <div className="space-y-3">
+                {/* Current selection display */}
+                <div className="w-20 h-20 rounded-full bg-white/20 border-2 border-white/50 flex items-center justify-center mx-auto text-4xl">
+                  {editAvatar}
+                </div>
+                
+                {/* Quick pick emojis */}
+                <div className="space-y-2">
+                  <label className="text-xs text-white/70 block text-center">Tap to select</label>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {['👤', '⚽', '🏆', '🎯', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎮', '🏅', '🥇'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setEditAvatar(emoji)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all ${
+                          editAvatar === emoji 
+                            ? 'bg-white/40 ring-2 ring-white scale-110' 
+                            : 'bg-white/10 hover:bg-white/20'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom emoji input */}
+                <div className="text-center">
+                  <label className="text-xs text-white/70 block mb-1">Or type/paste any emoji</label>
+                  <Input
+                    type="text"
+                    value={editAvatar}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '') {
+                        setEditAvatar('👤');
+                      } else {
+                        const chars = [...value];
+                        setEditAvatar(chars[chars.length - 1]);
+                      }
+                    }}
+                    className="w-16 h-12 mx-auto text-center text-2xl bg-white/20 border-white/30 rounded-lg"
+                    maxLength={2}
+                  />
+                </div>
               </div>
+              
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
