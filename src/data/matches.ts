@@ -65,10 +65,10 @@ export const groupStageMatches: Match[] = [
   createMatch('J2', 'aut', 'jor', 'June 17, 2026', '00:00', 'Levi\'s Stadium', 'San Francisco', 'J'), // Midnight ET
   
   // June 17, 2026
-  createMatch('K1', 'por', 'col', 'June 17, 2026', '15:00', 'AT&T Stadium', 'Dallas', 'K'),
-  createMatch('K2', 'uzb', 'jam', 'June 17, 2026', '18:00', 'Lumen Field', 'Seattle', 'K'),
-  createMatch('L1', 'eng', 'cro', 'June 17, 2026', '21:00', 'MetLife Stadium', 'New York', 'L'),
-  createMatch('L2', 'gha', 'pan', 'June 18, 2026', '00:00', 'NRG Stadium', 'Houston', 'L'), // Midnight ET
+  createMatch('K1', 'por', 'jam', 'June 17, 2026', '13:00', 'NRG Stadium', 'Houston', 'K'),
+  createMatch('L1', 'eng', 'cro', 'June 17, 2026', '16:00', 'AT&T Stadium', 'Dallas', 'L'),
+  createMatch('L2', 'gha', 'pan', 'June 17, 2026', '19:00', 'BMO Field', 'Toronto', 'L'),
+  createMatch('K2', 'uzb', 'col', 'June 17, 2026', '22:00', 'Estadio Azteca', 'Mexico City', 'K'),
   
   // ============ MATCHDAY 2 ============
   
@@ -103,10 +103,10 @@ export const groupStageMatches: Match[] = [
   createMatch('J4', 'jor', 'alg', 'June 22, 2026', '23:00', 'Levi\'s Stadium', 'San Francisco', 'J'),
   
   // June 23, 2026
-  createMatch('K3', 'por', 'uzb', 'June 23, 2026', '15:00', 'Lumen Field', 'Seattle', 'K'),
-  createMatch('K4', 'col', 'jam', 'June 23, 2026', '18:00', 'AT&T Stadium', 'Dallas', 'K'),
-  createMatch('L3', 'eng', 'gha', 'June 23, 2026', '21:00', 'MetLife Stadium', 'New York', 'L'),
-  createMatch('L4', 'cro', 'pan', 'June 24, 2026', '00:00', 'NRG Stadium', 'Houston', 'L'), // Midnight ET
+  createMatch('K3', 'por', 'uzb', 'June 23, 2026', '13:00', 'NRG Stadium', 'Houston', 'K'),
+  createMatch('L3', 'eng', 'gha', 'June 23, 2026', '16:00', 'Gillette Stadium', 'Boston', 'L'),
+  createMatch('L4', 'pan', 'cro', 'June 23, 2026', '19:00', 'BMO Field', 'Toronto', 'L'),
+  createMatch('K4', 'col', 'jam', 'June 23, 2026', '22:00', 'Estadio Akron', 'Guadalajara', 'K'),
   
   // ============ MATCHDAY 3 (Simultaneous kick-offs per group) ============
   
@@ -135,12 +135,12 @@ export const groupStageMatches: Match[] = [
   createMatch('G6', 'nzl', 'bel', 'June 26, 2026', '23:00', 'BC Place', 'Vancouver', 'G'),
   
   // June 27, 2026
+  createMatch('K5', 'col', 'por', 'June 27, 2026', '19:30', 'Hard Rock Stadium', 'Miami', 'K'),
+  createMatch('K6', 'jam', 'uzb', 'June 27, 2026', '19:30', 'Mercedes-Benz Stadium', 'Atlanta', 'K'),
+  createMatch('L5', 'pan', 'eng', 'June 27, 2026', '17:00', 'MetLife Stadium', 'New York', 'L'),
+  createMatch('L6', 'cro', 'gha', 'June 27, 2026', '17:00', 'Lincoln Financial Field', 'Philadelphia', 'L'),
   createMatch('J5', 'alg', 'aut', 'June 27, 2026', '22:00', 'Arrowhead Stadium', 'Kansas City', 'J'),
   createMatch('J6', 'jor', 'arg', 'June 27, 2026', '22:00', 'AT&T Stadium', 'Dallas', 'J'),
-  createMatch('K5', 'jam', 'por', 'June 27, 2026', '19:00', 'SoFi Stadium', 'Los Angeles', 'K'),
-  createMatch('K6', 'uzb', 'col', 'June 27, 2026', '19:00', 'Lumen Field', 'Seattle', 'K'),
-  createMatch('L5', 'pan', 'eng', 'June 28, 2026', '00:00', 'MetLife Stadium', 'New York', 'L'),
-  createMatch('L6', 'cro', 'gha', 'June 28, 2026', '00:00', 'NRG Stadium', 'Houston', 'L'),
 ];
 
 export const getMatchesByGroup = (group: string): Match[] => {
