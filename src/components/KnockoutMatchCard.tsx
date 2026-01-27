@@ -126,7 +126,7 @@ export const KnockoutMatchCard = ({
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 p-4 h-full flex flex-col gap-4">
+      <div className="relative z-10 p-4 h-full flex flex-col">
         {/* Top Row - All Badges */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
@@ -160,9 +160,9 @@ export const KnockoutMatchCard = ({
           </div>
         </div>
 
-        {/* Score Section - Center with Team Names beside scores */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg flex justify-center">
+        {/* Score Section - Absolutely centered */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
             {(isFinished || isLive) ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
@@ -198,6 +198,9 @@ export const KnockoutMatchCard = ({
             )}
           </div>
         </div>
+
+        {/* Spacer to push prediction section to bottom */}
+        <div className="flex-1" />
 
         {/* Prediction Section */}
         {!isFinished && !isLive && (
