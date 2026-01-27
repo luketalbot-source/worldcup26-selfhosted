@@ -86,10 +86,13 @@ export const useMatchTime = (dateStr: string, timeStr: string): MatchTimeResult 
     // Generate countdown text
     const countdownText = formatCountdown(minutesUntilLock);
     
-    // Determine urgency level for styling
+    // Determine urgency level for styling based on time until KICKOFF (not lock)
+    // - critical (red): within 45 minutes of kickoff
+    // - warning (orange): within 2 hours of kickoff
+    // - normal: more than 2 hours until kickoff
     const urgency: 'normal' | 'warning' | 'critical' = 
-      minutesUntilLock <= 15 ? 'critical' : 
-      minutesUntilLock <= 60 ? 'warning' : 
+      minutesUntilStart <= 45 ? 'critical' : 
+      minutesUntilStart <= 120 ? 'warning' : 
       'normal';
     
     return {
