@@ -17,8 +17,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 50% 10%;
 
-    /* FIFA 2026 Teal */
-    --primary: 174 72% 40%;
+    /* Primary Blue */
+    --primary: 221 91% 52%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 40% 96%;
@@ -36,13 +36,13 @@
 
     --border: 210 20% 90%;
     --input: 210 20% 90%;
-    --ring: 174 72% 40%;
+    --ring: 221 91% 52%;
 
     --radius: 1rem;
 
-    /* Custom FIFA 2026 colors */
-    --fifa-teal: 174 72% 40%;
-    --fifa-teal-light: 174 65% 55%;
+    /* Custom colors */
+    --fifa-teal: 221 91% 52%;
+    --fifa-teal-light: 221 85% 62%;
     --fifa-coral: 12 85% 60%;
     --fifa-coral-light: 12 80% 70%;
     --fifa-navy: 220 50% 15%;
@@ -50,7 +50,7 @@
     --fifa-green: 145 60% 45%;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(174 72% 40%) 0%, hsl(174 65% 55%) 50%, hsl(12 85% 60%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(221 91% 52%) 0%, hsl(221 85% 62%) 50%, hsl(12 85% 60%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
     --gradient-navy: linear-gradient(135deg, hsl(220 50% 15%) 0%, hsl(220 45% 25%) 100%);
 
@@ -70,8 +70,8 @@
     --popover: 220 45% 12%;
     --popover-foreground: 210 20% 98%;
 
-    --primary: 174 65% 50%;
-    --primary-foreground: 220 50% 10%;
+    --primary: 221 85% 60%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 220 40% 18%;
     --secondary-foreground: 210 20% 95%;
@@ -87,7 +87,7 @@
 
     --border: 220 40% 18%;
     --input: 220 40% 18%;
-    --ring: 174 65% 50%;
+    --ring: 221 85% 60%;
   }
 }
 
