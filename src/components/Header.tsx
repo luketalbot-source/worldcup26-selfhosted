@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
-import { Trophy, LogIn, LogOut } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
+
+const WC2026_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/en/thumb/1/17/2026_FIFA_World_Cup_emblem.svg/250px-2026_FIFA_World_Cup_emblem.svg.png';
 
 export const Header = () => {
   const { user, signOut } = useAuth();
@@ -18,9 +20,11 @@ export const Header = () => {
           className="flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center shadow-glow">
-              <Trophy className="w-5 h-5 text-white" />
-            </div>
+            <img 
+              src={WC2026_LOGO_URL} 
+              alt="FIFA World Cup 2026" 
+              className="h-10 w-auto"
+            />
             <div>
               <h1 className="text-lg font-bold tracking-tight">WC 2026</h1>
               <p className="text-xs text-white/70">Predictor</p>
