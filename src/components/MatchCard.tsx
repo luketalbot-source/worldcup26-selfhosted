@@ -114,11 +114,11 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                 Group {match.group}
               </span>
             )}
-            <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+            <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
               <Clock className="w-3 h-3" />
               <span>{match.date}</span>
             </div>
-            <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+            <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
               <MapPin className="w-3 h-3" />
               <span>{match.city}</span>
             </div>
