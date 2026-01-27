@@ -1,18 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Lock, LogIn } from 'lucide-react';
+import { Trophy, Lock, LogIn, Info } from 'lucide-react';
 import { KnockoutMatchCard } from './KnockoutMatchCard';
-import { 
-  round32Matches,
-  round16Matches, 
-  quarterFinalMatches, 
-  semiFinalMatches, 
-  thirdPlaceMatch, 
-  finalMatch 
-} from '@/data/knockoutMatches';
 import { usePredictions } from '@/hooks/usePredictions';
-import { useLiveMatches } from '@/hooks/useLiveMatches';
+import { useDynamicKnockout } from '@/hooks/useDynamicKnockout';
 import { useAuth } from '@/contexts/AuthContext';
 
 type KnockoutStage = 'round32' | 'round16' | 'quarter' | 'semi' | 'finals';
@@ -28,34 +20,25 @@ const stageLabels: Record<KnockoutStage, string> = {
 export const KnockoutView = () => {
   const [activeStage, setActiveStage] = useState<KnockoutStage>('round32');
   const { addPrediction, getPrediction } = usePredictions();
-  const { getKnockoutMatches } = useLiveMatches();
+  const { getKnockoutStageMatches, areGroupStagesComplete, qualificationSummary, knockoutBracket } = useDynamicKnockout();
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const getStageMatches = () => {
     switch (activeStage) {
       case 'round32':
-        return getKnockoutMatches('round32').length > 0 
-          ? getKnockoutMatches('round32') 
-          : round32Matches;
+        return getKnockoutStageMatches('round32');
       case 'round16':
-        return getKnockoutMatches('round16').length > 0 
-          ? getKnockoutMatches('round16') 
-          : round16Matches;
+        return getKnockoutStageMatches('round16');
       case 'quarter':
-        return getKnockoutMatches('quarter').length > 0 
-          ? getKnockoutMatches('quarter') 
-          : quarterFinalMatches;
+        return getKnockoutStageMatches('quarter');
       case 'semi':
-        return getKnockoutMatches('semi').length > 0 
-          ? getKnockoutMatches('semi') 
-          : semiFinalMatches;
+        return getKnockoutStageMatches('semi');
       case 'finals':
-        const finalMatches = [
-          ...getKnockoutMatches('third'),
-          ...getKnockoutMatches('final'),
+        return [
+          ...getKnockoutStageMatches('third'),
+          ...getKnockoutStageMatches('final'),
         ];
-        return finalMatches.length > 0 ? finalMatches : [thirdPlaceMatch, finalMatch];
       default:
         return [];
     }
@@ -106,18 +89,31 @@ export const KnockoutView = () => {
         </div>
       </div>
 
-      {/* Info Banner */}
+      {/* Dynamic Info Banner */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-start gap-3"
+        className={`border rounded-xl p-3 flex items-start gap-3 ${
+          areGroupStagesComplete 
+            ? 'bg-fifa-green/5 border-fifa-green/20' 
+            : 'bg-primary/5 border-primary/20'
+        }`}
       >
-        <Lock className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+        <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+          areGroupStagesComplete ? 'text-fifa-green' : 'text-primary'
+        }`} />
         <div>
-          <p className="text-sm text-foreground font-medium">48-team format</p>
+          <p className="text-sm text-foreground font-medium">
+            {areGroupStagesComplete 
+              ? '✓ Group stages complete!' 
+              : '48-team format'
+            }
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Top 2 from each group + 8 best third-place teams advance to Round of 32. 
-            Tap "Sync Scores" to get the latest data!
+            {areGroupStagesComplete 
+              ? 'Knockout teams have been determined. Make your predictions!'
+              : `${qualificationSummary.qualified.length}/${qualificationSummary.total} groups decided. Teams update automatically when group stages finish.`
+            }
           </p>
         </div>
       </motion.div>
@@ -137,8 +133,8 @@ export const KnockoutView = () => {
               <p className="text-sm text-muted-foreground">July 19, 2026 • New York</p>
             </div>
             <KnockoutMatchCard
-              match={matches.find(m => m.stage === 'final') || finalMatch}
-              prediction={getPrediction(finalMatch.id)}
+              match={knockoutBracket.final}
+              prediction={getPrediction(knockoutBracket.final.id)}
               onPredict={addPrediction}
               disabled={!user}
               isHighlighted
@@ -147,8 +143,8 @@ export const KnockoutView = () => {
               <h3 className="text-base font-semibold text-muted-foreground">🥉 Third Place</h3>
             </div>
             <KnockoutMatchCard
-              match={matches.find(m => m.stage === 'third') || thirdPlaceMatch}
-              prediction={getPrediction(thirdPlaceMatch.id)}
+              match={knockoutBracket.thirdPlace}
+              prediction={getPrediction(knockoutBracket.thirdPlace.id)}
               onPredict={addPrediction}
               disabled={!user}
             />
