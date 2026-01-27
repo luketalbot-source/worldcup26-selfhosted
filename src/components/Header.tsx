@@ -27,22 +27,23 @@ export const Header = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            {user ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium hidden sm:block">{profile?.displayName || 'User'}</span>
-                <span className="text-xl">{profile?.avatarEmoji || '👤'}</span>
-              </div>
-            ) : (
-              <button
-                onClick={() => navigate('/auth')}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline">Log In</span>
-              </button>
-            )}
-          </div>
+          {user ? (
+            <button
+              onClick={() => navigate('/', { state: { tab: 'profile' } })}
+              className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <span className="text-sm font-medium hidden sm:block">{profile?.displayName || 'User'}</span>
+              <span className="text-2xl">{profile?.avatarEmoji || '👤'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/auth')}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
+            >
+              <LogIn className="w-4 h-4" />
+              <span className="hidden sm:inline">Log In</span>
+            </button>
+          )}
         </motion.div>
       </div>
     </header>

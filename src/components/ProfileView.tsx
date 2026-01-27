@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-const AVATAR_OPTIONS = ['👤', '⚽', '🏆', '🎯', '🌟', '🔥', '💪', '🦁', '🐯', '🦅'];
+
 
 export const ProfileView = () => {
   const { user, signOut } = useAuth();
@@ -104,20 +104,26 @@ export const ProfileView = () => {
           
           {isEditing ? (
             <div className="space-y-4">
-              <div className="flex flex-wrap justify-center gap-2">
-                {AVATAR_OPTIONS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => setEditAvatar(emoji)}
-                    className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all ${
-                      editAvatar === emoji 
-                        ? 'bg-white/30 ring-2 ring-white' 
-                        : 'bg-white/10 hover:bg-white/20'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                <label className="text-sm text-white/70">Pick your emoji</label>
+                <Input
+                  type="text"
+                  value={editAvatar}
+                  onChange={(e) => {
+                    // Only allow emoji characters (take the last character if pasting multiple)
+                    const value = e.target.value;
+                    if (value === '') {
+                      setEditAvatar('👤');
+                    } else {
+                      // Get the last emoji/character
+                      const chars = [...value];
+                      setEditAvatar(chars[chars.length - 1]);
+                    }
+                  }}
+                  placeholder="Enter any emoji"
+                  className="w-20 h-20 mx-auto text-center text-4xl bg-white/20 border-white/30 rounded-full"
+                  maxLength={2}
+                />
               </div>
               <Input
                 value={editName}

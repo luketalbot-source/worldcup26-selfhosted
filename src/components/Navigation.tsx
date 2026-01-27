@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, Trophy, BarChart3, User } from 'lucide-react';
+import { Calendar, Trophy, BarChart3 } from 'lucide-react';
 
 interface NavigationProps {
   activeTab: string;
@@ -10,7 +10,6 @@ const tabs = [
   { id: 'matches', label: 'Matches', icon: Calendar },
   { id: 'standings', label: 'Standings', icon: BarChart3 },
   { id: 'leaderboard', label: 'Leaders', icon: Trophy },
-  { id: 'profile', label: 'Profile', icon: User },
 ];
 
 export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
