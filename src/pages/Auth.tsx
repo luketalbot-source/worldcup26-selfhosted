@@ -150,19 +150,6 @@ const Auth = () => {
             </Button>
           </form>
 
-          {/* Info */}
-          <div className="mt-6 p-4 rounded-xl bg-muted/50 border border-border">
-            <p className="text-sm text-muted-foreground text-center">
-              💡 <strong>Tip:</strong> Use the same username to access your predictions from any device
-            </p>
-          </div>
-
-          {/* Flags decoration */}
-          <div className="mt-8 flex items-center justify-center gap-3 text-3xl">
-            <span>🇺🇸</span>
-            <span>🇲🇽</span>
-            <span>🇨🇦</span>
-          </div>
         </motion.div>
       </main>
     </div>
