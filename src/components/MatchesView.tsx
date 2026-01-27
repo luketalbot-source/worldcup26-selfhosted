@@ -78,7 +78,7 @@ export const MatchesView = () => {
             <img 
               src={mascotsWaiting} 
               alt="World Cup 2026 mascots waiting for matches" 
-              className="w-64 h-auto mx-auto opacity-90"
+              className="w-full max-w-[600px] h-auto mx-auto"
             />
             <p className="text-muted-foreground">No matches scheduled for today</p>
           </div>
