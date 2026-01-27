@@ -19,7 +19,7 @@ export interface KnockoutMatch extends Omit<Match, 'group'> {
 // All times in ET (Eastern Time)
 // Match numbers M73-M88
 export const round32Matches: KnockoutMatch[] = [
-  // M73 - June 28, 2026
+  // M73 - June 28, 2026 - 15:00 ET
   {
     id: 'M73',
     homeTeam: tbdTeam('2A'),
@@ -28,43 +28,13 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '2B',
     date: 'June 28, 2026',
     time: '15:00',
-    venue: 'SoFi Stadium',
+    venue: 'SoFi Stadium / Los Angeles',
     city: 'Los Angeles',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M73',
   },
-  // M74 - June 29, 2026
-  {
-    id: 'M74',
-    homeTeam: tbdTeam('1E'),
-    awayTeam: tbdTeam('3A/B/C/D/F'),
-    homeTeamSource: '1E',
-    awayTeamSource: '3ABCDF',
-    date: 'June 29, 2026',
-    time: '16:30',
-    venue: 'Gillette Stadium',
-    city: 'Foxborough',
-    stage: 'round32',
-    status: 'upcoming',
-    bracketPosition: 'M74',
-  },
-  // M75 - June 29, 2026
-  {
-    id: 'M75',
-    homeTeam: tbdTeam('1F'),
-    awayTeam: tbdTeam('2C'),
-    homeTeamSource: '1F',
-    awayTeamSource: '2C',
-    date: 'June 29, 2026',
-    time: '21:00',
-    venue: 'Estadio BBVA',
-    city: 'Monterrey',
-    stage: 'round32',
-    status: 'upcoming',
-    bracketPosition: 'M75',
-  },
-  // M76 - June 29, 2026
+  // M76 - June 29, 2026 - 13:00 ET
   {
     id: 'M76',
     homeTeam: tbdTeam('1C'),
@@ -73,28 +43,43 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '2F',
     date: 'June 29, 2026',
     time: '13:00',
-    venue: 'NRG Stadium',
+    venue: 'NRG Stadium / Houston',
     city: 'Houston',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M76',
   },
-  // M77 - June 30, 2026
+  // M74 - June 29, 2026 - 16:30 ET
   {
-    id: 'M77',
-    homeTeam: tbdTeam('1I'),
-    awayTeam: tbdTeam('3C/D/F/G/H'),
-    homeTeamSource: '1I',
-    awayTeamSource: '3CDFGH',
-    date: 'June 30, 2026',
-    time: '17:00',
-    venue: 'MetLife Stadium',
-    city: 'East Rutherford',
+    id: 'M74',
+    homeTeam: tbdTeam('1E'),
+    awayTeam: tbdTeam('3A/B/C/D/F'),
+    homeTeamSource: '1E',
+    awayTeamSource: '3ABCDF',
+    date: 'June 29, 2026',
+    time: '16:30',
+    venue: 'Gillette Stadium / Foxborough',
+    city: 'Foxborough',
     stage: 'round32',
     status: 'upcoming',
-    bracketPosition: 'M77',
+    bracketPosition: 'M74',
   },
-  // M78 - June 30, 2026
+  // M75 - June 29, 2026 - 21:00 ET
+  {
+    id: 'M75',
+    homeTeam: tbdTeam('1F'),
+    awayTeam: tbdTeam('2C'),
+    homeTeamSource: '1F',
+    awayTeamSource: '2C',
+    date: 'June 29, 2026',
+    time: '21:00',
+    venue: 'Estadio BBVA / Monterrey',
+    city: 'Monterrey',
+    stage: 'round32',
+    status: 'upcoming',
+    bracketPosition: 'M75',
+  },
+  // M78 - June 30, 2026 - 13:00 ET
   {
     id: 'M78',
     homeTeam: tbdTeam('2E'),
@@ -103,13 +88,28 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '2I',
     date: 'June 30, 2026',
     time: '13:00',
-    venue: 'AT&T Stadium',
+    venue: 'AT&T Stadium / Arlington',
     city: 'Arlington',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M78',
   },
-  // M79 - June 30, 2026
+  // M77 - June 30, 2026 - 17:00 ET
+  {
+    id: 'M77',
+    homeTeam: tbdTeam('1I'),
+    awayTeam: tbdTeam('3C/D/F/G/H'),
+    homeTeamSource: '1I',
+    awayTeamSource: '3CDFGH',
+    date: 'June 30, 2026',
+    time: '17:00',
+    venue: 'MetLife Stadium / East Rutherford',
+    city: 'East Rutherford',
+    stage: 'round32',
+    status: 'upcoming',
+    bracketPosition: 'M77',
+  },
+  // M79 - June 30, 2026 - 21:00 ET
   {
     id: 'M79',
     homeTeam: tbdTeam('1A'),
@@ -118,13 +118,13 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '3CEFHI',
     date: 'June 30, 2026',
     time: '21:00',
-    venue: 'Estadio Azteca',
+    venue: 'Estadio Azteca / Mexico City',
     city: 'Mexico City',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M79',
   },
-  // M80 - July 1, 2026
+  // M80 - July 1, 2026 - 12:00 ET
   {
     id: 'M80',
     homeTeam: tbdTeam('1L'),
@@ -133,28 +133,13 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '3EHIJK',
     date: 'July 1, 2026',
     time: '12:00',
-    venue: 'Mercedes-Benz Stadium',
+    venue: 'Mercedes-Benz Stadium / Atlanta',
     city: 'Atlanta',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M80',
   },
-  // M81 - July 1, 2026
-  {
-    id: 'M81',
-    homeTeam: tbdTeam('1D'),
-    awayTeam: tbdTeam('3B/E/F/I/J'),
-    homeTeamSource: '1D',
-    awayTeamSource: '3BEFIJ',
-    date: 'July 1, 2026',
-    time: '20:00',
-    venue: 'Levi\'s Stadium',
-    city: 'Santa Clara',
-    stage: 'round32',
-    status: 'upcoming',
-    bracketPosition: 'M81',
-  },
-  // M82 - July 1, 2026
+  // M82 - July 1, 2026 - 16:00 ET
   {
     id: 'M82',
     homeTeam: tbdTeam('1G'),
@@ -163,28 +148,43 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '3AEHIJ',
     date: 'July 1, 2026',
     time: '16:00',
-    venue: 'Lumen Field',
+    venue: 'Lumen Field / Seattle',
     city: 'Seattle',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M82',
   },
-  // M83 - July 2, 2026
+  // M81 - July 1, 2026 - 20:00 ET
   {
-    id: 'M83',
-    homeTeam: tbdTeam('2K'),
-    awayTeam: tbdTeam('2L'),
-    homeTeamSource: '2K',
-    awayTeamSource: '2L',
-    date: 'July 2, 2026',
-    time: '19:00',
-    venue: 'BMO Field',
-    city: 'Toronto',
+    id: 'M81',
+    homeTeam: tbdTeam('1D'),
+    awayTeam: tbdTeam('3B/E/F/I/J'),
+    homeTeamSource: '1D',
+    awayTeamSource: '3BEFIJ',
+    date: 'July 1, 2026',
+    time: '20:00',
+    venue: 'Levi\'s Stadium / Santa Clara',
+    city: 'Santa Clara',
     stage: 'round32',
     status: 'upcoming',
-    bracketPosition: 'M83',
+    bracketPosition: 'M81',
   },
-  // M84 - July 2, 2026
+  // M88 - July 2, 2026 - 14:00 ET
+  {
+    id: 'M88',
+    homeTeam: tbdTeam('2D'),
+    awayTeam: tbdTeam('2G'),
+    homeTeamSource: '2D',
+    awayTeamSource: '2G',
+    date: 'July 2, 2026',
+    time: '14:00',
+    venue: 'AT&T Stadium / Arlington',
+    city: 'Arlington',
+    stage: 'round32',
+    status: 'upcoming',
+    bracketPosition: 'M88',
+  },
+  // M84 - July 2, 2026 - 15:00 ET
   {
     id: 'M84',
     homeTeam: tbdTeam('1H'),
@@ -193,13 +193,28 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '2J',
     date: 'July 2, 2026',
     time: '15:00',
-    venue: 'SoFi Stadium',
+    venue: 'SoFi Stadium / Los Angeles',
     city: 'Los Angeles',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M84',
   },
-  // M85 - July 2, 2026
+  // M83 - July 2, 2026 - 19:00 ET
+  {
+    id: 'M83',
+    homeTeam: tbdTeam('2K'),
+    awayTeam: tbdTeam('2L'),
+    homeTeamSource: '2K',
+    awayTeamSource: '2L',
+    date: 'July 2, 2026',
+    time: '19:00',
+    venue: 'BMO Field / Toronto',
+    city: 'Toronto',
+    stage: 'round32',
+    status: 'upcoming',
+    bracketPosition: 'M83',
+  },
+  // M85 - July 2, 2026 - 23:00 ET
   {
     id: 'M85',
     homeTeam: tbdTeam('1B'),
@@ -208,13 +223,13 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '3EFGIJ',
     date: 'July 2, 2026',
     time: '23:00',
-    venue: 'BC Place',
+    venue: 'BC Place / Vancouver',
     city: 'Vancouver',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M85',
   },
-  // M86 - July 3, 2026
+  // M86 - July 3, 2026 - 18:00 ET
   {
     id: 'M86',
     homeTeam: tbdTeam('1J'),
@@ -223,13 +238,13 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '2H',
     date: 'July 3, 2026',
     time: '18:00',
-    venue: 'Hard Rock Stadium',
+    venue: 'Hard Rock Stadium / Miami',
     city: 'Miami',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M86',
   },
-  // M87 - July 3, 2026
+  // M87 - July 3, 2026 - 21:30 ET
   {
     id: 'M87',
     homeTeam: tbdTeam('1K'),
@@ -238,48 +253,18 @@ export const round32Matches: KnockoutMatch[] = [
     awayTeamSource: '3DEIJL',
     date: 'July 3, 2026',
     time: '21:30',
-    venue: 'Arrowhead Stadium',
+    venue: 'Arrowhead Stadium / Kansas City',
     city: 'Kansas City',
     stage: 'round32',
     status: 'upcoming',
     bracketPosition: 'M87',
-  },
-  // M88 - July 3, 2026
-  {
-    id: 'M88',
-    homeTeam: tbdTeam('2D'),
-    awayTeam: tbdTeam('2G'),
-    homeTeamSource: '2D',
-    awayTeamSource: '2G',
-    date: 'July 3, 2026',
-    time: '14:00',
-    venue: 'AT&T Stadium',
-    city: 'Arlington',
-    stage: 'round32',
-    status: 'upcoming',
-    bracketPosition: 'M88',
   },
 ];
 
 // Round of 16 - 8 matches (July 4-7, 2026)
 // Match numbers M89-M96
 export const round16Matches: KnockoutMatch[] = [
-  // M89 - July 4, 2026
-  {
-    id: 'M89',
-    homeTeam: tbdTeam('W M74'),
-    awayTeam: tbdTeam('W M77'),
-    homeTeamSource: 'M74',
-    awayTeamSource: 'M77',
-    date: 'July 4, 2026',
-    time: '17:00',
-    venue: 'Lincoln Financial Field',
-    city: 'Philadelphia',
-    stage: 'round16',
-    status: 'upcoming',
-    bracketPosition: 'M89',
-  },
-  // M90 - July 4, 2026
+  // M90 - July 4, 2026 - 13:00 ET
   {
     id: 'M90',
     homeTeam: tbdTeam('W M73'),
@@ -288,13 +273,28 @@ export const round16Matches: KnockoutMatch[] = [
     awayTeamSource: 'M75',
     date: 'July 4, 2026',
     time: '13:00',
-    venue: 'NRG Stadium',
+    venue: 'NRG Stadium / Houston',
     city: 'Houston',
     stage: 'round16',
     status: 'upcoming',
     bracketPosition: 'M90',
   },
-  // M91 - July 5, 2026
+  // M89 - July 4, 2026 - 17:00 ET
+  {
+    id: 'M89',
+    homeTeam: tbdTeam('W M74'),
+    awayTeam: tbdTeam('W M77'),
+    homeTeamSource: 'M74',
+    awayTeamSource: 'M77',
+    date: 'July 4, 2026',
+    time: '17:00',
+    venue: 'Lincoln Financial Field / Philadelphia',
+    city: 'Philadelphia',
+    stage: 'round16',
+    status: 'upcoming',
+    bracketPosition: 'M89',
+  },
+  // M91 - July 5, 2026 - 16:00 ET
   {
     id: 'M91',
     homeTeam: tbdTeam('W M76'),
@@ -303,13 +303,13 @@ export const round16Matches: KnockoutMatch[] = [
     awayTeamSource: 'M78',
     date: 'July 5, 2026',
     time: '16:00',
-    venue: 'MetLife Stadium',
+    venue: 'MetLife Stadium / East Rutherford',
     city: 'East Rutherford',
     stage: 'round16',
     status: 'upcoming',
     bracketPosition: 'M91',
   },
-  // M92 - July 5, 2026
+  // M92 - July 5, 2026 - 20:00 ET
   {
     id: 'M92',
     homeTeam: tbdTeam('W M79'),
@@ -318,13 +318,13 @@ export const round16Matches: KnockoutMatch[] = [
     awayTeamSource: 'M80',
     date: 'July 5, 2026',
     time: '20:00',
-    venue: 'Estadio Azteca',
+    venue: 'Estadio Azteca / Mexico City',
     city: 'Mexico City',
     stage: 'round16',
     status: 'upcoming',
     bracketPosition: 'M92',
   },
-  // M93 - July 6, 2026
+  // M93 - July 6, 2026 - 15:00 ET
   {
     id: 'M93',
     homeTeam: tbdTeam('W M83'),
@@ -333,13 +333,13 @@ export const round16Matches: KnockoutMatch[] = [
     awayTeamSource: 'M84',
     date: 'July 6, 2026',
     time: '15:00',
-    venue: 'AT&T Stadium',
+    venue: 'AT&T Stadium / Arlington',
     city: 'Arlington',
     stage: 'round16',
     status: 'upcoming',
     bracketPosition: 'M93',
   },
-  // M94 - July 6, 2026
+  // M94 - July 6, 2026 - 20:00 ET
   {
     id: 'M94',
     homeTeam: tbdTeam('W M81'),
@@ -348,13 +348,13 @@ export const round16Matches: KnockoutMatch[] = [
     awayTeamSource: 'M82',
     date: 'July 6, 2026',
     time: '20:00',
-    venue: 'Lumen Field',
+    venue: 'Lumen Field / Seattle',
     city: 'Seattle',
     stage: 'round16',
     status: 'upcoming',
     bracketPosition: 'M94',
   },
-  // M95 - July 7, 2026
+  // M95 - July 7, 2026 - 12:00 ET
   {
     id: 'M95',
     homeTeam: tbdTeam('W M86'),
@@ -363,13 +363,13 @@ export const round16Matches: KnockoutMatch[] = [
     awayTeamSource: 'M88',
     date: 'July 7, 2026',
     time: '12:00',
-    venue: 'Mercedes-Benz Stadium',
+    venue: 'Mercedes-Benz Stadium / Atlanta',
     city: 'Atlanta',
     stage: 'round16',
     status: 'upcoming',
     bracketPosition: 'M95',
   },
-  // M96 - July 7, 2026
+  // M96 - July 7, 2026 - 16:00 ET
   {
     id: 'M96',
     homeTeam: tbdTeam('W M85'),
@@ -378,7 +378,7 @@ export const round16Matches: KnockoutMatch[] = [
     awayTeamSource: 'M87',
     date: 'July 7, 2026',
     time: '16:00',
-    venue: 'BC Place',
+    venue: 'BC Place / Vancouver',
     city: 'Vancouver',
     stage: 'round16',
     status: 'upcoming',
@@ -389,7 +389,7 @@ export const round16Matches: KnockoutMatch[] = [
 // Quarter Finals - 4 matches (July 9-11, 2026)
 // Match numbers M97-M100
 export const quarterFinalMatches: KnockoutMatch[] = [
-  // M97 - July 9, 2026
+  // M97 - July 9, 2026 - 16:00 ET
   {
     id: 'M97',
     homeTeam: tbdTeam('W M89'),
@@ -398,13 +398,13 @@ export const quarterFinalMatches: KnockoutMatch[] = [
     awayTeamSource: 'M90',
     date: 'July 9, 2026',
     time: '16:00',
-    venue: 'Gillette Stadium',
+    venue: 'Gillette Stadium / Foxborough',
     city: 'Foxborough',
     stage: 'quarter',
     status: 'upcoming',
     bracketPosition: 'M97',
   },
-  // M98 - July 10, 2026
+  // M98 - July 10, 2026 - 15:00 ET
   {
     id: 'M98',
     homeTeam: tbdTeam('W M93'),
@@ -413,13 +413,13 @@ export const quarterFinalMatches: KnockoutMatch[] = [
     awayTeamSource: 'M94',
     date: 'July 10, 2026',
     time: '15:00',
-    venue: 'SoFi Stadium',
+    venue: 'SoFi Stadium / Los Angeles',
     city: 'Los Angeles',
     stage: 'quarter',
     status: 'upcoming',
     bracketPosition: 'M98',
   },
-  // M99 - July 11, 2026
+  // M99 - July 11, 2026 - 17:00 ET
   {
     id: 'M99',
     homeTeam: tbdTeam('W M91'),
@@ -428,13 +428,13 @@ export const quarterFinalMatches: KnockoutMatch[] = [
     awayTeamSource: 'M92',
     date: 'July 11, 2026',
     time: '17:00',
-    venue: 'Hard Rock Stadium',
+    venue: 'Hard Rock Stadium / Miami',
     city: 'Miami',
     stage: 'quarter',
     status: 'upcoming',
     bracketPosition: 'M99',
   },
-  // M100 - July 11, 2026
+  // M100 - July 11, 2026 - 21:00 ET
   {
     id: 'M100',
     homeTeam: tbdTeam('W M95'),
@@ -443,7 +443,7 @@ export const quarterFinalMatches: KnockoutMatch[] = [
     awayTeamSource: 'M96',
     date: 'July 11, 2026',
     time: '21:00',
-    venue: 'Arrowhead Stadium',
+    venue: 'Arrowhead Stadium / Kansas City',
     city: 'Kansas City',
     stage: 'quarter',
     status: 'upcoming',
@@ -454,7 +454,7 @@ export const quarterFinalMatches: KnockoutMatch[] = [
 // Semi Finals - 2 matches (July 14-15, 2026)
 // Match numbers M101-M102
 export const semiFinalMatches: KnockoutMatch[] = [
-  // M101 - July 14, 2026
+  // M101 - July 14, 2026 - 15:00 ET
   {
     id: 'M101',
     homeTeam: tbdTeam('W M97'),
@@ -463,13 +463,13 @@ export const semiFinalMatches: KnockoutMatch[] = [
     awayTeamSource: 'M98',
     date: 'July 14, 2026',
     time: '15:00',
-    venue: 'AT&T Stadium',
+    venue: 'AT&T Stadium / Arlington',
     city: 'Arlington',
     stage: 'semi',
     status: 'upcoming',
     bracketPosition: 'M101',
   },
-  // M102 - July 15, 2026
+  // M102 - July 15, 2026 - 15:00 ET
   {
     id: 'M102',
     homeTeam: tbdTeam('W M99'),
@@ -478,7 +478,7 @@ export const semiFinalMatches: KnockoutMatch[] = [
     awayTeamSource: 'M100',
     date: 'July 15, 2026',
     time: '15:00',
-    venue: 'Mercedes-Benz Stadium',
+    venue: 'Mercedes-Benz Stadium / Atlanta',
     city: 'Atlanta',
     stage: 'semi',
     status: 'upcoming',
@@ -496,7 +496,7 @@ export const thirdPlaceMatch: KnockoutMatch = {
   awayTeamSource: 'M102-L',
   date: 'July 18, 2026',
   time: '17:00',
-  venue: 'Hard Rock Stadium',
+  venue: 'Hard Rock Stadium / Miami',
   city: 'Miami',
   stage: 'third',
   status: 'upcoming',
@@ -513,7 +513,7 @@ export const finalMatch: KnockoutMatch = {
   awayTeamSource: 'M102',
   date: 'July 19, 2026',
   time: '15:00',
-  venue: 'MetLife Stadium',
+  venue: 'MetLife Stadium / East Rutherford',
   city: 'East Rutherford',
   stage: 'final',
   status: 'upcoming',
