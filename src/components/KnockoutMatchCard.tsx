@@ -224,7 +224,7 @@ export const KnockoutMatchCard = ({
                     ? 'bg-orange-500 text-white'
                     : 'bg-primary/80 text-white'
             }`}>
-              {isMatchLocked ? <Lock className="w-3 h-3 inline mr-1" /> : '🔒'} {isMatchLocked ? 'Locked' : countdownText}
+              {isMatchLocked ? <Lock className="w-3 h-3 inline mr-1" /> : <Clock className="w-3 h-3 inline mr-1" />} {isMatchLocked ? 'Locked' : countdownText}
             </div>
             
             {/* Action Button */}
