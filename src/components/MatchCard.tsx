@@ -105,10 +105,10 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 p-3 h-full flex flex-col">
+      <div className="relative z-10 p-4 h-full flex flex-col gap-4">
         {/* Top Row - All Badges */}
-        <div className="flex items-center justify-between gap-1 flex-wrap">
-          <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {match.group && (
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white backdrop-blur-sm">
                 Group {match.group}
@@ -137,7 +137,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
 
         {/* Score Section - Center with Team Names beside scores */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
+          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
             {isFinished ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground truncate max-w-[80px]">{match.homeTeam.name}</span>
