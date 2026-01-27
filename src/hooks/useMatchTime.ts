@@ -13,6 +13,7 @@ interface MatchTimeResult {
   minutesUntilLock: number;
   countdownText: string;
   matchDateTime: Date;
+  urgency: 'normal' | 'warning' | 'critical';
 }
 
 /**
@@ -85,6 +86,12 @@ export const useMatchTime = (dateStr: string, timeStr: string): MatchTimeResult 
     // Generate countdown text
     const countdownText = formatCountdown(minutesUntilLock);
     
+    // Determine urgency level for styling
+    const urgency: 'normal' | 'warning' | 'critical' = 
+      minutesUntilLock <= 15 ? 'critical' : 
+      minutesUntilLock <= 60 ? 'warning' : 
+      'normal';
+    
     return {
       localDate,
       localTime,
@@ -92,6 +99,7 @@ export const useMatchTime = (dateStr: string, timeStr: string): MatchTimeResult 
       minutesUntilLock,
       countdownText,
       matchDateTime,
+      urgency,
     };
   }, [dateStr, timeStr, now]);
 };
