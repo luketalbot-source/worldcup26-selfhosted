@@ -14,7 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      predictions: {
+        Row: {
+          away_score: number
+          created_at: string
+          home_score: number
+          id: string
+          match_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          away_score?: number
+          created_at?: string
+          home_score?: number
+          id?: string
+          match_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          away_score?: number
+          created_at?: string
+          home_score?: number
+          id?: string
+          match_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_emoji: string | null
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_emoji?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_emoji?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
