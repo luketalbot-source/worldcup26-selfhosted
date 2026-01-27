@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
 import { Header } from '@/components/Header';
 import { z } from 'zod';
 
@@ -21,9 +20,9 @@ const Auth = () => {
   const [username, setUsername] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const { loginWithUsername } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   // Load remembered username on mount
   useEffect(() => {
@@ -37,28 +36,21 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
     try {
       // Validate username
       const usernameResult = usernameSchema.safeParse(username);
       if (!usernameResult.success) {
-        toast({ 
-          title: 'Invalid username', 
-          description: usernameResult.error.errors[0].message, 
-          variant: 'destructive' 
-        });
+        setError(usernameResult.error.errors[0].message);
         setIsLoading(false);
         return;
       }
 
-      const { error, isNewUser } = await loginWithUsername(username);
+      const { error: loginError } = await loginWithUsername(username);
       
-      if (error) {
-        toast({ 
-          title: 'Login failed', 
-          description: error.message, 
-          variant: 'destructive' 
-        });
+      if (loginError) {
+        setError(loginError.message);
       } else {
         // Save or clear remembered username based on checkbox
         if (rememberMe) {
@@ -66,21 +58,10 @@ const Auth = () => {
         } else {
           localStorage.removeItem(REMEMBERED_USERNAME_KEY);
         }
-        
-        toast({ 
-          title: isNewUser ? 'Welcome!' : 'Welcome back!', 
-          description: isNewUser 
-            ? `Account created for ${username}. Start predicting!` 
-            : `Good to see you again, ${username}!`
-        });
         navigate('/');
       }
-    } catch (error) {
-      toast({ 
-        title: 'Error', 
-        description: 'An unexpected error occurred.', 
-        variant: 'destructive' 
-      });
+    } catch (err) {
+      setError('An unexpected error occurred.');
     } finally {
       setIsLoading(false);
     }
@@ -126,6 +107,10 @@ const Auth = () => {
                 Letters, numbers, and underscores only
               </p>
             </div>
+
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
 
             <div className="flex items-center space-x-2">
               <Checkbox 
