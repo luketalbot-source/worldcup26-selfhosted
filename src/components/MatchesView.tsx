@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { MatchCard } from './MatchCard';
@@ -6,7 +6,8 @@ import { GroupTabs } from './GroupTabs';
 import { StageSelector } from './StageSelector';
 import { KnockoutView } from './KnockoutView';
 import { SyncButton } from './SyncButton';
-import { usePredictions } from '@/hooks/usePredictions';
+import { TodayMatches } from './TodayMatches';
+import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn } from 'lucide-react';
@@ -16,12 +17,21 @@ const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 export const MatchesView = () => {
   const [activeStage, setActiveStage] = useState<'groups' | 'knockout'>('groups');
   const [activeGroup, setActiveGroup] = useState('A');
-  const { addPrediction, getPrediction } = usePredictions();
-  const { getGroupMatches, syncMatches, syncing, lastSync } = useLiveMatches();
+  const { addPrediction, getPrediction, predictions } = usePredictions();
+  const { getGroupMatches, getTodayMatches, syncMatches, syncing, lastSync } = useLiveMatches();
   const { user } = useAuth();
   const navigate = useNavigate();
   
   const matches = getGroupMatches(activeGroup);
+  const todayMatches = getTodayMatches();
+  
+  // Convert predictions array to Record for TodayMatches component
+  const predictionsRecord = useMemo(() => {
+    return predictions.reduce((acc, p) => {
+      acc[p.matchId] = p;
+      return acc;
+    }, {} as Record<string, Prediction>);
+  }, [predictions]);
 
   if (activeStage === 'knockout') {
     return (
@@ -55,6 +65,16 @@ export const MatchesView = () => {
             Log In
           </button>
         </motion.div>
+      )}
+      
+      {/* Today's Matches Section */}
+      {todayMatches.length > 0 && (
+        <TodayMatches
+          matches={todayMatches}
+          predictions={predictionsRecord}
+          onPredict={addPrediction}
+          disabled={!user}
+        />
       )}
       
       <div className="sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">

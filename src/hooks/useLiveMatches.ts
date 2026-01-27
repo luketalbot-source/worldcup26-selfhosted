@@ -93,6 +93,28 @@ export const useLiveMatches = () => {
     });
   }, [liveMatches]);
 
+  const getTodayMatches = useCallback((): Match[] => {
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    
+    const todayMatches = groupStageMatches.filter(match => {
+      // Parse match date and compare with today
+      const matchDate = new Date(match.date);
+      const matchDateStr = matchDate.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      return matchDateStr === todayStr;
+    });
+    
+    return mergeWithLocalData(todayMatches);
+  }, [mergeWithLocalData]);
+
   const getGroupMatches = useCallback((group: string): Match[] => {
     const localMatches = groupStageMatches.filter(m => m.group === group);
     return mergeWithLocalData(localMatches);
@@ -139,6 +161,7 @@ export const useLiveMatches = () => {
     syncMatches,
     getGroupMatches,
     getKnockoutMatches,
+    getTodayMatches,
     refetch: fetchLiveMatches,
   };
 };

@@ -157,23 +157,23 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
           <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
             {(isFinished || isLive) ? (
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
-                <div className="text-2xl font-bold text-foreground">{displayHomeScore}</div>
+                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{match.homeTeam.name}</span>
+                <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
-                <div className="text-2xl font-bold text-foreground">{displayAwayScore}</div>
-                <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
+                <div className="text-2xl font-bold text-foreground w-8 text-center">{displayAwayScore}</div>
+                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{match.awayTeam.name}</span>
               </div>
             ) : isMatchLocked ? (
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
-                <div className="text-2xl font-bold text-muted-foreground">{displayHomeScore}</div>
+                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{match.homeTeam.name}</span>
+                <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayHomeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
-                <div className="text-2xl font-bold text-muted-foreground">{displayAwayScore}</div>
-                <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
+                <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayAwayScore}</div>
+                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{match.awayTeam.name}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{match.homeTeam.name}</span>
                 <ScoreSelector 
                   value={homeScore} 
                   onChange={(v) => handleScoreChange('home', v)}
@@ -185,7 +185,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                   onChange={(v) => handleScoreChange('away', v)}
                   disabled={disabled || isMatchLocked}
                 />
-              <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{match.awayTeam.name}</span>
               </div>
             )}
           </div>
