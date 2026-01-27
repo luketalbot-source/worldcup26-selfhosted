@@ -118,7 +118,7 @@ export function getQualifiedTeams(
   return { groupWinners, groupRunnersUp, bestThirdPlace };
 }
 
-// Resolve a team source (e.g., "1A", "2B", "3CDE") to an actual team
+// Resolve a team source (e.g., "1A", "2B", "3ABCDF", "M73", "M89") to an actual team
 function resolveTeamSource(
   source: string | undefined,
   qualified: QualifiedTeams,
@@ -126,13 +126,13 @@ function resolveTeamSource(
 ): Team | null {
   if (!source) return null;
 
-  // Check if it's a knockout match reference (e.g., "R32-1", "R16-2", "QF-1", "SF-1")
-  if (source.startsWith('R32-') || source.startsWith('R16-') || source.startsWith('QF-') || source.startsWith('SF-')) {
+  // Check if it's a knockout match reference (e.g., "M73", "M89", "M97", "M101")
+  if (source.startsWith('M') && /^M\d+$/.test(source)) {
     const result = knockoutResults[source];
     return result?.winner || null;
   }
 
-  // Check for loser reference (e.g., "SF-1-L")
+  // Check for loser reference (e.g., "M101-L")
   if (source.endsWith('-L')) {
     const matchId = source.replace('-L', '');
     const result = knockoutResults[matchId];
@@ -150,7 +150,7 @@ function resolveTeamSource(
     }
   }
 
-  // Third place reference (e.g., "3CDE" = 3rd place from groups C, D, or E)
+  // Third place reference (e.g., "3ABCDF" = 3rd place from specified groups)
   if (source.startsWith('3')) {
     // For now, we can't determine exact 3rd place team without the full draw rules
     // This would need FIFA's specific 3rd place matching table
