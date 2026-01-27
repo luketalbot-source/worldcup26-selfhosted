@@ -102,7 +102,7 @@ const Auth = () => {
               Enter Your Username
             </h2>
             <p className="text-muted-foreground">
-              Just pick a username to start predicting. No password needed!
+              Just pick a username to start predicting!
             </p>
           </div>
 
