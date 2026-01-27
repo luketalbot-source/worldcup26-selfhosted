@@ -5,11 +5,11 @@ export const teams: Team[] = [
   { id: 'mex', name: 'Mexico', code: 'MEX', flag: '🇲🇽', group: 'A' },
   { id: 'rsa', name: 'South Africa', code: 'RSA', flag: '🇿🇦', group: 'A' },
   { id: 'kor', name: 'South Korea', code: 'KOR', flag: '🇰🇷', group: 'A' },
-  { id: 'den', name: 'Denmark', code: 'DEN', flag: '🇩🇰', group: 'A' }, // European Playoff D winner placeholder
+  { id: 'uefd', name: 'UEFA Playoff D', code: 'TBD', flag: '🏳️', group: 'A' },
   
   // Group B - Toronto/Vancouver
   { id: 'can', name: 'Canada', code: 'CAN', flag: '🇨🇦', group: 'B' },
-  { id: 'ita', name: 'Italy', code: 'ITA', flag: '🇮🇹', group: 'B' }, // European Playoff A winner placeholder
+  { id: 'uefa', name: 'UEFA Playoff A', code: 'TBD', flag: '🏳️', group: 'B' },
   { id: 'qat', name: 'Qatar', code: 'QAT', flag: '🇶🇦', group: 'B' },
   { id: 'sui', name: 'Switzerland', code: 'SUI', flag: '🇨🇭', group: 'B' },
   
@@ -23,7 +23,7 @@ export const teams: Team[] = [
   { id: 'usa', name: 'United States', code: 'USA', flag: '🇺🇸', group: 'D' },
   { id: 'par', name: 'Paraguay', code: 'PAR', flag: '🇵🇾', group: 'D' },
   { id: 'aus', name: 'Australia', code: 'AUS', flag: '🇦🇺', group: 'D' },
-  { id: 'tur', name: 'Türkiye', code: 'TUR', flag: '🇹🇷', group: 'D' }, // European Playoff C winner placeholder
+  { id: 'uefc', name: 'UEFA Playoff C', code: 'TBD', flag: '🏳️', group: 'D' },
   
   // Group E - Atlanta/Miami
   { id: 'ger', name: 'Germany', code: 'GER', flag: '🇩🇪', group: 'E' },
@@ -34,7 +34,7 @@ export const teams: Team[] = [
   // Group F - New York/Philadelphia
   { id: 'ned', name: 'Netherlands', code: 'NED', flag: '🇳🇱', group: 'F' },
   { id: 'jpn', name: 'Japan', code: 'JPN', flag: '🇯🇵', group: 'F' },
-  { id: 'ukr', name: 'Ukraine', code: 'UKR', flag: '🇺🇦', group: 'F' }, // European Playoff B winner placeholder
+  { id: 'uefb', name: 'UEFA Playoff B', code: 'TBD', flag: '🏳️', group: 'F' },
   { id: 'tun', name: 'Tunisia', code: 'TUN', flag: '🇹🇳', group: 'F' },
   
   // Group G - Seattle/San Francisco
@@ -52,7 +52,7 @@ export const teams: Team[] = [
   // Group I - Boston/Philadelphia
   { id: 'fra', name: 'France', code: 'FRA', flag: '🇫🇷', group: 'I' },
   { id: 'sen', name: 'Senegal', code: 'SEN', flag: '🇸🇳', group: 'I' },
-  { id: 'bol', name: 'Bolivia', code: 'BOL', flag: '🇧🇴', group: 'I' }, // Intercontinental Playoff 2 placeholder
+  { id: 'fpo2', name: 'FIFA Playoff 2', code: 'TBD', flag: '🏳️', group: 'I' },
   { id: 'nor', name: 'Norway', code: 'NOR', flag: '🇳🇴', group: 'I' },
   
   // Group J - Miami/Atlanta
@@ -63,7 +63,7 @@ export const teams: Team[] = [
   
   // Group K - Los Angeles/Seattle
   { id: 'por', name: 'Portugal', code: 'POR', flag: '🇵🇹', group: 'K' },
-  { id: 'jam', name: 'Jamaica', code: 'JAM', flag: '🇯🇲', group: 'K' }, // Intercontinental Playoff 1 placeholder
+  { id: 'fpo1', name: 'FIFA Playoff 1', code: 'TBD', flag: '🏳️', group: 'K' },
   { id: 'uzb', name: 'Uzbekistan', code: 'UZB', flag: '🇺🇿', group: 'K' },
   { id: 'col', name: 'Colombia', code: 'COL', flag: '🇨🇴', group: 'K' },
   
