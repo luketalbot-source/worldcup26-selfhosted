@@ -8,9 +8,6 @@ import { useUserStats } from '@/hooks/useUserStats';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-
-
 
 export const ProfileView = () => {
   const { user, signOut } = useAuth();
@@ -18,7 +15,6 @@ export const ProfileView = () => {
   const { predictions } = usePredictions();
   const { stats } = useUserStats(user?.id);
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -32,22 +28,17 @@ export const ProfileView = () => {
 
   const handleSave = async () => {
     if (!editName.trim()) {
-      toast({ title: 'Error', description: 'Display name cannot be empty', variant: 'destructive' });
       return;
     }
     
     const { error } = await updateProfile(editName, editAvatar) || {};
-    if (error) {
-      toast({ title: 'Error', description: 'Failed to update profile', variant: 'destructive' });
-    } else {
-      toast({ title: 'Success', description: 'Profile updated!' });
+    if (!error) {
       setIsEditing(false);
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
-    toast({ title: 'Signed out', description: 'See you next time!' });
     navigate('/');
   };
 

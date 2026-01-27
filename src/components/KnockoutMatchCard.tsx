@@ -4,7 +4,6 @@ import { KnockoutMatch } from '@/data/knockoutMatches';
 import { Prediction } from '@/types/match';
 import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { getFlagUrl } from '@/lib/flagUtils';
 import { useMatchTime } from '@/hooks/useMatchTime';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
@@ -28,7 +27,6 @@ export const KnockoutMatchCard = ({
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
   const [hasEdited, setHasEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
 
   const { localDate, localTime, isLocked, countdownText, urgency } = useMatchTime(match.date, match.time);
 
@@ -62,10 +60,6 @@ export const KnockoutMatchCard = ({
     await onPredict(match.id, homeScore, awayScore);
     setHasEdited(false);
     setIsSaving(false);
-    toast({ 
-      title: 'Prediction saved!', 
-      description: `${match.homeTeam.name} ${homeScore} - ${awayScore} ${match.awayTeam.name}` 
-    });
   };
 
   // Calculate points for finished matches with predictions
