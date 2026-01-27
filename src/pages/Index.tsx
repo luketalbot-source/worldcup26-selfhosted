@@ -1,12 +1,38 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { Header } from '@/components/Header';
+import { Navigation } from '@/components/Navigation';
+import { MatchesView } from '@/components/MatchesView';
+import { StandingsView } from '@/components/StandingsView';
+import { LeaderboardView } from '@/components/LeaderboardView';
+import { ProfileView } from '@/components/ProfileView';
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState('matches');
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'matches':
+        return <MatchesView />;
+      case 'standings':
+        return <StandingsView />;
+      case 'leaderboard':
+        return <LeaderboardView />;
+      case 'profile':
+        return <ProfileView />;
+      default:
+        return <MatchesView />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background pb-24">
+      <Header />
+      
+      <main className="container py-4">
+        {renderContent()}
+      </main>
+      
+      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 };
