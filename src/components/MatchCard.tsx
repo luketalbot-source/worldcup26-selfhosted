@@ -5,6 +5,7 @@ import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFlagUrl } from '@/lib/flagUtils';
+import { useMatchTime } from '@/hooks/useMatchTime';
 
 interface MatchCardProps {
   match: Match;
@@ -19,6 +20,14 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
   const [hasEdited, setHasEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  
+  const { localDate, localTime, isLocked } = useMatchTime(match.date, match.time);
+  
+  // Match is locked if it's within 30 min of start, live, or finished
+  const isMatchLocked = isLocked || match.status === 'live' || match.status === 'finished';
+  const isFinished = match.status === 'finished';
+  const isLive = match.status === 'live';
+  const isPredicted = !!prediction;
 
   useEffect(() => {
     if (prediction) {
@@ -28,7 +37,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
   }, [prediction]);
 
   const handleScoreChange = (team: 'home' | 'away', score: number) => {
-    if (disabled) return;
+    if (disabled || isMatchLocked) return;
     setHasEdited(true);
     if (team === 'home') {
       setHomeScore(score);
@@ -38,7 +47,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
   };
 
   const handleSave = async () => {
-    if (disabled) return;
+    if (disabled || isMatchLocked) return;
     setIsSaving(true);
     await onPredict(match.id, homeScore, awayScore);
     setHasEdited(false);
@@ -46,14 +55,16 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
     toast({ title: 'Prediction saved!', description: `${match.homeTeam.code} ${homeScore} - ${awayScore} ${match.awayTeam.code}` });
   };
 
-  const isFinished = match.status === 'finished';
-  const isPredicted = !!prediction;
   const isCorrect = isFinished && prediction && 
     prediction.homeScore === match.homeScore && 
     prediction.awayScore === match.awayScore;
 
   const homeFlagUrl = getFlagUrl(match.homeTeam.code);
   const awayFlagUrl = getFlagUrl(match.awayTeam.code);
+
+  // Determine what scores to show in the selector area
+  const displayHomeScore = (isLive || isFinished) ? (match.homeScore ?? 0) : homeScore;
+  const displayAwayScore = (isLive || isFinished) ? (match.awayScore ?? 0) : awayScore;
 
   return (
     <motion.div
@@ -116,7 +127,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
             )}
             <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
               <Clock className="w-3 h-3" />
-              <span>{match.date}</span>
+              <span>{localDate} {localTime}</span>
             </div>
             <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
               <MapPin className="w-3 h-3" />
@@ -125,25 +136,33 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
           </div>
           
           <div className={`px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm ${
-            match.status === 'live' 
+            isLive 
               ? 'bg-destructive text-white animate-pulse' 
-              : match.status === 'finished'
+              : isFinished
                 ? 'bg-black/60 text-white'
                 : 'bg-primary/80 text-white'
           }`}>
-            {match.status === 'live' ? 'LIVE' : match.status === 'finished' ? 'FT' : match.time}
+            {isLive ? 'LIVE' : isFinished ? 'FT' : localTime}
           </div>
         </div>
 
         {/* Score Section - Center with Team Names beside scores */}
         <div className="flex-1 flex items-center justify-center">
           <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg min-w-[350px] flex justify-center">
-            {isFinished ? (
+            {(isFinished || isLive) ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
-                <div className="text-2xl font-bold text-foreground">{match.homeScore}</div>
+                <div className="text-2xl font-bold text-foreground">{displayHomeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
-                <div className="text-2xl font-bold text-foreground">{match.awayScore}</div>
+                <div className="text-2xl font-bold text-foreground">{displayAwayScore}</div>
+                <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
+              </div>
+            ) : isMatchLocked ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
+                <div className="text-2xl font-bold text-muted-foreground">{displayHomeScore}</div>
+                <div className="text-lg text-muted-foreground font-light">-</div>
+                <div className="text-2xl font-bold text-muted-foreground">{displayAwayScore}</div>
                 <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
               </div>
             ) : (
@@ -152,13 +171,13 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                 <ScoreSelector 
                   value={homeScore} 
                   onChange={(v) => handleScoreChange('home', v)}
-                  disabled={disabled}
+                  disabled={disabled || isMatchLocked}
                 />
                 <span className="text-lg text-muted-foreground font-medium">:</span>
                 <ScoreSelector 
                   value={awayScore} 
                   onChange={(v) => handleScoreChange('away', v)}
-                  disabled={disabled}
+                  disabled={disabled || isMatchLocked}
                 />
                 <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
               </div>
@@ -167,12 +186,19 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
         </div>
 
         {/* Prediction Section */}
-        {!isFinished && (
+        {!isFinished && !isLive && (
           <div>
             {disabled ? (
               <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
                 <Lock className="w-3 h-3" />
                 Log in to save
+              </div>
+            ) : isMatchLocked ? (
+              <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
+                <Lock className="w-3 h-3" />
+                {isPredicted 
+                  ? `Locked: ${prediction.homeScore} - ${prediction.awayScore}` 
+                  : 'No prediction'}
               </div>
             ) : isPredicted && !hasEdited ? (
               <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium backdrop-blur-sm">
@@ -206,6 +232,20 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
           }`}>
             Your prediction: {prediction.homeScore} - {prediction.awayScore}
             {isCorrect && ' ✓'}
+          </div>
+        )}
+
+        {/* Show prediction for live matches */}
+        {isLive && prediction && (
+          <div className="py-1.5 px-3 rounded-lg text-xs font-medium text-center backdrop-blur-sm bg-white/90 text-muted-foreground">
+            Your prediction: {prediction.homeScore} - {prediction.awayScore}
+          </div>
+        )}
+
+        {/* Show no prediction message for live/finished without prediction */}
+        {(isLive || isFinished) && !prediction && (
+          <div className="py-1.5 px-3 rounded-lg text-xs font-medium text-center backdrop-blur-sm bg-white/90 text-muted-foreground">
+            No prediction submitted
           </div>
         )}
       </div>
