@@ -158,21 +158,15 @@ export const KnockoutMatchCard = ({
             </div>
           </div>
           
-          <div className={`px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm ${
-            isLive 
-              ? 'bg-destructive text-white animate-pulse' 
-              : isFinished
-                ? 'bg-black/60 text-white'
-                : isMatchLocked
-                  ? 'bg-muted-foreground/80 text-white'
-                  : urgency === 'critical'
-                    ? 'bg-destructive text-white'
-                    : urgency === 'warning'
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-primary/80 text-white'
-          }`}>
-            {isLive ? 'LIVE' : isFinished ? 'FT' : isMatchLocked ? 'Locked' : `🔒 ${countdownText}`}
-          </div>
+          {(isLive || isFinished) && (
+            <div className={`px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm ${
+              isLive 
+                ? 'bg-destructive text-white animate-pulse' 
+                : 'bg-black/60 text-white'
+            }`}>
+              {isLive ? 'LIVE' : 'FT'}
+            </div>
+          )}
         </div>
 
         {/* Score Section - Absolutely centered */}
@@ -219,39 +213,54 @@ export const KnockoutMatchCard = ({
 
         {/* Prediction Section */}
         {!isFinished && !isLive && (
-          <div>
-            {disabled ? (
-              <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
-                <Lock className="w-3 h-3" />
-                Log in to save
-              </div>
-            ) : isMatchLocked ? (
-              <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
-                <Lock className="w-3 h-3" />
-                {isPredicted 
-                  ? `Locked: ${prediction.homeScore} - ${prediction.awayScore}` 
-                  : 'No prediction'}
-              </div>
-            ) : isPredicted && !hasEdited ? (
-              <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium backdrop-blur-sm">
-                <Check className="w-3 h-3" />
-                Predicted: {prediction.homeScore} - {prediction.awayScore}
-              </div>
-            ) : (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSave}
-                disabled={isSaving || (!hasEdited && !isPredicted)}
-                className={`w-full py-2 px-3 rounded-lg font-semibold text-xs transition-all backdrop-blur-sm ${
-                  hasEdited
-                    ? 'bg-accent text-accent-foreground shadow-md'
-                    : 'bg-white/90 text-muted-foreground'
-                }`}
-              >
-                {isSaving ? 'Saving...' : (isPredicted ? 'Update' : 'Save Prediction')}
-              </motion.button>
-            )}
+          <div className="flex items-center gap-2">
+            {/* Countdown Timer */}
+            <div className={`px-2 py-1.5 rounded-lg text-xs font-semibold backdrop-blur-sm whitespace-nowrap ${
+              isMatchLocked
+                ? 'bg-muted-foreground/80 text-white'
+                : urgency === 'critical'
+                  ? 'bg-destructive text-white'
+                  : urgency === 'warning'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-primary/80 text-white'
+            }`}>
+              {isMatchLocked ? <Lock className="w-3 h-3 inline mr-1" /> : '🔒'} {isMatchLocked ? 'Locked' : countdownText}
+            </div>
+            
+            {/* Action Button */}
+            <div className="flex-1">
+              {disabled ? (
+                <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
+                  <Lock className="w-3 h-3" />
+                  Log in to save
+                </div>
+              ) : isMatchLocked ? (
+                <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
+                  {isPredicted 
+                    ? `${prediction.homeScore} - ${prediction.awayScore}` 
+                    : 'No prediction'}
+                </div>
+              ) : isPredicted && !hasEdited ? (
+                <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium backdrop-blur-sm">
+                  <Check className="w-3 h-3" />
+                  {prediction.homeScore} - {prediction.awayScore}
+                </div>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleSave}
+                  disabled={isSaving || (!hasEdited && !isPredicted)}
+                  className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition-all backdrop-blur-sm ${
+                    hasEdited
+                      ? 'bg-accent text-accent-foreground shadow-md'
+                      : 'bg-white/90 text-muted-foreground'
+                  }`}
+                >
+                  {isSaving ? 'Saving...' : (isPredicted ? 'Update' : 'Save Prediction')}
+                </motion.button>
+              )}
+            </div>
           </div>
         )}
 
