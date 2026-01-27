@@ -158,15 +158,15 @@ export const KnockoutMatchCard = ({
           <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg min-w-[350px] flex justify-center">
             {isFinished ? (
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground truncate max-w-[80px]">{match.homeTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
                 <div className="text-2xl font-bold text-foreground">{match.homeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
                 <div className="text-2xl font-bold text-foreground">{match.awayScore}</div>
-                <span className="text-sm font-semibold text-foreground truncate max-w-[80px]">{match.awayTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-foreground truncate max-w-[60px]">{match.homeTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground">{match.homeTeam.name}</span>
                 <ScoreSelector 
                   value={homeScore} 
                   onChange={(v) => handleScoreChange('home', v)}
@@ -178,7 +178,7 @@ export const KnockoutMatchCard = ({
                   onChange={(v) => handleScoreChange('away', v)}
                   disabled={disabled}
                 />
-                <span className="text-xs font-semibold text-foreground truncate max-w-[60px]">{match.awayTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground">{match.awayTeam.name}</span>
               </div>
             )}
           </div>
