@@ -1,1 +1,4 @@
 project_id = "dvbklbeevpaicwavobox"
+
+[functions.sync-matches]
+verify_jwt = false
