@@ -12,7 +12,7 @@ export const Header = () => {
 
   return (
     <header className="text-foreground sticky top-0 z-50 bg-background">
-      <div className="container py-2">
+      <div className="container pt-2 pb-2">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
