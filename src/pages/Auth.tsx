@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Trophy, User, ArrowLeft } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { Header } from '@/components/Header';
 import { z } from 'zod';
 
 const usernameSchema = z.string()
@@ -87,30 +88,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="gradient-navy text-white">
-        <div className="container py-4">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3"
-          >
-            <button 
-              onClick={() => navigate('/')} 
-              className="p-2 -ml-2 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center shadow-glow">
-              <Trophy className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">WC 2026</h1>
-              <p className="text-xs text-white/70">Predictor</p>
-            </div>
-          </motion.div>
-        </div>
-      </header>
+      <Header />
 
       <main className="container py-8">
         <motion.div
