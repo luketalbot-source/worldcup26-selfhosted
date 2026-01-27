@@ -16,19 +16,19 @@ export const Header = ({ hideUserSection = false }: HeaderProps) => {
 
   return (
     <header className="text-foreground sticky top-0 z-50 bg-background">
-      <div className="container pt-2 pb-2">
+      <div className="container py-4">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between relative"
+          className="flex items-center justify-between"
         >
           <div className="w-20" /> {/* Spacer for balance */}
           
-          <div className="absolute left-1/2 -translate-x-1/2">
+          <div className="flex-shrink-0">
             <img 
               src={wc2026Logo} 
               alt="FIFA World Cup 2026" 
-              className="h-14 w-auto"
+              className="h-12 w-auto object-contain"
             />
           </div>
           
