@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn } from 'lucide-react';
+import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { usePredictions } from '@/hooks/usePredictions';
+import { useUserStats } from '@/hooks/useUserStats';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ export const ProfileView = () => {
   const { user, signOut } = useAuth();
   const { profile, updateProfile } = useProfile(user?.id);
   const { predictions } = usePredictions();
+  const { stats } = useUserStats(user?.id);
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -152,7 +154,7 @@ export const ProfileView = () => {
             </div>
             <div className="bg-muted rounded-xl p-4 text-center">
               <TrendingUp className="w-6 h-6 text-fifa-green mx-auto mb-2" />
-              <div className="text-2xl font-bold text-foreground">0</div>
+              <div className="text-2xl font-bold text-foreground">{stats.totalPoints}</div>
               <div className="text-xs text-muted-foreground">Points</div>
             </div>
           </div>
@@ -171,18 +173,26 @@ export const ProfileView = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 text-fifa-green" />
-              <span className="text-sm text-foreground">Correct Predictions</span>
+              <Zap className="w-5 h-5 text-fifa-gold" />
+              <span className="text-sm text-foreground">Exact Scores</span>
             </div>
-            <span className="font-semibold text-foreground">0</span>
+            <span className="font-semibold text-foreground">{stats.exactScores}</span>
+          </div>
+          
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-fifa-green" />
+              <span className="text-sm text-foreground">Correct Results</span>
+            </div>
+            <span className="font-semibold text-foreground">{stats.correctResults}</span>
           </div>
           
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
               <XCircle className="w-5 h-5 text-destructive" />
-              <span className="text-sm text-foreground">Wrong Predictions</span>
+              <span className="text-sm text-foreground">Wrong Results</span>
             </div>
-            <span className="font-semibold text-foreground">0</span>
+            <span className="font-semibold text-foreground">{stats.wrongResults}</span>
           </div>
           
           <div className="flex items-center justify-between py-2">
@@ -190,7 +200,11 @@ export const ProfileView = () => {
               <Target className="w-5 h-5 text-primary" />
               <span className="text-sm text-foreground">Accuracy</span>
             </div>
-            <span className="font-semibold text-foreground">--%</span>
+            <span className="font-semibold text-foreground">
+              {stats.exactScores + stats.correctResults + stats.wrongResults > 0 
+                ? `${stats.accuracy}%` 
+                : '--'}
+            </span>
           </div>
         </div>
       </motion.div>
