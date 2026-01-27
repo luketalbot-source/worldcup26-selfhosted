@@ -30,14 +30,6 @@ const createMatch = (
 
 // All times are in ET (Eastern Time) - the standard reference for FIFA World Cup 2026
 export const groupStageMatches: Match[] = [
-  // ============ TEST: Simulating June 11, 2026 at 20:45 ET ============
-  
-  // Mexico vs South Africa - started at 15:00, now finished (FT: 2-1)
-  createMatch('TEST-A1', 'mex', 'rsa', 'June 11, 2026', '15:00', 'Estadio Azteca', 'Mexico City', 'A', 'finished', 2, 1),
-  
-  // South Korea vs TBD - starts at 22:00 (1h15m away, predictions still open)
-  createMatch('TEST-A2', 'kor', 'uefd', 'June 11, 2026', '22:00', 'Estadio Akron', 'Guadalajara', 'A'),
-
   // ============ MATCHDAY 1 ============
   
   // June 11, 2026
