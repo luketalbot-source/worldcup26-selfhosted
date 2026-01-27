@@ -30,7 +30,13 @@ const createMatch = (
 
 // All times are in ET (Eastern Time) - the standard reference for FIFA World Cup 2026
 export const groupStageMatches: Match[] = [
-  // ============ MATCHDAY 1 ============
+  // ============ TEST MATCHES - January 27, 2026 ============
+  // LIVE: England vs Brazil - kicked off at 15:00 ET, currently 1-0
+  createMatch('TEST1', 'eng', 'bra', 'January 27, 2026', '15:00', 'Test Stadium', 'Test City', 'A', 'live', 1, 0),
+  // UPCOMING: Spain vs Germany - kicks off at 18:00 ET
+  createMatch('TEST2', 'esp', 'ger', 'January 27, 2026', '18:00', 'Test Stadium', 'Test City', 'A'),
+  // UPCOMING: France vs Argentina - kicks off at 21:00 ET
+  createMatch('TEST3', 'fra', 'arg', 'January 27, 2026', '21:00', 'Test Stadium', 'Test City', 'A'),
 
   // ============ MATCHDAY 1 ============
   
