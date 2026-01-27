@@ -64,19 +64,19 @@ export const ProfileView = () => {
               <User className="w-10 h-10 text-white" />
             </div>
             <h2 className="text-xl font-bold text-white">Guest</h2>
-            <p className="text-white/70 text-sm mt-1">Log in to save your predictions</p>
+            <p className="text-white/70 text-sm mt-1">Enter a username to save your predictions</p>
           </div>
           
           <div className="p-6 text-center">
             <p className="text-muted-foreground mb-4">
-              Create an account to save your predictions and compete on the leaderboard!
+              Pick a username to save your predictions and compete on the leaderboard!
             </p>
             <button
               onClick={() => navigate('/auth')}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-accent-foreground font-semibold"
             >
               <LogIn className="w-5 h-5" />
-              Log In / Sign Up
+              Enter Username
             </button>
           </div>
         </motion.div>
@@ -140,7 +140,6 @@ export const ProfileView = () => {
                 {profile?.avatarEmoji || '👤'}
               </div>
               <h2 className="text-xl font-bold text-white">{profile?.displayName || 'Predictor'}</h2>
-              <p className="text-white/70 text-sm mt-1">{user.email}</p>
             </>
           )}
         </div>
