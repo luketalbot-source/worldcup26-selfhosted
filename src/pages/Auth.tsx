@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Trophy, User, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 
@@ -13,12 +14,24 @@ const usernameSchema = z.string()
   .max(20, 'Username must be 20 characters or less')
   .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores');
 
+const REMEMBERED_USERNAME_KEY = 'wc2026_remembered_username';
+
 const Auth = () => {
   const [username, setUsername] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { loginWithUsername } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Load remembered username on mount
+  useEffect(() => {
+    const savedUsername = localStorage.getItem(REMEMBERED_USERNAME_KEY);
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +59,13 @@ const Auth = () => {
           variant: 'destructive' 
         });
       } else {
+        // Save or clear remembered username based on checkbox
+        if (rememberMe) {
+          localStorage.setItem(REMEMBERED_USERNAME_KEY, username);
+        } else {
+          localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+        }
+        
         toast({ 
           title: isNewUser ? 'Welcome!' : 'Welcome back!', 
           description: isNewUser 
@@ -127,6 +147,20 @@ const Auth = () => {
               <p className="text-xs text-muted-foreground">
                 Letters, numbers, and underscores only
               </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="remember" 
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked === true)}
+              />
+              <label 
+                htmlFor="remember" 
+                className="text-sm text-muted-foreground cursor-pointer select-none"
+              >
+                Remember my username
+              </label>
             </div>
 
             <Button
