@@ -78,14 +78,19 @@ export const KnockoutMatchCard = ({
           : 'bg-card border-border/50'
       } ${disabled ? 'opacity-80' : ''}`}
     >
-      {/* Stage Badge */}
-      <div className={`absolute top-3 left-3 px-2 py-0.5 rounded-full text-xs font-semibold ${
-        match.stage === 'final' 
-          ? 'bg-fifa-gold/20 text-fifa-gold' 
-          : 'bg-fifa-coral/10 text-fifa-coral'
-      }`}>
-        {match.stage === 'final' && <Trophy className="w-3 h-3 inline mr-1" />}
-        {stageLabels[match.stage]}
+      {/* Match Name Badge */}
+      <div className="absolute top-3 left-3 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-muted text-muted-foreground">
+          {match.bracketPosition}
+        </span>
+        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+          match.stage === 'final' 
+            ? 'bg-fifa-gold/20 text-fifa-gold' 
+            : 'bg-fifa-coral/10 text-fifa-coral'
+        }`}>
+          {match.stage === 'final' && <Trophy className="w-3 h-3 inline mr-1" />}
+          {stageLabels[match.stage]}
+        </span>
       </div>
 
       {/* Status Badge */}
