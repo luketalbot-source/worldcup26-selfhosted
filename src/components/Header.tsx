@@ -3,8 +3,7 @@ import { LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
-
-const WC2026_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/en/thumb/1/17/2026_FIFA_World_Cup_emblem.svg/250px-2026_FIFA_World_Cup_emblem.svg.png';
+import wc2026Logo from '@/assets/wc2026-logo.png';
 
 export const Header = () => {
   const { user, signOut } = useAuth();
@@ -21,7 +20,7 @@ export const Header = () => {
         >
           <div className="flex items-center gap-3">
             <img 
-              src={WC2026_LOGO_URL} 
+              src={wc2026Logo} 
               alt="FIFA World Cup 2026" 
               className="h-10 w-auto"
             />
