@@ -12,22 +12,20 @@ export const Header = () => {
 
   return (
     <header className="gradient-navy text-white sticky top-0 z-50">
-      <div className="container py-4">
+      <div className="container py-2">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
+          className="flex items-center justify-between relative"
         >
-          <div className="flex items-center gap-3">
+          <div className="w-20" /> {/* Spacer for balance */}
+          
+          <div className="absolute left-1/2 -translate-x-1/2">
             <img 
               src={wc2026Logo} 
               alt="FIFA World Cup 2026" 
-              className="h-10 w-auto"
+              className="h-14 w-auto"
             />
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">WC 2026</h1>
-              <p className="text-xs text-white/70">Predictor</p>
-            </div>
           </div>
           
           {user ? (
