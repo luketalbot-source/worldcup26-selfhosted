@@ -16,11 +16,11 @@ interface KnockoutMatchCardProps {
 }
 
 const stageLabels: Record<string, string> = {
-  round32: 'Round of 32',
-  round16: 'Round of 16',
-  quarter: 'Quarter Final',
-  semi: 'Semi Final',
-  third: '3rd Place',
+  round32: 'R32',
+  round16: 'R16',
+  quarter: 'QF',
+  semi: 'SF',
+  third: '3rd',
   final: 'Final',
 };
 
@@ -77,7 +77,7 @@ export const KnockoutMatchCard = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl shadow-card border h-[400px] ${
+      className={`relative overflow-hidden rounded-2xl shadow-card border h-[200px] ${
         isHighlighted 
           ? 'border-fifa-gold/50' 
           : 'border-border/50'
@@ -94,14 +94,12 @@ export const KnockoutMatchCard = ({
                 alt={match.homeTeam.name}
                 className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
               />
-              {/* Gradient fade to white on right - stronger fade */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-white to-100%" />
-              {/* Darken overlay for better text readability */}
               <div className="absolute inset-0 bg-black/20" />
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-r from-muted to-white flex items-center justify-center">
-              <span className="text-6xl opacity-30">{match.homeTeam.flag}</span>
+              <span className="text-4xl opacity-30">{match.homeTeam.flag}</span>
             </div>
           )}
         </div>
@@ -115,24 +113,22 @@ export const KnockoutMatchCard = ({
                 alt={match.awayTeam.name}
                 className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
               />
-              {/* Gradient fade to white on left - stronger fade */}
               <div className="absolute inset-0 bg-gradient-to-l from-transparent from-40% to-white to-100%" />
-              {/* Darken overlay for better text readability */}
               <div className="absolute inset-0 bg-black/20" />
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-l from-muted to-white flex items-center justify-center">
-              <span className="text-6xl opacity-30">{match.awayTeam.flag}</span>
+              <span className="text-4xl opacity-30">{match.awayTeam.flag}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 p-4 h-full flex flex-col">
-        {/* Top Row - Match Number & Stage & Status */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="relative z-10 p-3 h-full flex flex-col">
+        {/* Top Row - All Badges */}
+        <div className="flex items-center justify-between gap-1 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white backdrop-blur-sm">
               {match.bracketPosition}
             </span>
@@ -144,6 +140,14 @@ export const KnockoutMatchCard = ({
               {match.stage === 'final' && <Trophy className="w-3 h-3 inline mr-1" />}
               {stageLabels[match.stage]}
             </span>
+            <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+              <Clock className="w-3 h-3" />
+              <span>{match.date}</span>
+            </div>
+            <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+              <MapPin className="w-3 h-3" />
+              <span>{match.city}</span>
+            </div>
           </div>
           
           <div className={`px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm ${
@@ -153,62 +157,38 @@ export const KnockoutMatchCard = ({
                 ? 'bg-black/60 text-white'
                 : 'bg-primary/80 text-white'
           }`}>
-            {match.status === 'live' ? 'LIVE' : match.status === 'finished' ? 'FT' : 'Upcoming'}
+            {match.status === 'live' ? 'LIVE' : match.status === 'finished' ? 'FT' : match.time}
           </div>
         </div>
 
-        {/* Score Section - Center with Team Names */}
+        {/* Score Section - Center with Team Names beside scores */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-lg w-full max-w-[320px]">
+          <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
             {isFinished ? (
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 text-center">
-                  <div className="text-sm font-semibold text-foreground truncate mb-1">{match.homeTeam.name}</div>
-                  <div className="text-3xl font-bold text-foreground">{match.homeScore}</div>
-                </div>
-                <div className="text-xl text-muted-foreground font-light px-2">-</div>
-                <div className="flex-1 text-center">
-                  <div className="text-sm font-semibold text-foreground truncate mb-1">{match.awayTeam.name}</div>
-                  <div className="text-3xl font-bold text-foreground">{match.awayScore}</div>
-                </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-foreground truncate max-w-[80px]">{match.homeTeam.name}</span>
+                <div className="text-2xl font-bold text-foreground">{match.homeScore}</div>
+                <div className="text-lg text-muted-foreground font-light">-</div>
+                <div className="text-2xl font-bold text-foreground">{match.awayScore}</div>
+                <span className="text-sm font-semibold text-foreground truncate max-w-[80px]">{match.awayTeam.name}</span>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 text-center">
-                  <div className="text-sm font-semibold text-foreground truncate mb-2">
-                    {isTBD && match.homeTeam.code === 'TBD' ? match.homeTeam.name : match.homeTeam.name}
-                  </div>
-                  <ScoreSelector 
-                    value={homeScore} 
-                    onChange={(v) => handleScoreChange('home', v)}
-                    disabled={disabled}
-                  />
-                </div>
-                <span className="text-xl text-muted-foreground font-medium px-2">:</span>
-                <div className="flex-1 text-center">
-                  <div className="text-sm font-semibold text-foreground truncate mb-2">
-                    {isTBD && match.awayTeam.code === 'TBD' ? match.awayTeam.name : match.awayTeam.name}
-                  </div>
-                  <ScoreSelector 
-                    value={awayScore} 
-                    onChange={(v) => handleScoreChange('away', v)}
-                    disabled={disabled}
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-foreground truncate max-w-[60px]">{match.homeTeam.name}</span>
+                <ScoreSelector 
+                  value={homeScore} 
+                  onChange={(v) => handleScoreChange('home', v)}
+                  disabled={disabled}
+                />
+                <span className="text-lg text-muted-foreground font-medium">:</span>
+                <ScoreSelector 
+                  value={awayScore} 
+                  onChange={(v) => handleScoreChange('away', v)}
+                  disabled={disabled}
+                />
+                <span className="text-xs font-semibold text-foreground truncate max-w-[60px]">{match.awayTeam.name}</span>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Match Info */}
-        <div className="flex items-center justify-center gap-3 text-xs text-white mb-3">
-          <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
-            <Clock className="w-3 h-3" />
-            <span>{match.date}, {match.time}</span>
-          </div>
-          <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
-            <MapPin className="w-3 h-3" />
-            <span>{match.city}</span>
           </div>
         </div>
 
@@ -216,13 +196,13 @@ export const KnockoutMatchCard = ({
         {!isFinished && (
           <div>
             {disabled ? (
-              <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/90 text-muted-foreground text-sm backdrop-blur-sm">
-                <Lock className="w-4 h-4" />
-                Log in to save predictions
+              <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
+                <Lock className="w-3 h-3" />
+                Log in to save
               </div>
             ) : isPredicted && !hasEdited ? (
-              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-primary/90 text-white text-sm font-medium backdrop-blur-sm">
-                <Check className="w-4 h-4" />
+              <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium backdrop-blur-sm">
+                <Check className="w-3 h-3" />
                 Predicted: {prediction.homeScore} - {prediction.awayScore}
               </div>
             ) : (
@@ -231,13 +211,13 @@ export const KnockoutMatchCard = ({
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSave}
                 disabled={isSaving || (!hasEdited && !isPredicted)}
-                className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all backdrop-blur-sm ${
+                className={`w-full py-2 px-3 rounded-lg font-semibold text-xs transition-all backdrop-blur-sm ${
                   hasEdited
                     ? 'bg-accent text-accent-foreground shadow-md'
                     : 'bg-white/90 text-muted-foreground'
                 }`}
               >
-                {isSaving ? 'Saving...' : (isPredicted ? 'Update Prediction' : 'Save Prediction')}
+                {isSaving ? 'Saving...' : (isPredicted ? 'Update' : 'Save Prediction')}
               </motion.button>
             )}
           </div>
