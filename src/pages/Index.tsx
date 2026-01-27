@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
 import { StandingsView } from '@/components/StandingsView';
 import { LeaderboardView } from '@/components/LeaderboardView';
 import { ProfileView } from '@/components/ProfileView';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('matches');
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  // Redirect to auth page if not logged in
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth', { replace: true });
+    }
+  }, [user, loading, navigate]);
 
   // Handle navigation state (e.g., from header profile click)
   useEffect(() => {
@@ -19,6 +29,11 @@ const Index = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  // Show nothing while checking auth or redirecting
+  if (loading || !user) {
+    return null;
+  }
 
   const renderContent = () => {
     switch (activeTab) {
