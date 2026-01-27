@@ -5,6 +5,7 @@ import { Prediction } from '@/types/match';
 import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock, Trophy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getFlagUrl } from '@/lib/flagUtils';
 
 interface KnockoutMatchCardProps {
   match: KnockoutMatch;
@@ -21,41 +22,6 @@ const stageLabels: Record<string, string> = {
   semi: 'Semi Final',
   third: '3rd Place',
   final: 'Final',
-};
-
-// Map team codes to ISO 2-letter country codes for flag images
-const teamCodeToCountryCode: Record<string, string> = {
-  // Group A
-  'MAR': 'ma', 'USA': 'us', 'POR': 'pt', 'CAN': 'ca',
-  // Group B
-  'ARG': 'ar', 'ECU': 'ec', 'MEX': 'mx', 'COL': 'co',
-  // Group C
-  'BRA': 'br', 'ITA': 'it', 'NGA': 'ng', 'ALB': 'al',
-  // Group D
-  'FRA': 'fr', 'AUS': 'au', 'IDN': 'id', 'UAE': 'ae',
-  // Group E
-  'ENG': 'gb-eng', 'DEN': 'dk', 'CHN': 'cn', 'MKD': 'mk',
-  // Group F
-  'GER': 'de', 'TUN': 'tn', 'CRC': 'cr', 'NZL': 'nz',
-  // Group G
-  'ESP': 'es', 'EGY': 'eg', 'PAR': 'py', 'BOL': 'bo',
-  // Group H
-  'NED': 'nl', 'JPN': 'jp', 'SEN': 'sn', 'BFA': 'bf',
-  // Group I
-  'BEL': 'be', 'UKR': 'ua', 'IRN': 'ir', 'SLO': 'sk',
-  // Group J
-  'CRO': 'hr', 'SUI': 'ch', 'CMR': 'cm', 'QAT': 'qa',
-  // Group K
-  'POL': 'pl', 'KOR': 'kr', 'SRB': 'rs', 'RSA': 'za',
-  // Group L
-  'URU': 'uy', 'WAL': 'gb-wls', 'PAN': 'pa', 'CIV': 'ci',
-};
-
-const getFlagUrl = (teamCode: string): string | null => {
-  if (teamCode === 'TBD') return null;
-  const countryCode = teamCodeToCountryCode[teamCode];
-  if (!countryCode) return null;
-  return `https://flagcdn.com/w640/${countryCode}.png`;
 };
 
 export const KnockoutMatchCard = ({ 
