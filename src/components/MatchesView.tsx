@@ -10,6 +10,7 @@ import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn } from 'lucide-react';
+import mascotsWaiting from '@/assets/mascots-waiting.png';
 
 const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -73,7 +74,12 @@ export const MatchesView = () => {
         {renderLoginPrompt()}
         
         {todayMatches.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 space-y-4">
+            <img 
+              src={mascotsWaiting} 
+              alt="World Cup 2026 mascots waiting for matches" 
+              className="w-64 h-auto mx-auto opacity-90"
+            />
             <p className="text-muted-foreground">No matches scheduled for today</p>
           </div>
         ) : (
