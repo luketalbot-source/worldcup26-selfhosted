@@ -111,7 +111,7 @@ export const KnockoutMatchCard = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl shadow-card border ${
+      className={`relative overflow-hidden rounded-2xl shadow-card border h-[400px] ${
         isHighlighted 
           ? 'border-fifa-gold/50' 
           : 'border-border/50'
@@ -163,7 +163,7 @@ export const KnockoutMatchCard = ({
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 p-3 flex flex-col gap-2">
+      <div className="relative z-10 p-4 h-full flex flex-col">
         {/* Top Row - Match Number & Stage & Status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -191,45 +191,51 @@ export const KnockoutMatchCard = ({
           </div>
         </div>
 
-        {/* Country Name Badges */}
-        <div className="flex items-center justify-between">
-          <div className="px-3 py-1 rounded-lg bg-black/60 text-white text-sm font-semibold backdrop-blur-sm max-w-[45%] truncate">
-            {isTBD && match.homeTeam.code === 'TBD' ? match.homeTeam.name : match.homeTeam.name}
-          </div>
-          <div className="px-3 py-1 rounded-lg bg-black/60 text-white text-sm font-semibold backdrop-blur-sm max-w-[45%] truncate text-right">
-            {isTBD && match.awayTeam.code === 'TBD' ? match.awayTeam.name : match.awayTeam.name}
-          </div>
-        </div>
-
-        {/* Score Section - Center */}
-        <div className="flex items-center justify-center py-2">
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl px-5 py-2 shadow-lg">
+        {/* Score Section - Center with Team Names */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-lg w-full max-w-[320px]">
             {isFinished ? (
-              <div className="flex items-center gap-3">
-                <div className="text-3xl font-bold text-foreground">{match.homeScore}</div>
-                <div className="text-xl text-muted-foreground font-light">-</div>
-                <div className="text-3xl font-bold text-foreground">{match.awayScore}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 text-center">
+                  <div className="text-sm font-semibold text-foreground truncate mb-1">{match.homeTeam.name}</div>
+                  <div className="text-3xl font-bold text-foreground">{match.homeScore}</div>
+                </div>
+                <div className="text-xl text-muted-foreground font-light px-2">-</div>
+                <div className="flex-1 text-center">
+                  <div className="text-sm font-semibold text-foreground truncate mb-1">{match.awayTeam.name}</div>
+                  <div className="text-3xl font-bold text-foreground">{match.awayScore}</div>
+                </div>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-                <ScoreSelector 
-                  value={homeScore} 
-                  onChange={(v) => handleScoreChange('home', v)}
-                  disabled={disabled}
-                />
-                <span className="text-xl text-muted-foreground font-medium">:</span>
-                <ScoreSelector 
-                  value={awayScore} 
-                  onChange={(v) => handleScoreChange('away', v)}
-                  disabled={disabled}
-                />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 text-center">
+                  <div className="text-sm font-semibold text-foreground truncate mb-2">
+                    {isTBD && match.homeTeam.code === 'TBD' ? match.homeTeam.name : match.homeTeam.name}
+                  </div>
+                  <ScoreSelector 
+                    value={homeScore} 
+                    onChange={(v) => handleScoreChange('home', v)}
+                    disabled={disabled}
+                  />
+                </div>
+                <span className="text-xl text-muted-foreground font-medium px-2">:</span>
+                <div className="flex-1 text-center">
+                  <div className="text-sm font-semibold text-foreground truncate mb-2">
+                    {isTBD && match.awayTeam.code === 'TBD' ? match.awayTeam.name : match.awayTeam.name}
+                  </div>
+                  <ScoreSelector 
+                    value={awayScore} 
+                    onChange={(v) => handleScoreChange('away', v)}
+                    disabled={disabled}
+                  />
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Match Info */}
-        <div className="flex items-center justify-center gap-3 text-xs text-white">
+        <div className="flex items-center justify-center gap-3 text-xs text-white mb-3">
           <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
             <Clock className="w-3 h-3" />
             <span>{match.date}, {match.time}</span>
