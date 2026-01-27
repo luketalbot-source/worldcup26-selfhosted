@@ -26,19 +26,26 @@ export const SyncButton = ({ onSync, syncing, lastSync }: SyncButtonProps) => {
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-xl p-3 border border-border/50 space-y-2"
+      className="bg-card rounded-xl p-3 border border-border/50"
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm">
-          {lastSync ? (
-            <Wifi className="w-4 h-4 text-fifa-green" />
-          ) : (
-            <WifiOff className="w-4 h-4 text-muted-foreground" />
-          )}
-          <span className="text-muted-foreground">
-            <Clock className="w-3 h-3 inline mr-1" />
-            {formatLastSync(lastSync)}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm">
+            {lastSync ? (
+              <Wifi className="w-4 h-4 text-fifa-green" />
+            ) : (
+              <WifiOff className="w-4 h-4 text-muted-foreground" />
+            )}
+            <span className="text-muted-foreground">
+              <Clock className="w-3 h-3 inline mr-1" />
+              {formatLastSync(lastSync)}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded-lg px-2 py-1">
+            <Info className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <span>Locks 30min before Kickoff</span>
+          </div>
         </div>
         
         <motion.button
@@ -51,11 +58,6 @@ export const SyncButton = ({ onSync, syncing, lastSync }: SyncButtonProps) => {
           <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Syncing...' : 'Sync Scores'}
         </motion.button>
-      </div>
-      
-      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-2.5 py-1.5">
-        <Info className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-        <span>Predictor locks 30min before Kickoff</span>
       </div>
     </motion.div>
   );
