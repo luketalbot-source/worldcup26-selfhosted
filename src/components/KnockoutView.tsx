@@ -11,6 +11,7 @@ import {
   finalMatch 
 } from '@/data/knockoutMatches';
 import { usePredictions } from '@/hooks/usePredictions';
+import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 
 type KnockoutStage = 'round16' | 'quarter' | 'semi' | 'finals';
@@ -25,25 +26,36 @@ const stageLabels: Record<KnockoutStage, string> = {
 export const KnockoutView = () => {
   const [activeStage, setActiveStage] = useState<KnockoutStage>('round16');
   const { addPrediction, getPrediction } = usePredictions();
+  const { getKnockoutMatches } = useLiveMatches();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const renderStageMatches = () => {
+  const getStageMatches = () => {
     switch (activeStage) {
       case 'round16':
-        return round16Matches;
+        return getKnockoutMatches('round16').length > 0 
+          ? getKnockoutMatches('round16') 
+          : round16Matches;
       case 'quarter':
-        return quarterFinalMatches;
+        return getKnockoutMatches('quarter').length > 0 
+          ? getKnockoutMatches('quarter') 
+          : quarterFinalMatches;
       case 'semi':
-        return semiFinalMatches;
+        return getKnockoutMatches('semi').length > 0 
+          ? getKnockoutMatches('semi') 
+          : semiFinalMatches;
       case 'finals':
-        return [thirdPlaceMatch, finalMatch];
+        const finalMatches = [
+          ...getKnockoutMatches('third'),
+          ...getKnockoutMatches('final'),
+        ];
+        return finalMatches.length > 0 ? finalMatches : [thirdPlaceMatch, finalMatch];
       default:
         return [];
     }
   };
 
-  const matches = renderStageMatches();
+  const matches = getStageMatches();
 
   return (
     <div className="space-y-4">
@@ -99,7 +111,7 @@ export const KnockoutView = () => {
           <p className="text-sm text-foreground font-medium">Teams to be determined</p>
           <p className="text-xs text-muted-foreground mt-1">
             Knockout stage teams will be confirmed once the group stage is complete. 
-            You can still predict scores now!
+            Tap "Sync Scores" to get the latest data!
           </p>
         </div>
       </motion.div>
@@ -119,7 +131,7 @@ export const KnockoutView = () => {
               <p className="text-sm text-muted-foreground">July 19, 2026 • New York</p>
             </div>
             <KnockoutMatchCard
-              match={finalMatch}
+              match={matches.find(m => m.stage === 'final') || finalMatch}
               prediction={getPrediction(finalMatch.id)}
               onPredict={addPrediction}
               disabled={!user}
@@ -129,7 +141,7 @@ export const KnockoutView = () => {
               <h3 className="text-base font-semibold text-muted-foreground">🥉 Third Place</h3>
             </div>
             <KnockoutMatchCard
-              match={thirdPlaceMatch}
+              match={matches.find(m => m.stage === 'third') || thirdPlaceMatch}
               prediction={getPrediction(thirdPlaceMatch.id)}
               onPredict={addPrediction}
               disabled={!user}

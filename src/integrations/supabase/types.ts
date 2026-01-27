@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      live_matches: {
+        Row: {
+          api_match_id: number | null
+          away_score: number | null
+          away_team_code: string
+          away_team_name: string
+          city: string | null
+          created_at: string
+          group_name: string | null
+          home_score: number | null
+          home_team_code: string
+          home_team_name: string
+          id: string
+          last_updated: string
+          match_date: string
+          match_id: string
+          stage: string
+          status: string
+          venue: string | null
+        }
+        Insert: {
+          api_match_id?: number | null
+          away_score?: number | null
+          away_team_code: string
+          away_team_name: string
+          city?: string | null
+          created_at?: string
+          group_name?: string | null
+          home_score?: number | null
+          home_team_code: string
+          home_team_name: string
+          id?: string
+          last_updated?: string
+          match_date: string
+          match_id: string
+          stage?: string
+          status?: string
+          venue?: string | null
+        }
+        Update: {
+          api_match_id?: number | null
+          away_score?: number | null
+          away_team_code?: string
+          away_team_name?: string
+          city?: string | null
+          created_at?: string
+          group_name?: string | null
+          home_score?: number | null
+          home_team_code?: string
+          home_team_name?: string
+          id?: string
+          last_updated?: string
+          match_date?: string
+          match_id?: string
+          stage?: string
+          status?: string
+          venue?: string | null
+        }
+        Relationships: []
+      }
       predictions: {
         Row: {
           away_score: number

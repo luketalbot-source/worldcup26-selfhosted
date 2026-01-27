@@ -5,8 +5,9 @@ import { MatchCard } from './MatchCard';
 import { GroupTabs } from './GroupTabs';
 import { StageSelector } from './StageSelector';
 import { KnockoutView } from './KnockoutView';
-import { getMatchesByGroup } from '@/data/matches';
+import { SyncButton } from './SyncButton';
 import { usePredictions } from '@/hooks/usePredictions';
+import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn } from 'lucide-react';
 
@@ -16,15 +17,17 @@ export const MatchesView = () => {
   const [activeStage, setActiveStage] = useState<'groups' | 'knockout'>('groups');
   const [activeGroup, setActiveGroup] = useState('A');
   const { addPrediction, getPrediction } = usePredictions();
+  const { getGroupMatches, syncMatches, syncing, lastSync } = useLiveMatches();
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  const matches = getMatchesByGroup(activeGroup);
+  const matches = getGroupMatches(activeGroup);
 
   if (activeStage === 'knockout') {
     return (
       <div className="space-y-4">
         <StageSelector activeStage={activeStage} onStageChange={setActiveStage} />
+        <SyncButton onSync={syncMatches} syncing={syncing} lastSync={lastSync} />
         <KnockoutView />
       </div>
     );
@@ -33,6 +36,7 @@ export const MatchesView = () => {
   return (
     <div className="space-y-4">
       <StageSelector activeStage={activeStage} onStageChange={setActiveStage} />
+      <SyncButton onSync={syncMatches} syncing={syncing} lastSync={lastSync} />
       
       {!user && (
         <motion.div
