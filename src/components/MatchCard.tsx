@@ -12,6 +12,40 @@ interface MatchCardProps {
   disabled?: boolean;
 }
 
+// Map team codes to ISO 2-letter country codes for flag images
+const teamCodeToCountryCode: Record<string, string> = {
+  // Group A
+  'MAR': 'ma', 'USA': 'us', 'POR': 'pt', 'CAN': 'ca',
+  // Group B
+  'ARG': 'ar', 'ECU': 'ec', 'MEX': 'mx', 'COL': 'co',
+  // Group C
+  'BRA': 'br', 'ITA': 'it', 'NGA': 'ng', 'ALB': 'al',
+  // Group D
+  'FRA': 'fr', 'AUS': 'au', 'IDN': 'id', 'UAE': 'ae',
+  // Group E
+  'ENG': 'gb-eng', 'DEN': 'dk', 'CHN': 'cn', 'MKD': 'mk',
+  // Group F
+  'GER': 'de', 'TUN': 'tn', 'CRC': 'cr', 'NZL': 'nz',
+  // Group G
+  'ESP': 'es', 'EGY': 'eg', 'PAR': 'py', 'BOL': 'bo',
+  // Group H
+  'NED': 'nl', 'JPN': 'jp', 'SEN': 'sn', 'BFA': 'bf',
+  // Group I
+  'BEL': 'be', 'UKR': 'ua', 'IRN': 'ir', 'SLO': 'sk',
+  // Group J
+  'CRO': 'hr', 'SUI': 'ch', 'CMR': 'cm', 'QAT': 'qa',
+  // Group K
+  'POL': 'pl', 'KOR': 'kr', 'SRB': 'rs', 'RSA': 'za',
+  // Group L
+  'URU': 'uy', 'WAL': 'gb-wls', 'PAN': 'pa', 'CIV': 'ci',
+};
+
+const getFlagUrl = (teamCode: string): string | null => {
+  const countryCode = teamCodeToCountryCode[teamCode];
+  if (!countryCode) return null;
+  return `https://flagcdn.com/w640/${countryCode}.png`;
+};
+
 export const MatchCard = ({ match, prediction, onPredict, disabled = false }: MatchCardProps) => {
   const [homeScore, setHomeScore] = useState(prediction?.homeScore ?? 0);
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
@@ -52,57 +86,111 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
     prediction.homeScore === match.homeScore && 
     prediction.awayScore === match.awayScore;
 
+  const homeFlagUrl = getFlagUrl(match.homeTeam.code);
+  const awayFlagUrl = getFlagUrl(match.awayTeam.code);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl bg-card shadow-card border border-border/50 ${
-        isCorrect ? 'ring-2 ring-fifa-green' : ''
+      className={`relative overflow-hidden rounded-2xl shadow-card border ${
+        isCorrect ? 'ring-2 ring-fifa-green border-fifa-green/50' : 'border-border/50'
       } ${disabled ? 'opacity-80' : ''}`}
+      style={{ minHeight: '220px' }}
     >
-      {/* Group Badge */}
-      {match.group && (
-        <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-          Group {match.group}
+      {/* Background Flags Container */}
+      <div className="absolute inset-0 flex">
+        {/* Home Team Flag - Left Side */}
+        <div className="relative w-1/2 h-full overflow-hidden">
+          {homeFlagUrl ? (
+            <>
+              <img 
+                src={homeFlagUrl} 
+                alt={match.homeTeam.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              {/* Gradient fade to white on right */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white" />
+              {/* Darken overlay for better text readability */}
+              <div className="absolute inset-0 bg-black/20" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-r from-muted to-white flex items-center justify-center">
+              <span className="text-6xl opacity-30">{match.homeTeam.flag}</span>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Status Badge */}
-      <div className={`absolute top-3 right-3 px-2 py-0.5 rounded-full text-xs font-semibold ${
-        match.status === 'live' 
-          ? 'bg-destructive/10 text-destructive animate-pulse-glow' 
-          : match.status === 'finished'
-            ? 'bg-muted text-muted-foreground'
-            : 'bg-primary/10 text-primary'
-      }`}>
-        {match.status === 'live' ? 'LIVE' : match.status === 'finished' ? 'FT' : 'Upcoming'}
+        
+        {/* Away Team Flag - Right Side */}
+        <div className="relative w-1/2 h-full overflow-hidden">
+          {awayFlagUrl ? (
+            <>
+              <img 
+                src={awayFlagUrl} 
+                alt={match.awayTeam.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              {/* Gradient fade to white on left */}
+              <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-white" />
+              {/* Darken overlay for better text readability */}
+              <div className="absolute inset-0 bg-black/20" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-l from-muted to-white flex items-center justify-center">
+              <span className="text-6xl opacity-30">{match.awayTeam.flag}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="pt-10 pb-4 px-4">
-        {/* Teams and Scores */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Home Team */}
-          <div className="flex-1 text-center">
-            <div className="text-4xl mb-2">{match.homeTeam.flag}</div>
-            <div className="font-semibold text-foreground text-sm">{match.homeTeam.code}</div>
+      {/* Content Overlay */}
+      <div className="relative z-10 p-4 h-full flex flex-col">
+        {/* Top Row - Group & Status Badges */}
+        <div className="flex items-center justify-between mb-2">
+          {match.group && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white backdrop-blur-sm">
+              Group {match.group}
+            </span>
+          )}
+          
+          <div className={`px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm ${
+            match.status === 'live' 
+              ? 'bg-destructive text-white animate-pulse' 
+              : match.status === 'finished'
+                ? 'bg-black/60 text-white'
+                : 'bg-primary/80 text-white'
+          }`}>
+            {match.status === 'live' ? 'LIVE' : match.status === 'finished' ? 'FT' : 'Upcoming'}
           </div>
+        </div>
 
-          {/* Score Section */}
-          <div className="flex-shrink-0">
+        {/* Country Name Badges */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="px-3 py-1 rounded-lg bg-black/60 text-white text-sm font-semibold backdrop-blur-sm max-w-[45%] truncate">
+            {match.homeTeam.name}
+          </div>
+          <div className="px-3 py-1 rounded-lg bg-black/60 text-white text-sm font-semibold backdrop-blur-sm max-w-[45%] truncate text-right">
+            {match.awayTeam.name}
+          </div>
+        </div>
+
+        {/* Score Section - Center */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-lg">
             {isFinished ? (
-              <div className="flex items-center gap-3">
-                <div className="text-3xl font-bold text-foreground">{match.homeScore}</div>
-                <div className="text-xl text-muted-foreground">-</div>
-                <div className="text-3xl font-bold text-foreground">{match.awayScore}</div>
+              <div className="flex items-center gap-4">
+                <div className="text-4xl font-bold text-foreground">{match.homeScore}</div>
+                <div className="text-2xl text-muted-foreground font-light">-</div>
+                <div className="text-4xl font-bold text-foreground">{match.awayScore}</div>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <ScoreSelector 
                   value={homeScore} 
                   onChange={(v) => handleScoreChange('home', v)}
                   disabled={disabled}
                 />
-                <span className="text-lg text-muted-foreground font-medium">:</span>
+                <span className="text-xl text-muted-foreground font-medium">:</span>
                 <ScoreSelector 
                   value={awayScore} 
                   onChange={(v) => handleScoreChange('away', v)}
@@ -111,21 +199,15 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
               </div>
             )}
           </div>
-
-          {/* Away Team */}
-          <div className="flex-1 text-center">
-            <div className="text-4xl mb-2">{match.awayTeam.flag}</div>
-            <div className="font-semibold text-foreground text-sm">{match.awayTeam.code}</div>
-          </div>
         </div>
 
         {/* Match Info */}
-        <div className="mt-4 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-4 text-xs text-white mb-3">
+          <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
             <Clock className="w-3 h-3" />
             <span>{match.date}, {match.time}</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
             <MapPin className="w-3 h-3" />
             <span>{match.city}</span>
           </div>
@@ -133,14 +215,14 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
 
         {/* Prediction Section */}
         {!isFinished && (
-          <div className="mt-4">
+          <div>
             {disabled ? (
-              <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-muted text-muted-foreground text-sm">
+              <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/90 text-muted-foreground text-sm backdrop-blur-sm">
                 <Lock className="w-4 h-4" />
                 Log in to save predictions
               </div>
             ) : isPredicted && !hasEdited ? (
-              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-primary/10 text-primary text-sm font-medium">
+              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-primary/90 text-white text-sm font-medium backdrop-blur-sm">
                 <Check className="w-4 h-4" />
                 Predicted: {prediction.homeScore} - {prediction.awayScore}
               </div>
@@ -150,10 +232,10 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSave}
                 disabled={isSaving || (!hasEdited && !isPredicted)}
-                className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all backdrop-blur-sm ${
                   hasEdited
                     ? 'bg-accent text-accent-foreground shadow-md'
-                    : 'bg-muted text-muted-foreground'
+                    : 'bg-white/90 text-muted-foreground'
                 }`}
               >
                 {isSaving ? 'Saving...' : (isPredicted ? 'Update Prediction' : 'Save Prediction')}
@@ -164,10 +246,10 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
 
         {/* Result comparison for finished matches */}
         {isFinished && prediction && (
-          <div className={`mt-4 py-2 px-4 rounded-lg text-sm font-medium text-center ${
+          <div className={`py-2 px-4 rounded-lg text-sm font-medium text-center backdrop-blur-sm ${
             isCorrect 
-              ? 'bg-fifa-green/10 text-fifa-green' 
-              : 'bg-muted text-muted-foreground'
+              ? 'bg-fifa-green/90 text-white' 
+              : 'bg-white/90 text-muted-foreground'
           }`}>
             Your prediction: {prediction.homeScore} - {prediction.awayScore}
             {isCorrect && ' ✓ Correct!'}
