@@ -96,7 +96,6 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
       className={`relative overflow-hidden rounded-2xl shadow-card border ${
         isCorrect ? 'ring-2 ring-fifa-green border-fifa-green/50' : 'border-border/50'
       } ${disabled ? 'opacity-80' : ''}`}
-      style={{ minHeight: '220px' }}
     >
       {/* Background Flags Container */}
       <div className="absolute inset-0 flex">
@@ -107,10 +106,10 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
               <img 
                 src={homeFlagUrl} 
                 alt={match.homeTeam.name}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover object-center"
               />
-              {/* Gradient fade to white on right */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white" />
+              {/* Gradient fade to white on right - stronger fade */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-white to-100%" />
               {/* Darken overlay for better text readability */}
               <div className="absolute inset-0 bg-black/20" />
             </>
@@ -128,10 +127,10 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
               <img 
                 src={awayFlagUrl} 
                 alt={match.awayTeam.name}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover object-center"
               />
-              {/* Gradient fade to white on left */}
-              <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-white" />
+              {/* Gradient fade to white on left - stronger fade */}
+              <div className="absolute inset-0 bg-gradient-to-l from-transparent from-40% to-white to-100%" />
               {/* Darken overlay for better text readability */}
               <div className="absolute inset-0 bg-black/20" />
             </>
@@ -144,9 +143,9 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
       </div>
 
       {/* Content Overlay */}
-      <div className="relative z-10 p-4 h-full flex flex-col">
+      <div className="relative z-10 p-3 flex flex-col gap-2">
         {/* Top Row - Group & Status Badges */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between">
           {match.group && (
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white backdrop-blur-sm">
               Group {match.group}
@@ -165,7 +164,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
         </div>
 
         {/* Country Name Badges */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div className="px-3 py-1 rounded-lg bg-black/60 text-white text-sm font-semibold backdrop-blur-sm max-w-[45%] truncate">
             {match.homeTeam.name}
           </div>
@@ -175,13 +174,13 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
         </div>
 
         {/* Score Section - Center */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-lg">
+        <div className="flex items-center justify-center py-2">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl px-5 py-2 shadow-lg">
             {isFinished ? (
-              <div className="flex items-center gap-4">
-                <div className="text-4xl font-bold text-foreground">{match.homeScore}</div>
-                <div className="text-2xl text-muted-foreground font-light">-</div>
-                <div className="text-4xl font-bold text-foreground">{match.awayScore}</div>
+              <div className="flex items-center gap-3">
+                <div className="text-3xl font-bold text-foreground">{match.homeScore}</div>
+                <div className="text-xl text-muted-foreground font-light">-</div>
+                <div className="text-3xl font-bold text-foreground">{match.awayScore}</div>
               </div>
             ) : (
               <div className="flex items-center gap-3">
@@ -202,7 +201,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
         </div>
 
         {/* Match Info */}
-        <div className="flex items-center justify-center gap-4 text-xs text-white mb-3">
+        <div className="flex items-center justify-center gap-3 text-xs text-white">
           <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
             <Clock className="w-3 h-3" />
             <span>{match.date}, {match.time}</span>
