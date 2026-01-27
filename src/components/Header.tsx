@@ -5,7 +5,11 @@ import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
 import wc2026Logo from '@/assets/wc2026-logo.png';
 
-export const Header = () => {
+interface HeaderProps {
+  hideUserSection?: boolean;
+}
+
+export const Header = ({ hideUserSection = false }: HeaderProps) => {
   const { user, signOut } = useAuth();
   const { profile } = useProfile(user?.id);
   const navigate = useNavigate();
@@ -28,23 +32,26 @@ export const Header = () => {
             />
           </div>
           
-          {user ? (
-            <button
-              onClick={() => navigate('/', { state: { tab: 'profile' } })}
-              className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              <span className="text-sm font-medium hidden sm:block">{profile?.displayName || 'User'}</span>
-              <span className="text-2xl">{profile?.avatarEmoji || '👤'}</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate('/auth')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-            >
-              <LogIn className="w-4 h-4" />
-              <span className="hidden sm:inline">Log In</span>
-            </button>
+          {!hideUserSection && (
+            user ? (
+              <button
+                onClick={() => navigate('/', { state: { tab: 'profile' } })}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted transition-colors"
+              >
+                <span className="text-sm font-medium hidden sm:block">{profile?.displayName || 'User'}</span>
+                <span className="text-2xl">{profile?.avatarEmoji || '👤'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/auth')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-sm font-medium"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline">Log In</span>
+              </button>
+            )
           )}
+          {hideUserSection && <div className="w-20" />}
         </motion.div>
       </div>
     </header>
