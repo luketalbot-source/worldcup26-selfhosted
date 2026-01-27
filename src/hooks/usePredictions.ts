@@ -14,17 +14,12 @@ export const usePredictions = () => {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      fetchPredictions();
-    } else {
+  const fetchPredictions = async () => {
+    if (!user) {
       setPredictions([]);
       setLoading(false);
+      return;
     }
-  }, [user]);
-
-  const fetchPredictions = async () => {
-    if (!user) return;
     
     setLoading(true);
     const { data, error } = await supabase
@@ -42,6 +37,10 @@ export const usePredictions = () => {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchPredictions();
+  }, [user]);
 
   const addPrediction = async (matchId: string, homeScore: number, awayScore: number) => {
     if (!user) return;
@@ -81,5 +80,5 @@ export const usePredictions = () => {
     return predictions.find(p => p.matchId === matchId);
   };
 
-  return { predictions, addPrediction, getPrediction, loading };
+  return { predictions, addPrediction, getPrediction, loading, refetch: fetchPredictions };
 };
