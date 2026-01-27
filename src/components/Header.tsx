@@ -11,7 +11,7 @@ export const Header = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="gradient-navy text-white sticky top-0 z-50">
+    <header className="text-foreground sticky top-0 z-50 bg-background">
       <div className="container py-2">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
