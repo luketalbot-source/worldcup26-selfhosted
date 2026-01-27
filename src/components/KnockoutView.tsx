@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trophy, Lock, LogIn } from 'lucide-react';
 import { KnockoutMatchCard } from './KnockoutMatchCard';
 import { 
+  round32Matches,
   round16Matches, 
   quarterFinalMatches, 
   semiFinalMatches, 
@@ -14,9 +15,10 @@ import { usePredictions } from '@/hooks/usePredictions';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 
-type KnockoutStage = 'round16' | 'quarter' | 'semi' | 'finals';
+type KnockoutStage = 'round32' | 'round16' | 'quarter' | 'semi' | 'finals';
 
 const stageLabels: Record<KnockoutStage, string> = {
+  round32: 'Round of 32',
   round16: 'Round of 16',
   quarter: 'Quarter Finals',
   semi: 'Semi Finals',
@@ -24,7 +26,7 @@ const stageLabels: Record<KnockoutStage, string> = {
 };
 
 export const KnockoutView = () => {
-  const [activeStage, setActiveStage] = useState<KnockoutStage>('round16');
+  const [activeStage, setActiveStage] = useState<KnockoutStage>('round32');
   const { addPrediction, getPrediction } = usePredictions();
   const { getKnockoutMatches } = useLiveMatches();
   const { user } = useAuth();
@@ -32,6 +34,10 @@ export const KnockoutView = () => {
 
   const getStageMatches = () => {
     switch (activeStage) {
+      case 'round32':
+        return getKnockoutMatches('round32').length > 0 
+          ? getKnockoutMatches('round32') 
+          : round32Matches;
       case 'round16':
         return getKnockoutMatches('round16').length > 0 
           ? getKnockoutMatches('round16') 
@@ -108,9 +114,9 @@ export const KnockoutView = () => {
       >
         <Lock className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm text-foreground font-medium">Teams to be determined</p>
+          <p className="text-sm text-foreground font-medium">48-team format</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Knockout stage teams will be confirmed once the group stage is complete. 
+            Top 2 from each group + 8 best third-place teams advance to Round of 32. 
             Tap "Sync Scores" to get the latest data!
           </p>
         </div>

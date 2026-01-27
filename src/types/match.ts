@@ -14,7 +14,7 @@ export interface Match {
   time: string;
   venue: string;
   city: string;
-  stage: 'group' | 'round16' | 'quarter' | 'semi' | 'third' | 'final';
+  stage: 'group' | 'round32' | 'round16' | 'quarter' | 'semi' | 'third' | 'final';
   group?: string;
   homeScore?: number;
   awayScore?: number;
