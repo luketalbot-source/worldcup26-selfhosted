@@ -30,16 +30,6 @@ const createMatch = (
 
 // All times are in ET (Eastern Time) - the standard reference for FIFA World Cup 2026
 export const groupStageMatches: Match[] = [
-  // ============ TEST MATCHES - TODAY (January 27, 2026) ============
-  
-  // Live match - happening now
-  createMatch('TEST1', 'bra', 'arg', 'January 27, 2026', '12:00', 'MetLife Stadium', 'New York', 'C', 'live', 2, 1),
-  
-  // Upcoming matches later today
-  createMatch('TEST2', 'eng', 'ger', 'January 27, 2026', '15:00', 'SoFi Stadium', 'Los Angeles', 'L'),
-  createMatch('TEST3', 'fra', 'esp', 'January 27, 2026', '18:00', 'AT&T Stadium', 'Dallas', 'I'),
-  createMatch('TEST4', 'ned', 'por', 'January 27, 2026', '21:00', 'Hard Rock Stadium', 'Miami', 'F'),
-
   // ============ MATCHDAY 1 ============
   
   // June 11, 2026
