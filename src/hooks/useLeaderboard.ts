@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 
 interface LeaderboardEntry {
   rank: number;
@@ -21,24 +22,60 @@ export const useLeaderboard = () => {
   const fetchLeaderboard = async () => {
     setLoading(true);
     
-    // Get all predictions grouped by user
+    // Get all predictions with scores
     const { data: predictions, error: predictionsError } = await supabase
       .from('predictions')
-      .select('user_id');
+      .select('user_id, match_id, home_score, away_score');
 
     if (predictionsError) {
       setLoading(false);
       return;
     }
 
-    // Count predictions per user
-    const userCounts: Record<string, number> = {};
-    predictions?.forEach(p => {
-      userCounts[p.user_id] = (userCounts[p.user_id] || 0) + 1;
+    // Get all finished matches from live_matches
+    const { data: finishedMatches, error: matchesError } = await supabase
+      .from('live_matches')
+      .select('match_id, home_score, away_score, status')
+      .in('status', ['FINISHED', 'FT', 'AET', 'PEN']);
+
+    if (matchesError) {
+      console.error('Error fetching matches:', matchesError);
+    }
+
+    // Create a map of finished matches for quick lookup
+    const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
+    finishedMatches?.forEach(match => {
+      matchResults.set(match.match_id, {
+        home_score: match.home_score,
+        away_score: match.away_score,
+      });
     });
 
-    // Get profiles for these users
-    const userIds = Object.keys(userCounts);
+    // Calculate points and prediction counts per user
+    const userStats: Record<string, { points: number; predictions: number }> = {};
+    
+    predictions?.forEach(p => {
+      if (!userStats[p.user_id]) {
+        userStats[p.user_id] = { points: 0, predictions: 0 };
+      }
+      
+      userStats[p.user_id].predictions++;
+      
+      // Calculate points if match is finished
+      const match = matchResults.get(p.match_id);
+      if (match && match.home_score !== null && match.away_score !== null) {
+        const { points } = calculatePredictionPoints(
+          p.home_score,
+          p.away_score,
+          match.home_score,
+          match.away_score
+        );
+        userStats[p.user_id].points += points;
+      }
+    });
+
+    // Get profiles for users with predictions
+    const userIds = Object.keys(userStats);
     if (userIds.length === 0) {
       setLeaderboard([]);
       setLoading(false);
@@ -55,18 +92,22 @@ export const useLeaderboard = () => {
       return;
     }
 
-    // Build leaderboard (for now, points = predictions count since no matches finished)
+    // Build leaderboard with actual points
     const entries: LeaderboardEntry[] = (profiles || []).map(profile => ({
       rank: 0,
       userId: profile.user_id,
       displayName: profile.display_name,
       avatarEmoji: profile.avatar_emoji || '👤',
-      totalPredictions: userCounts[profile.user_id] || 0,
-      points: 0, // Will be calculated when matches are finished
+      totalPredictions: userStats[profile.user_id]?.predictions || 0,
+      points: userStats[profile.user_id]?.points || 0,
     }));
 
-    // Sort by predictions count for now
-    entries.sort((a, b) => b.totalPredictions - a.totalPredictions);
+    // Sort by points (descending), then by predictions count as tiebreaker
+    entries.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return b.totalPredictions - a.totalPredictions;
+    });
+    
     entries.forEach((entry, index) => {
       entry.rank = index + 1;
     });
