@@ -59,7 +59,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl shadow-card border h-[200px] ${
+      className={`relative overflow-hidden rounded-2xl shadow-card border h-[250px] ${
         isCorrect ? 'ring-2 ring-fifa-green border-fifa-green/50' : 'border-border/50'
       } ${disabled ? 'opacity-80' : ''}`}
     >
