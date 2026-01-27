@@ -28,24 +28,22 @@ export const SyncButton = ({ onSync, syncing, lastSync }: SyncButtonProps) => {
       animate={{ opacity: 1, y: 0 }}
       className="bg-card rounded-xl p-3 border border-border/50"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm">
-            {lastSync ? (
-              <Wifi className="w-4 h-4 text-fifa-green" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-muted-foreground" />
-            )}
-            <span className="text-muted-foreground">
-              <Clock className="w-3 h-3 inline mr-1" />
-              {formatLastSync(lastSync)}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded-lg px-2 py-1">
-            <Info className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-            <span>Locks 30min before Kickoff</span>
-          </div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm">
+          {lastSync ? (
+            <Wifi className="w-4 h-4 text-fifa-green" />
+          ) : (
+            <WifiOff className="w-4 h-4 text-muted-foreground" />
+          )}
+          <span className="text-muted-foreground">
+            <Clock className="w-3 h-3 inline mr-1" />
+            {formatLastSync(lastSync)}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded-lg px-2 py-1">
+          <Info className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+          <span>Locks 30min before Kickoff</span>
         </div>
         
         <motion.button

@@ -21,7 +21,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   
-  const { localDate, localTime, isLocked, countdownText } = useMatchTime(match.date, match.time);
+  const { localDate, localTime, isLocked, countdownText, urgency } = useMatchTime(match.date, match.time);
   
   // Match is locked if it's within 30 min of start, live, or finished
   const isMatchLocked = isLocked || match.status === 'live' || match.status === 'finished';
@@ -142,7 +142,11 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                 ? 'bg-black/60 text-white'
                 : isMatchLocked
                   ? 'bg-muted-foreground/80 text-white'
-                  : 'bg-primary/80 text-white'
+                  : urgency === 'critical'
+                    ? 'bg-destructive text-white'
+                    : urgency === 'warning'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-primary/80 text-white'
           }`}>
             {isLive ? 'LIVE' : isFinished ? 'FT' : isMatchLocked ? 'Locked' : `🔒 ${countdownText}`}
           </div>
