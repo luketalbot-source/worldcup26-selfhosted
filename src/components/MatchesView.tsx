@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { MatchCard } from './MatchCard';
 import { GroupTabs } from './GroupTabs';
+import { StageSelector } from './StageSelector';
+import { KnockoutView } from './KnockoutView';
 import { getMatchesByGroup } from '@/data/matches';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +13,7 @@ import { LogIn } from 'lucide-react';
 const groups = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 export const MatchesView = () => {
+  const [activeStage, setActiveStage] = useState<'groups' | 'knockout'>('groups');
   const [activeGroup, setActiveGroup] = useState('A');
   const { addPrediction, getPrediction } = usePredictions();
   const { user } = useAuth();
@@ -18,8 +21,19 @@ export const MatchesView = () => {
   
   const matches = getMatchesByGroup(activeGroup);
 
+  if (activeStage === 'knockout') {
+    return (
+      <div className="space-y-4">
+        <StageSelector activeStage={activeStage} onStageChange={setActiveStage} />
+        <KnockoutView />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      <StageSelector activeStage={activeStage} onStageChange={setActiveStage} />
+      
       {!user && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
