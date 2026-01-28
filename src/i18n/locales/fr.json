@@ -118,5 +118,19 @@
     "fr": "Français",
     "pt": "Português",
     "it": "Italiano"
+  },
+  "knockout": {
+    "round32": "32èmes",
+    "round16": "16èmes",
+    "quarter": "Quarts",
+    "semi": "Demi-finales",
+    "finals": "Finales",
+    "loginPrompt": "<strong>Connexion</strong> pour sauvegarder vos pronostics !",
+    "groupsComplete": "✓ Phase de groupes terminée !",
+    "groupsIncomplete": "Format 48 équipes",
+    "groupsCompleteDesc": "Les équipes qualifiées sont déterminées. Faites vos pronostics !",
+    "groupsIncompleteDesc": "{{qualified}}/{{total}} groupes décidés. Mise à jour auto.",
+    "theFinal": "🏆 La Finale",
+    "thirdPlace": "🥉 Petite Finale"
   }
 }

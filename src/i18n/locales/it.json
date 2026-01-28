@@ -118,5 +118,19 @@
     "fr": "Français",
     "pt": "Português",
     "it": "Italiano"
+  },
+  "knockout": {
+    "round32": "Sedicesimi",
+    "round16": "Ottavi",
+    "quarter": "Quarti",
+    "semi": "Semifinali",
+    "finals": "Finali",
+    "loginPrompt": "<strong>Accedi</strong> per salvare i tuoi pronostici!",
+    "groupsComplete": "✓ Fase a gironi completata!",
+    "groupsIncomplete": "Formato 48 squadre",
+    "groupsCompleteDesc": "Le squadre per gli scontri diretti sono state determinate. Fai i tuoi pronostici!",
+    "groupsIncompleteDesc": "{{qualified}}/{{total}} gironi decisi. Aggiornamento automatico.",
+    "theFinal": "🏆 La Finale",
+    "thirdPlace": "🥉 Finale 3°/4° Posto"
   }
 }

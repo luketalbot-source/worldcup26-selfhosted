@@ -118,5 +118,19 @@
     "fr": "Français",
     "pt": "Português",
     "it": "Italiano"
+  },
+  "knockout": {
+    "round32": "Round of 32",
+    "round16": "Round of 16",
+    "quarter": "Quarter Finals",
+    "semi": "Semi Finals",
+    "finals": "Finals",
+    "loginPrompt": "<strong>Log in</strong> to save your predictions!",
+    "groupsComplete": "✓ Group stages complete!",
+    "groupsIncomplete": "48-team format",
+    "groupsCompleteDesc": "Knockout teams have been determined. Make your predictions!",
+    "groupsIncompleteDesc": "{{qualified}}/{{total}} groups decided. Teams update automatically when group stages finish.",
+    "theFinal": "🏆 The Final",
+    "thirdPlace": "🥉 Third Place"
   }
 }

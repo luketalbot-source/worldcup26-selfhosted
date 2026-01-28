@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Lock, LogIn, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { KnockoutMatchCard } from './KnockoutMatchCard';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useDynamicKnockout } from '@/hooks/useDynamicKnockout';
@@ -9,15 +10,10 @@ import { useAuth } from '@/contexts/AuthContext';
 
 type KnockoutStage = 'round32' | 'round16' | 'quarter' | 'semi' | 'finals';
 
-const stageLabels: Record<KnockoutStage, string> = {
-  round32: 'Round of 32',
-  round16: 'Round of 16',
-  quarter: 'Quarter Finals',
-  semi: 'Semi Finals',
-  finals: 'Finals',
-};
+const stages: KnockoutStage[] = ['round32', 'round16', 'quarter', 'semi', 'finals'];
 
 export const KnockoutView = () => {
+  const { t } = useTranslation();
   const [activeStage, setActiveStage] = useState<KnockoutStage>('round32');
   const { addPrediction, getPrediction } = usePredictions();
   const { getKnockoutStageMatches, areGroupStagesComplete, qualificationSummary, knockoutBracket } = useDynamicKnockout();
@@ -54,15 +50,16 @@ export const KnockoutView = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-center justify-between"
         >
-          <p className="text-sm text-foreground">
-            <strong>Log in</strong> to save your predictions!
-          </p>
+          <p 
+            className="text-sm text-foreground"
+            dangerouslySetInnerHTML={{ __html: t('knockout.loginPrompt') }}
+          />
           <button
             onClick={() => navigate('/auth')}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground font-semibold text-sm"
           >
             <LogIn className="w-4 h-4" />
-            Log In
+            {t('header.login')}
           </button>
         </motion.div>
       )}
@@ -70,7 +67,7 @@ export const KnockoutView = () => {
       {/* Stage Tabs */}
       <div className="sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {(Object.keys(stageLabels) as KnockoutStage[]).map((stage) => (
+          {stages.map((stage) => (
             <motion.button
               key={stage}
               whileHover={{ scale: 1.05 }}
@@ -83,7 +80,7 @@ export const KnockoutView = () => {
               }`}
             >
               {stage === 'finals' && <Trophy className="w-4 h-4 inline mr-1" />}
-              {stageLabels[stage]}
+              {t(`knockout.${stage}`)}
             </motion.button>
           ))}
         </div>
@@ -105,14 +102,14 @@ export const KnockoutView = () => {
         <div>
           <p className="text-sm text-foreground font-medium">
             {areGroupStagesComplete 
-              ? '✓ Group stages complete!' 
-              : '48-team format'
+              ? t('knockout.groupsComplete')
+              : t('knockout.groupsIncomplete')
             }
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             {areGroupStagesComplete 
-              ? 'Knockout teams have been determined. Make your predictions!'
-              : `${qualificationSummary.qualified.length}/${qualificationSummary.total} groups decided. Teams update automatically when group stages finish.`
+              ? t('knockout.groupsCompleteDesc')
+              : t('knockout.groupsIncompleteDesc', { qualified: qualificationSummary.qualified.length, total: qualificationSummary.total })
             }
           </p>
         </div>
@@ -129,7 +126,7 @@ export const KnockoutView = () => {
         {activeStage === 'finals' && (
           <>
             <div className="text-center py-2">
-              <h3 className="text-lg font-bold text-foreground">🏆 The Final</h3>
+              <h3 className="text-lg font-bold text-foreground">{t('knockout.theFinal')}</h3>
               <p className="text-sm text-muted-foreground">July 19, 2026 • New York</p>
             </div>
             <KnockoutMatchCard
@@ -140,7 +137,7 @@ export const KnockoutView = () => {
               isHighlighted
             />
             <div className="text-center py-2 mt-4">
-              <h3 className="text-base font-semibold text-muted-foreground">🥉 Third Place</h3>
+              <h3 className="text-base font-semibold text-muted-foreground">{t('knockout.thirdPlace')}</h3>
             </div>
             <KnockoutMatchCard
               match={knockoutBracket.thirdPlace}

@@ -118,5 +118,19 @@
     "fr": "Français",
     "pt": "Português",
     "it": "Italiano"
+  },
+  "knockout": {
+    "round32": "Sechzehntelfinale",
+    "round16": "Achtelfinale",
+    "quarter": "Viertelfinale",
+    "semi": "Halbfinale",
+    "finals": "Finale",
+    "loginPrompt": "<strong>Anmelden</strong>, um deine Tipps zu speichern!",
+    "groupsComplete": "✓ Gruppenphase abgeschlossen!",
+    "groupsIncomplete": "48-Teams-Format",
+    "groupsCompleteDesc": "Die K.O.-Teams stehen fest. Gib deine Tipps ab!",
+    "groupsIncompleteDesc": "{{qualified}}/{{total}} Gruppen entschieden. Teams werden automatisch aktualisiert.",
+    "theFinal": "🏆 Das Finale",
+    "thirdPlace": "🥉 Spiel um Platz 3"
   }
 }
