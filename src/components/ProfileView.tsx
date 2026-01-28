@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor, Phone, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +41,7 @@ export const ProfileView = () => {
   const [otpCode, setOtpCode] = useState('');
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [phoneError, setPhoneError] = useState('');
+  const phoneVerifyInFlightRef = useRef(false);
   
   const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
@@ -102,6 +103,8 @@ export const ProfileView = () => {
 
   const handleVerifyPhoneOtp = async () => {
     if (otpCode.length !== 6) return;
+    if (phoneVerifyInFlightRef.current) return;
+    phoneVerifyInFlightRef.current = true;
 
     setPhoneLoading(true);
     setPhoneError('');
@@ -129,6 +132,7 @@ export const ProfileView = () => {
       setOtpCode('');
     } finally {
       setPhoneLoading(false);
+      phoneVerifyInFlightRef.current = false;
     }
   };
 
@@ -138,6 +142,7 @@ export const ProfileView = () => {
     setEditPhone('');
     setOtpCode('');
     setPhoneError('');
+    phoneVerifyInFlightRef.current = false;
   };
 
   if (!user) {

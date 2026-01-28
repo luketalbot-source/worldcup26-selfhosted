@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Phone, ArrowLeft, Loader2 } from 'lucide-react';
@@ -25,6 +25,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
+  const verifyInFlightRef = useRef(false);
   const { sendOtp, verifyOtp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -108,6 +109,8 @@ const Auth = () => {
 
   const handleVerifyOtp = async () => {
     if (otpCode.length !== 6) return;
+    if (verifyInFlightRef.current) return;
+    verifyInFlightRef.current = true;
     
     setIsLoading(true);
     setError('');
@@ -136,6 +139,7 @@ const Auth = () => {
       setOtpCode('');
     } finally {
       setIsLoading(false);
+      verifyInFlightRef.current = false;
     }
   };
 
@@ -144,6 +148,7 @@ const Auth = () => {
     if (step === 'verify') {
       setStep(isNewUser ? 'username' : 'phone');
       setOtpCode('');
+      verifyInFlightRef.current = false;
     } else if (step === 'username') {
       setStep('phone');
     }
