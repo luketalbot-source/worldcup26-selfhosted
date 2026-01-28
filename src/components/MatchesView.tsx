@@ -89,7 +89,7 @@ export const MatchesView = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3 }}
-            className="space-y-4"
+            className="space-y-4 max-w-[700px] mx-auto"
           >
             {todayMatches.map((match) => (
               <MatchCard
@@ -113,7 +113,8 @@ export const MatchesView = () => {
       
       {renderLoginPrompt()}
       
-      <div className="sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">
+      {/* Mobile: horizontal tabs */}
+      <div className="md:hidden sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">
         <GroupTabs 
           groups={groups} 
           activeGroup={activeGroup} 
@@ -121,23 +122,37 @@ export const MatchesView = () => {
         />
       </div>
       
-      <motion.div 
-        key={activeGroup}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-4"
-      >
-        {matches.map((match) => (
-          <MatchCard
-            key={match.id}
-            match={match}
-            prediction={getPrediction(match.id)}
-            onPredict={addPrediction}
-            disabled={!user}
+      {/* Desktop: side-by-side layout */}
+      <div className="flex gap-6">
+        {/* Vertical tabs - hidden on mobile */}
+        <div className="hidden md:block sticky top-[120px] self-start">
+          <GroupTabs 
+            groups={groups} 
+            activeGroup={activeGroup} 
+            onGroupChange={setActiveGroup}
+            vertical
           />
-        ))}
-      </motion.div>
+        </div>
+        
+        {/* Match cards */}
+        <motion.div 
+          key={activeGroup}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex-1 space-y-4 max-w-[700px]"
+        >
+          {matches.map((match) => (
+            <MatchCard
+              key={match.id}
+              match={match}
+              prediction={getPrediction(match.id)}
+              onPredict={addPrediction}
+              disabled={!user}
+            />
+          ))}
+        </motion.div>
+      </div>
     </div>
   );
 };
