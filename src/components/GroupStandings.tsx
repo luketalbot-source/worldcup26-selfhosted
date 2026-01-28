@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { GroupStanding } from '@/types/match';
 
 interface GroupStandingsProps {
@@ -7,6 +8,8 @@ interface GroupStandingsProps {
 }
 
 export const GroupStandings = ({ standings, group }: GroupStandingsProps) => {
+  const { t } = useTranslation();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -14,21 +17,21 @@ export const GroupStandings = ({ standings, group }: GroupStandingsProps) => {
       className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
     >
       <div className="gradient-navy px-4 py-3">
-        <h3 className="text-white font-semibold">Group {group} Standings</h3>
+        <h3 className="text-white font-semibold">{t('standings.title', { letter: group })}</h3>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">#</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Team</th>
-              <th className="text-center py-3 px-2 font-medium text-muted-foreground">P</th>
-              <th className="text-center py-3 px-2 font-medium text-muted-foreground">W</th>
-              <th className="text-center py-3 px-2 font-medium text-muted-foreground">D</th>
-              <th className="text-center py-3 px-2 font-medium text-muted-foreground">L</th>
-              <th className="text-center py-3 px-2 font-medium text-muted-foreground">GD</th>
-              <th className="text-center py-3 px-4 font-medium text-muted-foreground">Pts</th>
+              <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t('standings.rank')}</th>
+              <th className="text-left py-3 px-4 font-medium text-muted-foreground">{t('standings.team')}</th>
+              <th className="text-center py-3 px-2 font-medium text-muted-foreground">{t('standings.played')}</th>
+              <th className="text-center py-3 px-2 font-medium text-muted-foreground">{t('standings.won')}</th>
+              <th className="text-center py-3 px-2 font-medium text-muted-foreground">{t('standings.drawn')}</th>
+              <th className="text-center py-3 px-2 font-medium text-muted-foreground">{t('standings.lost')}</th>
+              <th className="text-center py-3 px-2 font-medium text-muted-foreground">{t('standings.goalDifference')}</th>
+              <th className="text-center py-3 px-4 font-medium text-muted-foreground">{t('standings.points')}</th>
             </tr>
           </thead>
           <tbody>
