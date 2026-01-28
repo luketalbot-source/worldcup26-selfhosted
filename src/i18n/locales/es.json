@@ -145,6 +145,9 @@
   "leagues": {
     "title": "Ligas",
     "subtitle": "Compite con amigos",
+    "everyone": "Todos",
+    "everyoneSubtitle": "Todos los jugadores",
+    "everyoneDescription": "Clasificación global con todos los jugadores",
     "loginPrompt": "¡Inicia sesión para crear o unirte a ligas!",
     "create": "Crear",
     "join": "Unirse",

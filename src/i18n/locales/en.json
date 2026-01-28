@@ -146,6 +146,9 @@
   "leagues": {
     "title": "Leagues",
     "subtitle": "Compete with friends",
+    "everyone": "Everyone",
+    "everyoneSubtitle": "All players",
+    "everyoneDescription": "Global leaderboard with all players",
     "loginPrompt": "Log in to create or join leagues!",
     "create": "Create",
     "join": "Join",
