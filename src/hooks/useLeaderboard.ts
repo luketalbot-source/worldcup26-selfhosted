@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
+import { groupStageMatches } from '@/data/matches';
 
 interface LeaderboardEntry {
   rank: number;
@@ -32,7 +33,7 @@ export const useLeaderboard = () => {
       return;
     }
 
-    // Get all finished matches from live_matches
+    // Get all finished matches from live_matches (database)
     const { data: finishedMatches, error: matchesError } = await supabase
       .from('live_matches')
       .select('match_id, home_score, away_score, status')
@@ -44,12 +45,24 @@ export const useLeaderboard = () => {
 
     // Create a map of finished matches for quick lookup
     const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
+    
+    // Add matches from database
     finishedMatches?.forEach(match => {
       matchResults.set(match.match_id, {
         home_score: match.home_score,
         away_score: match.away_score,
       });
     });
+    
+    // Also add finished matches from static data (for test matches)
+    groupStageMatches
+      .filter(m => m.status === 'finished' && m.homeScore !== undefined && m.awayScore !== undefined)
+      .forEach(match => {
+        matchResults.set(match.id, {
+          home_score: match.homeScore ?? null,
+          away_score: match.awayScore ?? null,
+        });
+      });
 
     // Calculate points and prediction counts per user
     const userStats: Record<string, { points: number; predictions: number }> = {};
