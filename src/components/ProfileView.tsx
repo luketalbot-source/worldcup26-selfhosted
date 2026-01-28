@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useUserStats } from '@/hooks/useUserStats';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PhoneInput } from '@/components/PhoneInput';
@@ -30,6 +30,7 @@ export const ProfileView = () => {
   const { predictions } = usePredictions();
   const { stats } = useUserStats(user?.id);
   const navigate = useNavigate();
+  const { tenantUid } = useParams();
   
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -65,7 +66,11 @@ export const ProfileView = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    if (tenantUid) {
+      navigate(`/t/${tenantUid}/auth`, { replace: true });
+    } else {
+      navigate('/');
+    }
   };
 
   const handleEditPhone = () => {
