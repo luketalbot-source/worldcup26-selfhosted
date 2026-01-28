@@ -21,7 +21,7 @@ export const SyncButton = ({
 
   const getButtonText = () => {
     if (syncing) return t('sync.syncing');
-    if (!canSync && cooldownRemaining > 0) return t('sync.wait', { seconds: cooldownRemaining });
+    if (!canSync && cooldownRemaining > 0) return `${cooldownRemaining}s`;
     return t('sync.button');
   };
 
