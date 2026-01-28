@@ -50,6 +50,11 @@ const Admin = () => {
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
+  // Set document title
+  useEffect(() => {
+    document.title = 'WC2026 Admin';
+  }, []);
+
   // Check admin status
   useEffect(() => {
     const checkAdmin = async () => {
