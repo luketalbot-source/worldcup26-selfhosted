@@ -248,6 +248,27 @@ export const LeaguesView = () => {
                 ))}
               </div>
             )}
+            
+            {/* Scoring system explanation */}
+            <div className="mt-4 p-4 bg-muted/30 rounded-xl border border-border">
+              <div className="grid grid-cols-3 gap-4 text-center text-sm">
+                <div>
+                  <div className="font-bold text-foreground">3</div>
+                  <div className="text-xs text-muted-foreground">{t('leaderboard.exactScore')}</div>
+                </div>
+                <div>
+                  <div className="font-bold text-foreground">1</div>
+                  <div className="text-xs text-muted-foreground">{t('leaderboard.correctWinner')}</div>
+                </div>
+                <div>
+                  <div className="font-bold text-foreground">0</div>
+                  <div className="text-xs text-muted-foreground">{t('leaderboard.wrong')}</div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                {t('leaderboard.pointsPerType')}
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>
