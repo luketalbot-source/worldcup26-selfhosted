@@ -71,7 +71,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header hideUserSection />
+      <Header />
 
       <main className="container py-8">
         <motion.div

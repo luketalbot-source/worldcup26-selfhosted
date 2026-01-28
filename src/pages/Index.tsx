@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
-import { LeaderboardView } from '@/components/LeaderboardView';
 import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,8 +40,6 @@ const Index = () => {
         return <MatchesView />;
       case 'leagues':
         return <LeaguesView />;
-      case 'leaderboard':
-        return <LeaderboardView />;
       case 'profile':
         return <ProfileView />;
       default:

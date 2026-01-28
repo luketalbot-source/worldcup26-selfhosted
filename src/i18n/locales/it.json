@@ -3,7 +3,8 @@
     "matches": "Partite",
     "standings": "Classifica",
     "leagues": "Leghe",
-    "leaders": "Leader"
+    "leaders": "Leader",
+    "me": "Io"
   },
   "header": {
     "login": "Accedi",
