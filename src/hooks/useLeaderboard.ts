@@ -23,14 +23,33 @@ export const useLeaderboard = () => {
   const fetchLeaderboard = async () => {
     setLoading(true);
     
-    // Get all predictions with scores
-    const { data: predictions, error: predictionsError } = await supabase
-      .from('predictions')
-      .select('user_id, match_id, home_score, away_score');
+    // Get ALL profiles in the tenant (everyone in the system)
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*');
 
-    if (predictionsError) {
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
       setLoading(false);
       return;
+    }
+
+    if (!profiles || profiles.length === 0) {
+      setLeaderboard([]);
+      setLoading(false);
+      return;
+    }
+
+    const userIds = profiles.map(p => p.user_id);
+
+    // Get all predictions with scores for these users
+    const { data: predictions, error: predictionsError } = await supabase
+      .from('predictions')
+      .select('user_id, match_id, home_score, away_score')
+      .in('user_id', userIds);
+
+    if (predictionsError) {
+      console.error('Error fetching predictions:', predictionsError);
     }
 
     // Get all finished matches from live_matches (database)
@@ -64,9 +83,13 @@ export const useLeaderboard = () => {
         });
       });
 
-    // Calculate points and prediction counts per user
+    // Initialize all users with 0 stats
     const userStats: Record<string, { points: number; predictions: number }> = {};
-    
+    userIds.forEach(userId => {
+      userStats[userId] = { points: 0, predictions: 0 };
+    });
+
+    // Calculate points and prediction counts per user
     predictions?.forEach(p => {
       if (!userStats[p.user_id]) {
         userStats[p.user_id] = { points: 0, predictions: 0 };
@@ -86,24 +109,6 @@ export const useLeaderboard = () => {
         userStats[p.user_id].points += points;
       }
     });
-
-    // Get profiles for users with predictions
-    const userIds = Object.keys(userStats);
-    if (userIds.length === 0) {
-      setLeaderboard([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*')
-      .in('user_id', userIds);
-
-    if (profilesError) {
-      setLoading(false);
-      return;
-    }
 
     // Build leaderboard with actual points
     const entries: LeaderboardEntry[] = (profiles || []).map(profile => ({
