@@ -18,7 +18,7 @@ export const MatchesView = () => {
   const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('today');
   const [activeGroup, setActiveGroup] = useState('A');
   const { addPrediction, getPrediction, predictions } = usePredictions();
-  const { getGroupMatches, getTodayMatches, syncMatches, syncing, lastSync } = useLiveMatches();
+  const { getGroupMatches, getTodayMatches, syncMatches, syncing, lastSync, canSync, cooldownRemaining } = useLiveMatches();
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -59,7 +59,7 @@ export const MatchesView = () => {
     return (
       <div className="space-y-4">
         <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-        <SyncButton onSync={syncMatches} syncing={syncing} lastSync={lastSync} />
+        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
         <KnockoutView />
       </div>
     );
@@ -69,7 +69,7 @@ export const MatchesView = () => {
     return (
       <div className="space-y-4">
         <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-        <SyncButton onSync={syncMatches} syncing={syncing} lastSync={lastSync} />
+        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
         
         {renderLoginPrompt()}
         
@@ -107,7 +107,7 @@ export const MatchesView = () => {
   return (
     <div className="space-y-4">
       <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-      <SyncButton onSync={syncMatches} syncing={syncing} lastSync={lastSync} />
+      <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
       
       {renderLoginPrompt()}
       

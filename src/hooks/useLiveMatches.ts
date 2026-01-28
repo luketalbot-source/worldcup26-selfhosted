@@ -1,8 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Match } from '@/types/match';
 import { groupStageMatches } from '@/data/matches';
 import { getAllKnockoutMatches, KnockoutMatch } from '@/data/knockoutMatches';
+
+// Global cooldown in seconds
+const SYNC_COOLDOWN_SECONDS = 60;
 
 interface LiveMatch {
   id: string;
@@ -27,6 +30,8 @@ export const useLiveMatches = () => {
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const hasAutoSynced = useRef(false);
 
   const fetchLiveMatches = useCallback(async () => {
     const { data, error } = await supabase
@@ -37,34 +42,101 @@ export const useLiveMatches = () => {
     if (!error && data) {
       setLiveMatches(data);
       if (data.length > 0) {
-        setLastSync(new Date(data[0].last_updated));
+        // Get the most recent last_updated timestamp
+        const mostRecent = data.reduce((latest, match) => {
+          const matchDate = new Date(match.last_updated);
+          return matchDate > latest ? matchDate : latest;
+        }, new Date(0));
+        setLastSync(mostRecent);
+        return mostRecent;
       }
     }
     setLoading(false);
+    return null;
   }, []);
 
-  const syncMatches = useCallback(async () => {
+  // Check if sync is allowed based on global cooldown
+  const canSync = useCallback(() => {
+    if (!lastSync) return true;
+    const secondsSinceSync = (Date.now() - lastSync.getTime()) / 1000;
+    return secondsSinceSync >= SYNC_COOLDOWN_SECONDS;
+  }, [lastSync]);
+
+  // Update cooldown remaining timer
+  useEffect(() => {
+    if (!lastSync) {
+      setCooldownRemaining(0);
+      return;
+    }
+
+    const updateCooldown = () => {
+      const secondsSinceSync = (Date.now() - lastSync.getTime()) / 1000;
+      const remaining = Math.max(0, SYNC_COOLDOWN_SECONDS - secondsSinceSync);
+      setCooldownRemaining(Math.ceil(remaining));
+    };
+
+    updateCooldown();
+    const interval = setInterval(updateCooldown, 1000);
+    return () => clearInterval(interval);
+  }, [lastSync]);
+
+  const syncMatches = useCallback(async (force = false) => {
+    // Check cooldown unless forced
+    if (!force && !canSync()) {
+      console.log(`Sync on cooldown. ${cooldownRemaining}s remaining.`);
+      return { skipped: true, reason: 'cooldown' };
+    }
+
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-matches');
       
       if (error) {
         console.error('Error syncing matches:', error);
+        return { success: false, error };
       } else {
         console.log('Sync result:', data);
         // Refresh local data after sync
         await fetchLiveMatches();
+        return { success: true, data };
       }
     } catch (err) {
       console.error('Failed to sync:', err);
+      return { success: false, error: err };
     } finally {
       setSyncing(false);
     }
-  }, [fetchLiveMatches]);
+  }, [fetchLiveMatches, canSync, cooldownRemaining]);
 
+  // Auto-sync on app open (once per mount, respecting cooldown)
   useEffect(() => {
-    fetchLiveMatches();
-  }, [fetchLiveMatches]);
+    const initializeAndSync = async () => {
+      // First, fetch current data to get the last sync time
+      const lastSyncTime = await fetchLiveMatches();
+      setLoading(false);
+      
+      // Only auto-sync once per app session
+      if (hasAutoSynced.current) return;
+      hasAutoSynced.current = true;
+
+      // Check if we should auto-sync based on last sync time
+      if (!lastSyncTime) {
+        // No data yet, sync immediately
+        console.log('No data found, syncing...');
+        await syncMatches(true);
+      } else {
+        const secondsSinceSync = (Date.now() - lastSyncTime.getTime()) / 1000;
+        if (secondsSinceSync >= SYNC_COOLDOWN_SECONDS) {
+          console.log(`Last sync was ${Math.floor(secondsSinceSync)}s ago, auto-syncing...`);
+          await syncMatches(true);
+        } else {
+          console.log(`Last sync was ${Math.floor(secondsSinceSync)}s ago, within cooldown.`);
+        }
+      }
+    };
+
+    initializeAndSync();
+  }, []);
 
   // Merge live data with local static data
   const mergeWithLocalData = useCallback((localMatches: Match[]): Match[] => {
@@ -159,6 +231,8 @@ export const useLiveMatches = () => {
     lastSync,
     syncing,
     syncMatches,
+    canSync,
+    cooldownRemaining,
     getGroupMatches,
     getKnockoutMatches,
     getTodayMatches,
