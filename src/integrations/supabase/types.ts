@@ -224,6 +224,10 @@ export type Database = {
         }[]
       }
       get_user_league_ids: { Args: { _user_id: string }; Returns: string[] }
+      is_league_creator: {
+        Args: { _league_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_league_member: {
         Args: { _league_id: string; _user_id: string }
         Returns: boolean

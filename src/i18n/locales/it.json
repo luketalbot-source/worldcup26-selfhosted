@@ -181,6 +181,13 @@
     "backToDetail": "Indietro",
     "saving": "Salvataggio...",
     "updated": "Lega aggiornata!",
-    "updateError": "Impossibile aggiornare la lega"
+    "updateError": "Impossibile aggiornare la lega",
+    "leaveLeague": "Lascia la Lega",
+    "deleteLeague": "Elimina Lega",
+    "removeMember": "Rimuovi dalla lega",
+    "memberRemoved": "Membro rimosso",
+    "removeMemberError": "Impossibile rimuovere il membro",
+    "deleted": "Lega eliminata",
+    "deleteError": "Impossibile eliminare la lega"
   }
 }

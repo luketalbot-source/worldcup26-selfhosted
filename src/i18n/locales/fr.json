@@ -181,6 +181,13 @@
     "backToDetail": "Retour",
     "saving": "Enregistrement...",
     "updated": "Ligue mise à jour !",
-    "updateError": "Échec de la mise à jour"
+    "updateError": "Échec de la mise à jour",
+    "leaveLeague": "Quitter la Ligue",
+    "deleteLeague": "Supprimer la Ligue",
+    "removeMember": "Retirer de la ligue",
+    "memberRemoved": "Membre retiré",
+    "removeMemberError": "Échec du retrait du membre",
+    "deleted": "Ligue supprimée",
+    "deleteError": "Échec de la suppression"
   }
 }
