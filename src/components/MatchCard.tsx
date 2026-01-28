@@ -4,7 +4,7 @@ import { Match, Prediction } from '@/types/match';
 import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
 import { getFlagUrl } from '@/lib/flagUtils';
-import { useMatchTime } from '@/hooks/useMatchTime';
+import { useMatchTime, getEffectiveMatchStatus } from '@/hooks/useMatchTime';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 
 interface MatchCardProps {
@@ -22,10 +22,13 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
   
   const { localDate, localTime, isLocked, countdownText, urgency } = useMatchTime(match.date, match.time);
   
+  // Get effective status - auto-finishes matches that have been "live" for 3+ hours
+  const effectiveStatus = getEffectiveMatchStatus(match.date, match.time, match.status);
+  
   // Match is locked if it's within 30 min of start, live, or finished
-  const isMatchLocked = isLocked || match.status === 'live' || match.status === 'finished';
-  const isFinished = match.status === 'finished';
-  const isLive = match.status === 'live';
+  const isMatchLocked = isLocked || effectiveStatus === 'live' || effectiveStatus === 'finished';
+  const isFinished = effectiveStatus === 'finished';
+  const isLive = effectiveStatus === 'live';
   const isPredicted = !!prediction;
 
   useEffect(() => {
