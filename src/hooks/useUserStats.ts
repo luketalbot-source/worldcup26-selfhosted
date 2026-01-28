@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateUserStats, UserStats } from '@/lib/scoringCalculator';
+import { groupStageMatches } from '@/data/matches';
 
 const defaultStats: UserStats = {
   totalPoints: 0,
@@ -39,7 +40,7 @@ export const useUserStats = (userId: string | undefined) => {
       return;
     }
 
-    // Get all finished matches
+    // Get all finished matches from database
     const { data: finishedMatches, error: matchesError } = await supabase
       .from('live_matches')
       .select('match_id, home_score, away_score, status')
@@ -53,12 +54,24 @@ export const useUserStats = (userId: string | undefined) => {
 
     // Create a map of finished matches
     const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
+    
+    // Add matches from database
     finishedMatches?.forEach(match => {
       matchResults.set(match.match_id, {
         home_score: match.home_score,
         away_score: match.away_score,
       });
     });
+    
+    // Also add finished matches from static data (for test matches)
+    groupStageMatches
+      .filter(m => m.status === 'finished' && m.homeScore !== undefined && m.awayScore !== undefined)
+      .forEach(match => {
+        matchResults.set(match.id, {
+          home_score: match.homeScore ?? null,
+          away_score: match.awayScore ?? null,
+        });
+      });
 
     // Calculate stats
     const calculatedStats = calculateUserStats(predictions || [], matchResults);
