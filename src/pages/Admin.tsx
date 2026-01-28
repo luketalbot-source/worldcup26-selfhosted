@@ -46,6 +46,9 @@ const Admin = () => {
   const [newTenantName, setNewTenantName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   // Check admin status
   useEffect(() => {
@@ -279,35 +282,19 @@ const Admin = () => {
                         <ExternalLink className="w-4 h-4" />
                       </Button>
                       
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            title="Delete Tenant"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Tenant?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete "{tenant.name}" and all associated data including users, predictions, and leagues. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteTenant(tenant.id, tenant.name)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        title="Delete Tenant"
+                        onClick={() => {
+                          setTenantToDelete(tenant);
+                          setDeleteConfirmation('');
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -315,6 +302,51 @@ const Admin = () => {
             ))
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Tenant?</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  This will permanently delete <strong>"{tenantToDelete?.name}"</strong> and all associated data including users, predictions, and leagues.
+                </p>
+                <p className="font-medium text-destructive">This action cannot be undone.</p>
+                <div className="pt-2">
+                  <label className="text-sm text-foreground">
+                    Type <strong>{tenantToDelete?.name}</strong> to confirm:
+                  </label>
+                  <Input
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
+                    placeholder="Enter tenant name"
+                    className="mt-2"
+                  />
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteConfirmation('')}>
+                Cancel
+              </AlertDialogCancel>
+              <Button
+                variant="destructive"
+                disabled={deleteConfirmation !== tenantToDelete?.name}
+                onClick={() => {
+                  if (tenantToDelete && deleteConfirmation === tenantToDelete.name) {
+                    handleDeleteTenant(tenantToDelete.id, tenantToDelete.name);
+                    setDeleteDialogOpen(false);
+                    setDeleteConfirmation('');
+                    setTenantToDelete(null);
+                  }
+                }}
+              >
+                Delete Permanently
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
