@@ -42,6 +42,7 @@ interface TenantUser {
   avatar_emoji: string | null;
   phone_number: string | null;
   created_at: string;
+  lastActive: string | null;
 }
 
 const Admin = () => {
@@ -164,14 +165,53 @@ const Admin = () => {
   const fetchTenantUsers = async (tenant: Tenant) => {
     setLoadingUsers(true);
     try {
-      const { data, error } = await supabase
+      // Fetch profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .eq('tenant_id', tenant.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setTenantUsers(data || []);
+      if (profilesError) throw profilesError;
+
+      if (!profiles || profiles.length === 0) {
+        setTenantUsers([]);
+        setLoadingUsers(false);
+        return;
+      }
+
+      // Fetch latest prediction for each user
+      const userIds = profiles.map(p => p.user_id);
+      const { data: predictions, error: predictionsError } = await supabase
+        .from('predictions')
+        .select('user_id, updated_at')
+        .in('user_id', userIds)
+        .order('updated_at', { ascending: false });
+
+      if (predictionsError) {
+        console.error('Error fetching predictions:', predictionsError);
+      }
+
+      // Create a map of user_id to their latest activity
+      const lastActiveMap: Record<string, string> = {};
+      predictions?.forEach(p => {
+        if (!lastActiveMap[p.user_id]) {
+          lastActiveMap[p.user_id] = p.updated_at;
+        }
+      });
+
+      // Combine profiles with last active data
+      const usersWithActivity: TenantUser[] = profiles.map(profile => ({
+        id: profile.id,
+        user_id: profile.user_id,
+        display_name: profile.display_name,
+        avatar_emoji: profile.avatar_emoji,
+        phone_number: profile.phone_number,
+        created_at: profile.created_at,
+        lastActive: lastActiveMap[profile.user_id] || null,
+      }));
+
+      setTenantUsers(usersWithActivity);
     } catch (err) {
       console.error('Error fetching tenant users:', err);
       toast.error('Failed to load users');
@@ -343,10 +383,16 @@ const Admin = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          Joined {new Date(tenantUser.created_at).toLocaleDateString()}
-                        </span>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right text-xs text-muted-foreground">
+                          <div>Joined {new Date(tenantUser.created_at).toLocaleDateString()}</div>
+                          <div>
+                            {tenantUser.lastActive 
+                              ? `Active ${new Date(tenantUser.lastActive).toLocaleString()}`
+                              : 'No activity yet'
+                            }
+                          </div>
+                        </div>
                         <Button
                           variant="outline"
                           size="icon"
