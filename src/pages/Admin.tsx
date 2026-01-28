@@ -34,6 +34,7 @@ interface Tenant {
   uid: string;
   name: string;
   created_at: string;
+  profiles: { count: number }[];
 }
 
 const Admin = () => {
@@ -82,7 +83,7 @@ const Admin = () => {
       try {
         const { data, error } = await supabase
           .from('tenants')
-          .select('*')
+          .select('*, profiles(count)')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -108,7 +109,7 @@ const Admin = () => {
 
       if (error) throw error;
 
-      setTenants([data, ...tenants]);
+      setTenants([{ ...data, profiles: [{ count: 0 }] }, ...tenants]);
       setNewTenantName('');
       setDialogOpen(false);
       toast.success('Tenant created successfully');
@@ -251,9 +252,11 @@ const Admin = () => {
                     <div className="flex-1">
                       <h3 className="font-semibold text-foreground">{tenant.name}</h3>
                       <p className="text-sm text-muted-foreground font-mono">/t/{tenant.uid}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Created {new Date(tenant.created_at).toLocaleDateString()}
-                      </p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{tenant.profiles?.[0]?.count ?? 0} users</span>
+                        <span>•</span>
+                        <span>Created {new Date(tenant.created_at).toLocaleDateString()}</span>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
