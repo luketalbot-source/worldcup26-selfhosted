@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trophy, Trash2, LogOut, X } from 'lucide-react';
+import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trophy, Trash2, LogOut, X, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeagues, League } from '@/hooks/useLeagues';
 import { useLeagueLeaderboard } from '@/hooks/useLeagueLeaderboard';
+import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,18 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const LEAGUE_EMOJIS = ['🏆', '⚽', '🥇', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎯', '🏅', '🎮', '🌍'];
+
+// Special "Everyone" league constant
+const EVERYONE_LEAGUE_ID = 'everyone';
+const EVERYONE_LEAGUE: League = {
+  id: EVERYONE_LEAGUE_ID,
+  name: 'Everyone',
+  avatar_emoji: '🌍',
+  join_code: '',
+  creator_id: '',
+  created_at: '',
+  member_count: 0,
+};
 
 const getRankDisplay = (rank: number) => {
   switch (rank) {
@@ -44,10 +57,20 @@ export const LeaguesView = () => {
   const [view, setView] = useState<'list' | 'create' | 'join' | 'detail' | 'edit'>('list');
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   
+  // Check if selected league is the "Everyone" league
+  const isEveryoneLeague = selectedLeague?.id === EVERYONE_LEAGUE_ID;
+  
   const { leaderboard: leagueLeaderboard, loading: leaderboardLoading, refetch: refetchLeaderboard } = useLeagueLeaderboard(
-    selectedLeague?.id || null,
+    isEveryoneLeague ? null : (selectedLeague?.id || null),
     selectedLeague?.creator_id || null
   );
+  
+  // Global leaderboard for "Everyone" league
+  const { leaderboard: globalLeaderboard, loading: globalLeaderboardLoading } = useLeaderboard();
+  
+  // Use appropriate leaderboard based on selected league
+  const activeLeaderboard = isEveryoneLeague ? globalLeaderboard : leagueLeaderboard;
+  const activeLeaderboardLoading = isEveryoneLeague ? globalLeaderboardLoading : leaderboardLoading;
   
   // Create form state
   const [newName, setNewName] = useState('');
@@ -220,7 +243,7 @@ export const LeaguesView = () => {
               {t('leagues.backToList')}
             </button>
             
-            {selectedLeague.creator_id === user.id && (
+            {selectedLeague.creator_id === user.id && !isEveryoneLeague && (
               <button
                 onClick={handleEditLeague}
                 className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
@@ -233,30 +256,38 @@ export const LeaguesView = () => {
               <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur flex items-center justify-center mx-auto mb-3 text-3xl">
                 {selectedLeague.avatar_emoji}
               </div>
-              <h2 className="text-xl font-bold text-white">{selectedLeague.name}</h2>
+              <h2 className="text-xl font-bold text-white">
+                {isEveryoneLeague ? t('leagues.everyone') : selectedLeague.name}
+              </h2>
               <p className="text-white/70 text-sm mt-1">
-                {leagueLeaderboard.length} {leagueLeaderboard.length === 1 ? t('leagues.member') : t('leagues.members')}
+                {isEveryoneLeague 
+                  ? t('leagues.everyoneDescription')
+                  : `${activeLeaderboard.length} ${activeLeaderboard.length === 1 ? t('leagues.member') : t('leagues.members')}`
+                }
               </p>
             </div>
           </div>
           
           <div className="p-4">
-            <div className="flex items-center justify-between bg-muted rounded-xl p-3 mb-4">
-              <div>
-                <p className="text-xs text-muted-foreground">{t('leagues.joinCode')}</p>
-                <p className="font-mono font-bold text-lg">{selectedLeague.join_code}</p>
+            {/* Join code - hide for Everyone league */}
+            {!isEveryoneLeague && (
+              <div className="flex items-center justify-between bg-muted rounded-xl p-3 mb-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('leagues.joinCode')}</p>
+                  <p className="font-mono font-bold text-lg">{selectedLeague.join_code}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopyCode(selectedLeague.join_code)}
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleCopyCode(selectedLeague.join_code)}
-              >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </Button>
-            </div>
+            )}
             
             {/* League Leaderboard */}
-            {leaderboardLoading ? (
+            {activeLeaderboardLoading ? (
               <div className="p-6 text-center text-muted-foreground">{t('leaderboard.loading')}</div>
             ) : leagueLeaderboard.length === 0 ? (
               <div className="p-6 text-center">
@@ -264,7 +295,7 @@ export const LeaguesView = () => {
               </div>
             ) : (
               <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
-                {leagueLeaderboard.map((entry, index) => (
+                {activeLeaderboard.map((entry, index) => (
                   <motion.div
                     key={entry.userId}
                     initial={{ opacity: 0, x: -20 }}
@@ -290,15 +321,15 @@ export const LeaguesView = () => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {entry.isCreator && (
+                      {'isCreator' in entry && entry.isCreator && (
                         <Crown className="w-4 h-4 text-fifa-gold" />
                       )}
                       <div className="text-right">
                         <p className="text-lg font-bold text-foreground">{entry.points}</p>
                         <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
                       </div>
-                      {/* Remove button - only for creator, not for self or other creator */}
-                      {selectedLeague?.creator_id === user.id && entry.userId !== user.id && !entry.isCreator && (
+                      {/* Remove button - only for creator, not for self or other creator, not for Everyone league */}
+                      {!isEveryoneLeague && selectedLeague?.creator_id === user.id && entry.userId !== user.id && !('isCreator' in entry && entry.isCreator) && (
                         <button
                           onClick={() => openRemoveMemberDialog(entry.userId, entry.displayName)}
                           className="ml-2 p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
@@ -334,28 +365,30 @@ export const LeaguesView = () => {
               </p>
             </div>
             
-            {/* Leave / Delete League actions */}
-            <div className="mt-4 pt-4 border-t border-border space-y-3">
-              {selectedLeague?.creator_id === user.id ? (
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={() => setShowDeleteDialog(true)}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  {t('leagues.deleteLeague')}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full text-destructive hover:text-destructive"
-                  onClick={() => setShowLeaveDialog(true)}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  {t('leagues.leaveLeague')}
-                </Button>
-              )}
-            </div>
+            {/* Leave / Delete League actions - hide for Everyone league */}
+            {!isEveryoneLeague && (
+              <div className="mt-4 pt-4 border-t border-border space-y-3">
+                {selectedLeague?.creator_id === user.id ? (
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t('leagues.deleteLeague')}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={() => setShowLeaveDialog(true)}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {t('leagues.leaveLeague')}
+                  </Button>
+                )}
+              </div>
+            )}
             
             {/* Delete League Confirmation Dialog */}
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -702,23 +735,37 @@ export const LeaguesView = () => {
         <div className="text-center py-8 text-muted-foreground">
           {t('leagues.loading')}
         </div>
-      ) : leagues.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-2xl shadow-card border border-border/50 p-6 text-center"
-        >
-          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">{t('leagues.noLeagues')}</p>
-        </motion.div>
       ) : (
         <AnimatePresence>
+          {/* Everyone League - Always at top */}
+          <motion.div
+            key={EVERYONE_LEAGUE_ID}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0 }}
+            onClick={() => handleViewLeague(EVERYONE_LEAGUE)}
+            className="bg-card rounded-2xl shadow-card border border-border/50 p-4 cursor-pointer hover:border-primary/50 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-2xl">
+                <Globe className="w-7 h-7 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">{t('leagues.everyone')}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {t('leagues.everyoneSubtitle')}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+          
+          {/* User's leagues */}
           {leagues.map((league, index) => (
             <motion.div
               key={league.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: (index + 1) * 0.05 }}
               onClick={() => handleViewLeague(league)}
               className="bg-card rounded-2xl shadow-card border border-border/50 p-4 cursor-pointer hover:border-primary/50 transition-colors"
             >
