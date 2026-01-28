@@ -7,22 +7,55 @@ import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 const TenantApp = () => {
   const [activeTab, setActiveTab] = useState('matches');
+  const [checkingTenantMatch, setCheckingTenantMatch] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
   const { tenantUid } = useParams();
-  const { user, loading: authLoading } = useAuth();
-  const { tenant, loading: tenantLoading, error: tenantError } = useTenant();
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
+
+  // Check if user belongs to this tenant, if not sign them out
+  useEffect(() => {
+    const checkUserTenant = async () => {
+      if (authLoading || tenantLoading || !user || !tenantId) {
+        setCheckingTenantMatch(false);
+        return;
+      }
+
+      try {
+        // Check if user's profile belongs to this tenant
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // If user has a profile but it's for a different tenant, sign them out
+        if (profile && profile.tenant_id && profile.tenant_id !== tenantId) {
+          console.log('User belongs to different tenant, signing out');
+          await signOut();
+        }
+      } catch (err) {
+        console.error('Error checking user tenant:', err);
+      } finally {
+        setCheckingTenantMatch(false);
+      }
+    };
+
+    checkUserTenant();
+  }, [user, tenantId, authLoading, tenantLoading, signOut]);
 
   // Redirect to auth page if not logged in
   useEffect(() => {
-    if (!authLoading && !user && tenantUid) {
+    if (!authLoading && !checkingTenantMatch && !user && tenantUid) {
       navigate(`/t/${tenantUid}/auth`, { replace: true });
     }
-  }, [user, authLoading, navigate, tenantUid]);
+  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid]);
 
   // Handle navigation state (e.g., from header profile click)
   useEffect(() => {
@@ -32,8 +65,8 @@ const TenantApp = () => {
     }
   }, [location.state]);
 
-  // Show loading while checking tenant or auth
-  if (tenantLoading || authLoading) {
+  // Show loading while checking tenant, auth, or tenant match
+  if (tenantLoading || authLoading || checkingTenantMatch) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
