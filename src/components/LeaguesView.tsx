@@ -65,6 +65,7 @@ export const LeaguesView = () => {
   
   // Confirmation dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -123,7 +124,7 @@ export const LeaguesView = () => {
     }
   };
 
-  const handleLeaveLeague = async () => {
+  const handleConfirmLeaveLeague = async () => {
     if (!selectedLeague || !user) return;
     
     const success = await leaveLeague(selectedLeague.id);
@@ -131,6 +132,7 @@ export const LeaguesView = () => {
       setSelectedLeague(null);
       setView('list');
     }
+    setShowLeaveDialog(false);
   };
 
   const openRemoveMemberDialog = (memberId: string, memberName: string) => {
@@ -347,7 +349,7 @@ export const LeaguesView = () => {
                 <Button
                   variant="outline"
                   className="w-full text-destructive hover:text-destructive"
-                  onClick={handleLeaveLeague}
+                  onClick={() => setShowLeaveDialog(true)}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   {t('leagues.leaveLeague')}
@@ -392,6 +394,27 @@ export const LeaguesView = () => {
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     {t('leagues.confirmRemove.confirm')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            
+            {/* Leave League Confirmation Dialog */}
+            <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('leagues.confirmLeave.title')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('leagues.confirmLeave.description', { name: selectedLeague?.name })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('leagues.confirmLeave.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmLeaveLeague}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {t('leagues.confirmLeave.confirm')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

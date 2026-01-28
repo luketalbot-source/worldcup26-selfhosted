@@ -200,6 +200,12 @@
       "description": "Remover {{name}} desta liga?",
       "cancel": "Não",
       "confirm": "Sim, remover"
+    },
+    "confirmLeave": {
+      "title": "Tem certeza?",
+      "description": "Sair de {{name}}? Você pode entrar novamente com o código de convite.",
+      "cancel": "Não",
+      "confirm": "Sim, sair"
     }
   }
 }

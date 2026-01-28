@@ -200,6 +200,12 @@
       "description": "{{name}} aus dieser Liga entfernen?",
       "cancel": "Nein",
       "confirm": "Ja, entfernen"
+    },
+    "confirmLeave": {
+      "title": "Bist du sicher?",
+      "description": "{{name}} verlassen? Du kannst später mit dem Einladungscode wieder beitreten.",
+      "cancel": "Nein",
+      "confirm": "Ja, verlassen"
     }
   }
 }
