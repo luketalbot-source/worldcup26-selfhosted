@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminLogin } from '@/components/AdminLogin';
 import {
   Dialog,
   DialogContent,
@@ -155,17 +156,11 @@ const Admin = () => {
     );
   }
 
-  // Not logged in
+  // Not logged in - show login form
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Shield className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <CardTitle>Admin Portal</CardTitle>
-            <CardDescription>Please log in to access the admin portal.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <AdminLogin />
       </div>
     );
   }
