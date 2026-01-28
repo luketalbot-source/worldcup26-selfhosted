@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor, Phone, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,7 @@ import { useUserStats } from '@/hooks/useUserStats';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const languages = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
@@ -23,8 +24,8 @@ const languages = [
 export const ProfileView = () => {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const { user, signOut } = useAuth();
-  const { profile, updateProfile } = useProfile(user?.id);
+  const { user, signOut, sendOtp, verifyOtp } = useAuth();
+  const { profile, updateProfile, updatePhoneNumber } = useProfile(user?.id);
   const { predictions } = usePredictions();
   const { stats } = useUserStats(user?.id);
   const navigate = useNavigate();
@@ -32,6 +33,14 @@ export const ProfileView = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
+  
+  // Phone editing state
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [editPhone, setEditPhone] = useState('');
+  const [phoneStep, setPhoneStep] = useState<'input' | 'verify'>('input');
+  const [otpCode, setOtpCode] = useState('');
+  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
   
   const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
@@ -55,6 +64,80 @@ export const ProfileView = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleEditPhone = () => {
+    setEditPhone(profile?.phoneNumber || '');
+    setPhoneStep('input');
+    setOtpCode('');
+    setPhoneError('');
+    setIsEditingPhone(true);
+  };
+
+  const handleSendPhoneOtp = async () => {
+    if (!editPhone.trim()) return;
+    
+    const phoneRegex = /^\+[1-9]\d{6,14}$/;
+    if (!phoneRegex.test(editPhone)) {
+      setPhoneError(t('auth.validation.phoneFormat'));
+      return;
+    }
+
+    setPhoneLoading(true);
+    setPhoneError('');
+
+    try {
+      const { error } = await sendOtp(editPhone);
+      if (error) {
+        setPhoneError(error.message);
+      } else {
+        setPhoneStep('verify');
+      }
+    } catch (err) {
+      setPhoneError(t('auth.unexpectedError'));
+    } finally {
+      setPhoneLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (otpCode.length !== 6) return;
+
+    setPhoneLoading(true);
+    setPhoneError('');
+
+    try {
+      // Verify the OTP code
+      const { error: verifyError } = await verifyOtp(editPhone, otpCode);
+      if (verifyError) {
+        setPhoneError(verifyError.message);
+        setOtpCode('');
+        return;
+      }
+
+      // Update the phone number in the profile
+      const { error: updateError } = await updatePhoneNumber(editPhone) || {};
+      if (updateError) {
+        setPhoneError(updateError.message || 'Failed to update phone number');
+      } else {
+        setIsEditingPhone(false);
+        setPhoneStep('input');
+        setOtpCode('');
+      }
+    } catch (err) {
+      setPhoneError(t('auth.unexpectedError'));
+      setOtpCode('');
+    } finally {
+      setPhoneLoading(false);
+    }
+  };
+
+  const handleCancelPhoneEdit = () => {
+    setIsEditingPhone(false);
+    setPhoneStep('input');
+    setEditPhone('');
+    setOtpCode('');
+    setPhoneError('');
   };
 
   if (!user) {
@@ -245,6 +328,111 @@ export const ProfileView = () => {
             </span>
           </div>
         </div>
+      </motion.div>
+
+      {/* Phone Number Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-foreground">{t('profile.phoneNumber', 'Phone Number')}</h3>
+          {!isEditingPhone && (
+            <button
+              onClick={handleEditPhone}
+              className="text-sm text-primary hover:underline"
+            >
+              {profile?.phoneNumber ? t('profile.edit.change', 'Change') : t('profile.edit.add', 'Add')}
+            </button>
+          )}
+        </div>
+
+        {isEditingPhone ? (
+          <div className="space-y-4">
+            {phoneStep === 'input' ? (
+              <>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      type="tel"
+                      placeholder={t('auth.phonePlaceholder')}
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t('auth.phoneHint')}
+                  </p>
+                </div>
+                {phoneError && (
+                  <p className="text-sm text-destructive">{phoneError}</p>
+                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleCancelPhoneEdit}>
+                    {t('profile.edit.cancel')}
+                  </Button>
+                  <Button size="sm" onClick={handleSendPhoneOtp} disabled={phoneLoading || !editPhone.trim()}>
+                    {phoneLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      t('auth.sendCode')
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-4">
+                  <p className="text-sm text-muted-foreground">{t('auth.codeSentTo')}</p>
+                  <p className="font-medium">{editPhone}</p>
+                </div>
+                <div className="flex justify-center mb-4">
+                  <InputOTP
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(value) => setOtpCode(value)}
+                    onComplete={handleVerifyPhoneOtp}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                {phoneError && (
+                  <p className="text-sm text-destructive text-center">{phoneError}</p>
+                )}
+                <div className="flex gap-2 justify-center">
+                  <Button variant="outline" size="sm" onClick={() => setPhoneStep('input')}>
+                    {t('common.back')}
+                  </Button>
+                  <Button size="sm" onClick={handleVerifyPhoneOtp} disabled={phoneLoading || otpCode.length !== 6}>
+                    {phoneLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      t('auth.verify')
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Phone className="w-5 h-5 text-muted-foreground" />
+            <span className="text-sm text-foreground">
+              {profile?.phoneNumber || t('profile.noPhone', 'Not set')}
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Settings Card */}

@@ -126,13 +126,16 @@
     "language": "Language",
     "theme": "Theme",
     "signOut": "Sign Out",
-    "signOut": "Sign Out",
+    "phoneNumber": "Phone Number",
+    "noPhone": "Not set",
     "edit": {
       "tapToSelect": "Tap to select",
       "orTypeEmoji": "Or type/paste any emoji",
       "displayName": "Display name",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "change": "Change",
+      "add": "Add"
     }
   },
   "language": {
