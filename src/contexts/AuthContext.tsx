@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, type EmailOtpType } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
@@ -79,12 +79,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: new Error(data.error) };
       }
 
-      if (data?.token && data?.email) {
-        // Use the magic link token to sign in
+      if (data?.token) {
+        // `admin.generateLink({ type: 'magiclink' })` returns a hashed token.
+        // Supabase expects it as `token_hash` (not `token`) for verifyOtp.
+        const type = (data.tokenType || 'magiclink') as EmailOtpType;
+
         const { error: verifyError } = await supabase.auth.verifyOtp({
-          email: data.email,
-          token: data.token,
-          type: 'magiclink',
+          token_hash: data.token,
+          type,
         });
 
         if (verifyError) {
