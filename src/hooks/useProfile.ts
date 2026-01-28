@@ -6,6 +6,7 @@ export interface Profile {
   userId: string;
   displayName: string;
   avatarEmoji: string;
+  phoneNumber: string | null;
 }
 
 export const useProfile = (userId?: string) => {
@@ -37,6 +38,7 @@ export const useProfile = (userId?: string) => {
         userId: data.user_id,
         displayName: data.display_name,
         avatarEmoji: data.avatar_emoji || '👤',
+        phoneNumber: data.phone_number || null,
       });
     }
     setLoading(false);
@@ -64,5 +66,23 @@ export const useProfile = (userId?: string) => {
     return { error };
   };
 
-  return { profile, loading, updateProfile, refetch: fetchProfile };
+  const updatePhoneNumber = async (phoneNumber: string) => {
+    if (!userId) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ phone_number: phoneNumber })
+      .eq('user_id', userId);
+
+    if (!error && profile) {
+      setProfile({
+        ...profile,
+        phoneNumber,
+      });
+    }
+
+    return { error };
+  };
+
+  return { profile, loading, updateProfile, updatePhoneNumber, refetch: fetchProfile };
 };
