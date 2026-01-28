@@ -18,7 +18,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-inset-bottom">
-      <div className="container">
+      <div className="max-w-[700px] mx-auto px-4">
         <div className="flex items-center justify-around py-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
