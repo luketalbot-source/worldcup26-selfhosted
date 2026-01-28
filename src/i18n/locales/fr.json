@@ -132,5 +132,10 @@
     "groupsIncompleteDesc": "{{qualified}}/{{total}} groupes décidés. Mise à jour auto.",
     "theFinal": "🏆 La Finale",
     "thirdPlace": "🥉 Petite Finale"
+  },
+  "theme": {
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
   }
 }

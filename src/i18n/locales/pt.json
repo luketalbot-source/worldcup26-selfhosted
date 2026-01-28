@@ -132,5 +132,10 @@
     "groupsIncompleteDesc": "{{qualified}}/{{total}} grupos definidos. Atualização automática.",
     "theFinal": "🏆 A Final",
     "thirdPlace": "🥉 Disputa 3º Lugar"
+  },
+  "theme": {
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
   }
 }
