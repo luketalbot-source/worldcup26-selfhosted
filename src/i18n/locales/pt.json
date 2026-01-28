@@ -165,6 +165,7 @@
     "createdSuccess": "Liga criada!",
     "shareCode": "Compartilhe este código com amigos:",
     "codeCopied": "Código copiado!",
+    "copyFailed": "Falha ao copiar código",
     "done": "Pronto",
     "joinCode": "Código de Entrada",
     "member": "membro",
