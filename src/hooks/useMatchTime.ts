@@ -45,8 +45,9 @@ const formatCountdown = (minutesUntilLock: number): string => {
   const hours = Math.floor((minutesUntilLock % (60 * 24)) / 60);
   const minutes = minutesUntilLock % 60;
   
-  if (days > 0) {
-    return `${days}d ${hours}h`;
+  // If more than 24 hours, just show days
+  if (days >= 1) {
+    return `${days}d`;
   } else if (hours > 0) {
     return `${hours}h ${minutes}m`;
   } else {

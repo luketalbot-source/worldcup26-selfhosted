@@ -133,11 +133,6 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
         {/* Top Row - All Badges */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            {match.group && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white backdrop-blur-sm">
-                {t('matches.group', { letter: match.group })}
-              </span>
-            )}
             <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
               <Clock className="w-3 h-3" />
               <span>{localDate} {localTime}</span>
