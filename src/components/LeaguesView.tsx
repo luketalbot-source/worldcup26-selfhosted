@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2 } from 'lucide-react';
+import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLeagues, League, LeagueMember } from '@/hooks/useLeagues';
+import { useLeagues, League } from '@/hooks/useLeagues';
+import { useLeagueLeaderboard } from '@/hooks/useLeagueLeaderboard';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,15 +12,32 @@ import { toast } from 'sonner';
 
 const LEAGUE_EMOJIS = ['🏆', '⚽', '🥇', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎯', '🏅', '🎮', '🌍'];
 
+const getRankDisplay = (rank: number) => {
+  switch (rank) {
+    case 1:
+      return <span className="text-xl">🥇</span>;
+    case 2:
+      return <span className="text-xl">🥈</span>;
+    case 3:
+      return <span className="text-xl">🥉</span>;
+    default:
+      return <span className="w-6 h-6 flex items-center justify-center text-sm font-bold text-muted-foreground bg-muted rounded-full">{rank}</span>;
+  }
+};
+
 export const LeaguesView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { leagues, loading, createLeague, joinLeague, updateLeague, getLeagueMembers } = useLeagues();
+  const { leagues, loading, createLeague, joinLeague, updateLeague } = useLeagues();
   
   const [view, setView] = useState<'list' | 'create' | 'join' | 'detail' | 'edit'>('list');
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
-  const [leagueMembers, setLeagueMembers] = useState<LeagueMember[]>([]);
+  
+  const { leaderboard: leagueLeaderboard, loading: leaderboardLoading, refetch: refetchLeaderboard } = useLeagueLeaderboard(
+    selectedLeague?.id || null,
+    selectedLeague?.creator_id || null
+  );
   
   // Create form state
   const [newName, setNewName] = useState('');
@@ -65,10 +83,8 @@ export const LeaguesView = () => {
     }
   };
 
-  const handleViewLeague = async (league: League) => {
+  const handleViewLeague = (league: League) => {
     setSelectedLeague(league);
-    const members = await getLeagueMembers(league.id);
-    setLeagueMembers(members);
     setView('detail');
   };
 
@@ -165,7 +181,7 @@ export const LeaguesView = () => {
               </div>
               <h2 className="text-xl font-bold text-white">{selectedLeague.name}</h2>
               <p className="text-white/70 text-sm mt-1">
-                {leagueMembers.length} {leagueMembers.length === 1 ? t('leagues.member') : t('leagues.members')}
+                {leagueLeaderboard.length} {leagueLeaderboard.length === 1 ? t('leagues.member') : t('leagues.members')}
               </p>
             </div>
           </div>
@@ -185,23 +201,53 @@ export const LeaguesView = () => {
               </Button>
             </div>
             
-            <h3 className="font-semibold mb-3">{t('leagues.membersList')}</h3>
-            <div className="space-y-2">
-              {leagueMembers.map((member) => (
-                <div
-                  key={member.user_id}
-                  className="flex items-center gap-3 p-3 bg-muted rounded-xl"
-                >
-                  <span className="text-2xl">{member.avatar_emoji || '👤'}</span>
-                  <div className="flex-1">
-                    <p className="font-medium">{member.display_name || t('leagues.unknownUser')}</p>
-                  </div>
-                  {member.user_id === selectedLeague.creator_id && (
-                    <Crown className="w-4 h-4 text-fifa-gold" />
-                  )}
-                </div>
-              ))}
-            </div>
+            {/* League Leaderboard */}
+            {leaderboardLoading ? (
+              <div className="p-6 text-center text-muted-foreground">{t('leaderboard.loading')}</div>
+            ) : leagueLeaderboard.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-muted-foreground">{t('leaderboard.noPredictions')}</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+                {leagueLeaderboard.map((entry, index) => (
+                  <motion.div
+                    key={entry.userId}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`flex items-center gap-4 p-4 ${
+                      entry.userId === user.id ? 'bg-primary/5' : ''
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-8 flex justify-center">
+                      {getRankDisplay(entry.rank)}
+                    </div>
+                    <div className="text-2xl">{entry.avatarEmoji}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground truncate">
+                        {entry.displayName}
+                        {entry.userId === user.id && (
+                          <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {entry.totalPredictions} {entry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {entry.isCreator && (
+                        <Crown className="w-4 h-4 text-fifa-gold" />
+                      )}
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-foreground">{entry.points}</p>
+                        <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
