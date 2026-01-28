@@ -289,7 +289,7 @@ export const LeaguesView = () => {
             {/* League Leaderboard */}
             {activeLeaderboardLoading ? (
               <div className="p-6 text-center text-muted-foreground">{t('leaderboard.loading')}</div>
-            ) : leagueLeaderboard.length === 0 ? (
+            ) : activeLeaderboard.length === 0 ? (
               <div className="p-6 text-center">
                 <p className="text-muted-foreground">{t('leaderboard.noPredictions')}</p>
               </div>
