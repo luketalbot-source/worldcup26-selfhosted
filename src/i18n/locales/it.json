@@ -132,5 +132,10 @@
     "groupsIncompleteDesc": "{{qualified}}/{{total}} gironi decisi. Aggiornamento automatico.",
     "theFinal": "🏆 La Finale",
     "thirdPlace": "🥉 Finale 3°/4° Posto"
+  },
+  "theme": {
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Sistema"
   }
 }

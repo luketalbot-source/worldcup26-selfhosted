@@ -132,5 +132,10 @@
     "groupsIncompleteDesc": "{{qualified}}/{{total}} groups decided. Teams update automatically when group stages finish.",
     "theFinal": "🏆 The Final",
     "thirdPlace": "🥉 Third Place"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   }
 }
