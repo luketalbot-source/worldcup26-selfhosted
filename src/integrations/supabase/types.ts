@@ -133,6 +133,36 @@ export type Database = {
         }
         Relationships: []
       }
+      otp_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          phone_number: string
+          used: boolean
+          user_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          phone_number: string
+          used?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          phone_number?: string
+          used?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       predictions: {
         Row: {
           away_score: number
@@ -169,6 +199,7 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          phone_number: string | null
           updated_at: string
           user_id: string
         }
@@ -177,6 +208,7 @@ export type Database = {
           created_at?: string
           display_name: string
           id?: string
+          phone_number?: string | null
           updated_at?: string
           user_id: string
         }
@@ -185,6 +217,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          phone_number?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -215,6 +248,7 @@ export type Database = {
       }
     }
     Functions: {
+      cleanup_expired_otps: { Args: never; Returns: undefined }
       get_league_by_code: {
         Args: { code: string }
         Returns: {
