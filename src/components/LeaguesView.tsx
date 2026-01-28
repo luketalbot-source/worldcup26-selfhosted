@@ -76,7 +76,7 @@ export const LeaguesView = () => {
 
   if (!user) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-[700px] mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -110,7 +110,7 @@ export const LeaguesView = () => {
   // League Detail View
   if (view === 'detail' && selectedLeague) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-[700px] mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -178,7 +178,7 @@ export const LeaguesView = () => {
   if (view === 'create') {
     if (createdLeague) {
       return (
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-[700px] mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -220,7 +220,7 @@ export const LeaguesView = () => {
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-[700px] mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -289,7 +289,7 @@ export const LeaguesView = () => {
   // Join League View
   if (view === 'join') {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-[700px] mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -337,7 +337,7 @@ export const LeaguesView = () => {
 
   // List View (default)
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-[700px] mx-auto">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
