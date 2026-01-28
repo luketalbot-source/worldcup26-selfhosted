@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trophy, Trash2, LogOut, X, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useLeagues, League } from '@/hooks/useLeagues';
 import { useLeagueLeaderboard } from '@/hooks/useLeagueLeaderboard';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
@@ -51,6 +52,7 @@ const getRankDisplay = (rank: number) => {
 export const LeaguesView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { tenantId } = useTenant();
   const navigate = useNavigate();
   const { leagues, loading, createLeague, joinLeague, leaveLeague, removeMember, deleteLeague, updateLeague, refetch } = useLeagues();
   
@@ -65,8 +67,8 @@ export const LeaguesView = () => {
     selectedLeague?.creator_id || null
   );
   
-  // Global leaderboard for "Everyone" league
-  const { leaderboard: globalLeaderboard, loading: globalLeaderboardLoading } = useLeaderboard();
+  // Global leaderboard for "Everyone" league - filtered by current tenant
+  const { leaderboard: globalLeaderboard, loading: globalLeaderboardLoading } = useLeaderboard(tenantId);
   
   // Use appropriate leaderboard based on selected league
   const activeLeaderboard = isEveryoneLeague ? globalLeaderboard : leagueLeaderboard;
