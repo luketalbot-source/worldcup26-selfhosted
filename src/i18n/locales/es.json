@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "matches": "Partidos",
+    "standings": "Clasificación",
+    "leaders": "Líderes"
+  },
+  "header": {
+    "login": "Iniciar Sesión",
+    "user": "Usuario"
+  },
+  "stage": {
+    "today": "Hoy",
+    "groups": "Grupos",
+    "knockout": "Eliminatorias"
+  },
+  "sync": {
+    "button": "Sincronizar",
+    "syncing": "Sincronizando...",
+    "wait": "Espera {{seconds}}s",
+    "locksInfo": "Bloquea 30min antes del inicio",
+    "justNow": "Ahora mismo",
+    "minutesAgo": "hace {{minutes}}m",
+    "hoursAgo": "hace {{hours}}h",
+    "neverSynced": "Nunca sincronizado"
+  },
+  "matches": {
+    "noMatchesToday": "No hay partidos programados para hoy",
+    "loginPrompt": "¡Inicia sesión para guardar tus predicciones!",
+    "group": "Grupo {{letter}}"
+  },
+  "auth": {
+    "title": "Ingresa tu Nombre de Usuario",
+    "subtitle": "¡Solo elige un nombre de usuario para empezar a predecir!",
+    "usernameLabel": "Nombre de usuario",
+    "usernamePlaceholder": "TuNombre",
+    "usernameHint": "Solo letras, números y guiones bajos",
+    "rememberMe": "Recordar mi nombre de usuario",
+    "submit": "¡Vamos! 🚀",
+    "loading": "Por favor espera...",
+    "validation": {
+      "minLength": "El nombre de usuario debe tener al menos 2 caracteres",
+      "maxLength": "El nombre de usuario debe tener 20 caracteres o menos",
+      "pattern": "El nombre de usuario solo puede contener letras, números y guiones bajos"
+    },
+    "unexpectedError": "Ocurrió un error inesperado."
+  },
+  "profile": {
+    "guest": "Invitado",
+    "guestSubtitle": "Ingresa un nombre de usuario para guardar tus predicciones",
+    "guestPrompt": "¡Elige un nombre de usuario para guardar tus predicciones y competir en la tabla de líderes!",
+    "enterUsername": "Ingresar Usuario",
+    "predictor": "Predictor",
+    "predictions": "Predicciones",
+    "points": "Puntos",
+    "yourStats": "Tus Estadísticas",
+    "exactScores": "Resultados Exactos",
+    "correctResults": "Resultados Correctos",
+    "wrongResults": "Resultados Incorrectos",
+    "accuracy": "Precisión",
+    "signOut": "Cerrar Sesión",
+    "edit": {
+      "tapToSelect": "Toca para seleccionar",
+      "orTypeEmoji": "O escribe/pega cualquier emoji",
+      "displayName": "Nombre para mostrar",
+      "cancel": "Cancelar",
+      "save": "Guardar"
+    }
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "English",
+    "es": "Español",
+    "de": "Deutsch",
+    "fr": "Français",
+    "pt": "Português",
+    "it": "Italiano"
+  }
+}

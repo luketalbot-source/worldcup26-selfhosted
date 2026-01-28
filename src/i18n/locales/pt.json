@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "matches": "Jogos",
+    "standings": "Classificação",
+    "leaders": "Líderes"
+  },
+  "header": {
+    "login": "Entrar",
+    "user": "Usuário"
+  },
+  "stage": {
+    "today": "Hoje",
+    "groups": "Grupos",
+    "knockout": "Eliminatórias"
+  },
+  "sync": {
+    "button": "Sincronizar",
+    "syncing": "Sincronizando...",
+    "wait": "Aguarde {{seconds}}s",
+    "locksInfo": "Bloqueia 30min antes do início",
+    "justNow": "Agora mesmo",
+    "minutesAgo": "há {{minutes}}m",
+    "hoursAgo": "há {{hours}}h",
+    "neverSynced": "Nunca sincronizado"
+  },
+  "matches": {
+    "noMatchesToday": "Nenhum jogo programado para hoje",
+    "loginPrompt": "Faça login para salvar suas previsões!",
+    "group": "Grupo {{letter}}"
+  },
+  "auth": {
+    "title": "Digite seu Nome de Usuário",
+    "subtitle": "Escolha um nome de usuário para começar a prever!",
+    "usernameLabel": "Nome de usuário",
+    "usernamePlaceholder": "SeuNome",
+    "usernameHint": "Apenas letras, números e underscores",
+    "rememberMe": "Lembrar meu nome de usuário",
+    "submit": "Vamos lá! 🚀",
+    "loading": "Por favor aguarde...",
+    "validation": {
+      "minLength": "O nome de usuário deve ter pelo menos 2 caracteres",
+      "maxLength": "O nome de usuário deve ter 20 caracteres ou menos",
+      "pattern": "O nome de usuário só pode conter letras, números e underscores"
+    },
+    "unexpectedError": "Ocorreu um erro inesperado."
+  },
+  "profile": {
+    "guest": "Convidado",
+    "guestSubtitle": "Digite um nome de usuário para salvar suas previsões",
+    "guestPrompt": "Escolha um nome de usuário para salvar suas previsões e competir no ranking!",
+    "enterUsername": "Digitar Nome",
+    "predictor": "Palpiteiro",
+    "predictions": "Previsões",
+    "points": "Pontos",
+    "yourStats": "Suas Estatísticas",
+    "exactScores": "Placares Exatos",
+    "correctResults": "Resultados Corretos",
+    "wrongResults": "Resultados Errados",
+    "accuracy": "Precisão",
+    "signOut": "Sair",
+    "edit": {
+      "tapToSelect": "Toque para selecionar",
+      "orTypeEmoji": "Ou digite/cole um emoji",
+      "displayName": "Nome de exibição",
+      "cancel": "Cancelar",
+      "save": "Salvar"
+    }
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "English",
+    "es": "Español",
+    "de": "Deutsch",
+    "fr": "Français",
+    "pt": "Português",
+    "it": "Italiano"
+  }
+}

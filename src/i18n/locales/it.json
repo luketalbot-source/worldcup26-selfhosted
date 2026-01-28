@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "matches": "Partite",
+    "standings": "Classifica",
+    "leaders": "Leader"
+  },
+  "header": {
+    "login": "Accedi",
+    "user": "Utente"
+  },
+  "stage": {
+    "today": "Oggi",
+    "groups": "Gironi",
+    "knockout": "Eliminazione"
+  },
+  "sync": {
+    "button": "Sincronizza",
+    "syncing": "Sincronizzando...",
+    "wait": "Attendi {{seconds}}s",
+    "locksInfo": "Blocca 30min prima del fischio",
+    "justNow": "Proprio ora",
+    "minutesAgo": "{{minutes}}m fa",
+    "hoursAgo": "{{hours}}h fa",
+    "neverSynced": "Mai sincronizzato"
+  },
+  "matches": {
+    "noMatchesToday": "Nessuna partita in programma oggi",
+    "loginPrompt": "Accedi per salvare i tuoi pronostici!",
+    "group": "Girone {{letter}}"
+  },
+  "auth": {
+    "title": "Inserisci il tuo Nome Utente",
+    "subtitle": "Scegli un nome utente per iniziare a pronosticare!",
+    "usernameLabel": "Nome utente",
+    "usernamePlaceholder": "IlTuoNome",
+    "usernameHint": "Solo lettere, numeri e underscore",
+    "rememberMe": "Ricorda il mio nome utente",
+    "submit": "Andiamo! 🚀",
+    "loading": "Attendere prego...",
+    "validation": {
+      "minLength": "Il nome utente deve avere almeno 2 caratteri",
+      "maxLength": "Il nome utente deve avere 20 caratteri o meno",
+      "pattern": "Il nome utente può contenere solo lettere, numeri e underscore"
+    },
+    "unexpectedError": "Si è verificato un errore imprevisto."
+  },
+  "profile": {
+    "guest": "Ospite",
+    "guestSubtitle": "Inserisci un nome utente per salvare i tuoi pronostici",
+    "guestPrompt": "Scegli un nome utente per salvare i tuoi pronostici e competere nella classifica!",
+    "enterUsername": "Inserisci Nome",
+    "predictor": "Pronosticatore",
+    "predictions": "Pronostici",
+    "points": "Punti",
+    "yourStats": "Le Tue Statistiche",
+    "exactScores": "Risultati Esatti",
+    "correctResults": "Risultati Corretti",
+    "wrongResults": "Risultati Sbagliati",
+    "accuracy": "Precisione",
+    "signOut": "Esci",
+    "edit": {
+      "tapToSelect": "Tocca per selezionare",
+      "orTypeEmoji": "O digita/incolla un emoji",
+      "displayName": "Nome visualizzato",
+      "cancel": "Annulla",
+      "save": "Salva"
+    }
+  },
+  "language": {
+    "label": "Lingua",
+    "en": "English",
+    "es": "Español",
+    "de": "Deutsch",
+    "fr": "Français",
+    "pt": "Português",
+    "it": "Italiano"
+  }
+}

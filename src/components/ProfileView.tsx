@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { usePredictions } from '@/hooks/usePredictions';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export const ProfileView = () => {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { profile, updateProfile } = useProfile(user?.id);
   const { predictions } = usePredictions();
@@ -54,20 +56,20 @@ export const ProfileView = () => {
             <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center mx-auto mb-3">
               <User className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-xl font-bold text-white">Guest</h2>
-            <p className="text-white/70 text-sm mt-1">Enter a username to save your predictions</p>
+            <h2 className="text-xl font-bold text-white">{t('profile.guest')}</h2>
+            <p className="text-white/70 text-sm mt-1">{t('profile.guestSubtitle')}</p>
           </div>
           
           <div className="p-6 text-center">
             <p className="text-muted-foreground mb-4">
-              Pick a username to save your predictions and compete on the leaderboard!
+              {t('profile.guestPrompt')}
             </p>
             <button
               onClick={() => navigate('/auth')}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-accent-foreground font-semibold"
             >
               <LogIn className="w-5 h-5" />
-              Enter Username
+              {t('profile.enterUsername')}
             </button>
           </div>
         </motion.div>
@@ -103,7 +105,7 @@ export const ProfileView = () => {
                 
                 {/* Quick pick emojis */}
                 <div className="space-y-2">
-                  <label className="text-xs text-white/70 block text-center">Tap to select</label>
+                  <label className="text-xs text-white/70 block text-center">{t('profile.edit.tapToSelect')}</label>
                   <div className="flex flex-wrap justify-center gap-2">
                     {['👤', '⚽', '🏆', '🎯', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎮', '🏅', '🥇'].map((emoji) => (
                       <button
@@ -124,7 +126,7 @@ export const ProfileView = () => {
 
                 {/* Custom emoji input */}
                 <div className="text-center">
-                  <label className="text-xs text-white/70 block mb-1">Or type/paste any emoji</label>
+                  <label className="text-xs text-white/70 block mb-1">{t('profile.edit.orTypeEmoji')}</label>
                   <Input
                     type="text"
                     value={editAvatar}
@@ -146,15 +148,15 @@ export const ProfileView = () => {
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                placeholder="Display name"
+                placeholder={t('profile.edit.displayName')}
                 className="max-w-xs mx-auto text-center"
               />
               <div className="flex gap-2 justify-center">
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
-                  Cancel
+                  {t('profile.edit.cancel')}
                 </Button>
                 <Button size="sm" onClick={handleSave}>
-                  Save
+                  {t('profile.edit.save')}
                 </Button>
               </div>
             </div>
@@ -163,7 +165,7 @@ export const ProfileView = () => {
               <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center mx-auto mb-3 text-4xl">
                 {profile?.avatarEmoji || '👤'}
               </div>
-              <h2 className="text-xl font-bold text-white">{profile?.displayName || 'Predictor'}</h2>
+              <h2 className="text-xl font-bold text-white">{profile?.displayName || t('profile.predictor')}</h2>
             </>
           )}
         </div>
@@ -173,12 +175,12 @@ export const ProfileView = () => {
             <div className="bg-muted rounded-xl p-4 text-center">
               <Target className="w-6 h-6 text-primary mx-auto mb-2" />
               <div className="text-2xl font-bold text-foreground">{predictions.length}</div>
-              <div className="text-xs text-muted-foreground">Predictions</div>
+              <div className="text-xs text-muted-foreground">{t('profile.predictions')}</div>
             </div>
             <div className="bg-muted rounded-xl p-4 text-center">
               <TrendingUp className="w-6 h-6 text-fifa-green mx-auto mb-2" />
               <div className="text-2xl font-bold text-foreground">{stats.totalPoints}</div>
-              <div className="text-xs text-muted-foreground">Points</div>
+              <div className="text-xs text-muted-foreground">{t('profile.points')}</div>
             </div>
           </div>
         </div>
@@ -191,13 +193,13 @@ export const ProfileView = () => {
         transition={{ delay: 0.1 }}
         className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
       >
-        <h3 className="font-semibold text-foreground mb-4">Your Stats</h3>
+        <h3 className="font-semibold text-foreground mb-4">{t('profile.yourStats')}</h3>
         
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
               <Zap className="w-5 h-5 text-fifa-gold" />
-              <span className="text-sm text-foreground">Exact Scores</span>
+              <span className="text-sm text-foreground">{t('profile.exactScores')}</span>
             </div>
             <span className="font-semibold text-foreground">{stats.exactScores}</span>
           </div>
@@ -205,7 +207,7 @@ export const ProfileView = () => {
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 text-fifa-green" />
-              <span className="text-sm text-foreground">Correct Results</span>
+              <span className="text-sm text-foreground">{t('profile.correctResults')}</span>
             </div>
             <span className="font-semibold text-foreground">{stats.correctResults}</span>
           </div>
@@ -213,7 +215,7 @@ export const ProfileView = () => {
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
               <XCircle className="w-5 h-5 text-destructive" />
-              <span className="text-sm text-foreground">Wrong Results</span>
+              <span className="text-sm text-foreground">{t('profile.wrongResults')}</span>
             </div>
             <span className="font-semibold text-foreground">{stats.wrongResults}</span>
           </div>
@@ -221,7 +223,7 @@ export const ProfileView = () => {
           <div className="flex items-center justify-between py-2">
             <div className="flex items-center gap-3">
               <Target className="w-5 h-5 text-primary" />
-              <span className="text-sm text-foreground">Accuracy</span>
+              <span className="text-sm text-foreground">{t('profile.accuracy')}</span>
             </div>
             <span className="font-semibold text-foreground">
               {stats.exactScores + stats.correctResults + stats.wrongResults > 0 
@@ -241,7 +243,7 @@ export const ProfileView = () => {
         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
       >
         <LogOut className="w-5 h-5" />
-        Sign Out
+        {t('profile.signOut')}
       </motion.button>
     </div>
   );

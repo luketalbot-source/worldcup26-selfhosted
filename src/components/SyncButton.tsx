@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { RefreshCw, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface SyncButtonProps {
   onSync: () => void;
@@ -16,22 +17,12 @@ export const SyncButton = ({
   canSync,
   cooldownRemaining,
 }: SyncButtonProps) => {
-  const formatLastSync = (date: Date | null) => {
-    if (!date) return 'Never synced';
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return date.toLocaleDateString();
-  };
+  const { t } = useTranslation();
 
   const getButtonText = () => {
-    if (syncing) return 'Syncing...';
-    if (!canSync && cooldownRemaining > 0) return `Wait ${cooldownRemaining}s`;
-    return 'Sync Scores';
+    if (syncing) return t('sync.syncing');
+    if (!canSync && cooldownRemaining > 0) return t('sync.wait', { seconds: cooldownRemaining });
+    return t('sync.button');
   };
 
   return (
@@ -43,7 +34,7 @@ export const SyncButton = ({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded-lg px-2 py-1">
           <Info className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-          <span>Locks 30min before Kickoff</span>
+          <span>{t('sync.locksInfo')}</span>
         </div>
 
         <motion.button

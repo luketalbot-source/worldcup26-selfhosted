@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,20 +10,21 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Header } from '@/components/Header';
 import { z } from 'zod';
 
-const usernameSchema = z.string()
-  .min(2, 'Username must be at least 2 characters')
-  .max(20, 'Username must be 20 characters or less')
-  .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores');
-
 const REMEMBERED_USERNAME_KEY = 'wc2026_remembered_username';
 
 const Auth = () => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { loginWithUsername } = useAuth();
   const navigate = useNavigate();
+
+  const usernameSchema = z.string()
+    .min(2, t('auth.validation.minLength'))
+    .max(20, t('auth.validation.maxLength'))
+    .regex(/^[a-zA-Z0-9_]+$/, t('auth.validation.pattern'));
 
   // Load remembered username on mount
   useEffect(() => {
@@ -61,7 +63,7 @@ const Auth = () => {
         navigate('/');
       }
     } catch (err) {
-      setError('An unexpected error occurred.');
+      setError(t('auth.unexpectedError'));
     } finally {
       setIsLoading(false);
     }
@@ -80,22 +82,22 @@ const Auth = () => {
           {/* Title */}
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              Enter Your Username
+              {t('auth.title')}
             </h2>
             <p className="text-muted-foreground">
-              Just pick a username to start predicting!
+              {t('auth.subtitle')}
             </p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Username</label>
+              <label className="text-sm font-medium text-foreground">{t('auth.usernameLabel')}</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="YourUsername"
+                  placeholder={t('auth.usernamePlaceholder')}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10 h-12 rounded-xl"
@@ -104,7 +106,7 @@ const Auth = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Letters, numbers, and underscores only
+                {t('auth.usernameHint')}
               </p>
             </div>
 
@@ -122,7 +124,7 @@ const Auth = () => {
                 htmlFor="remember" 
                 className="text-sm text-muted-foreground cursor-pointer select-none"
               >
-                Remember my username
+                {t('auth.rememberMe')}
               </label>
             </div>
 
@@ -131,7 +133,7 @@ const Auth = () => {
               disabled={isLoading || !username.trim()}
               className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-base"
             >
-              {isLoading ? 'Please wait...' : 'Let\'s Go! 🚀'}
+              {isLoading ? t('auth.loading') : t('auth.submit')}
             </Button>
           </form>
 

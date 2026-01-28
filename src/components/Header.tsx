@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
 import { LogIn } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
+import { LanguageSelector } from './LanguageSelector';
 import wc2026Logo from '@/assets/wc2026-logo.png';
 
 interface HeaderProps {
@@ -10,6 +12,7 @@ interface HeaderProps {
 }
 
 export const Header = ({ hideUserSection = false }: HeaderProps) => {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { profile } = useProfile(user?.id);
   const navigate = useNavigate();
@@ -22,7 +25,7 @@ export const Header = ({ hideUserSection = false }: HeaderProps) => {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between"
         >
-          <div className="w-20" /> {/* Spacer for balance */}
+          <LanguageSelector />
           
           <div className="flex-shrink-0">
             <img 
@@ -38,7 +41,7 @@ export const Header = ({ hideUserSection = false }: HeaderProps) => {
                 onClick={() => navigate('/', { state: { tab: 'profile' } })}
                 className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted transition-colors"
               >
-                <span className="text-sm font-medium hidden sm:block">{profile?.displayName || 'User'}</span>
+                <span className="text-sm font-medium hidden sm:block">{profile?.displayName || t('header.user')}</span>
                 <span className="text-2xl">{profile?.avatarEmoji || '👤'}</span>
               </button>
             ) : (
@@ -47,7 +50,7 @@ export const Header = ({ hideUserSection = false }: HeaderProps) => {
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-sm font-medium"
               >
                 <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline">Log In</span>
+                <span className="hidden sm:inline">{t('header.login')}</span>
               </button>
             )
           )}
