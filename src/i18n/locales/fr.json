@@ -2,6 +2,7 @@
   "nav": {
     "matches": "Matchs",
     "standings": "Classement",
+    "leagues": "Ligues",
     "leaders": "Leaders"
   },
   "header": {
@@ -140,5 +141,41 @@
     "light": "Clair",
     "dark": "Sombre",
     "system": "Système"
+  },
+  "leagues": {
+    "title": "Ligues",
+    "subtitle": "Affrontez vos amis",
+    "loginPrompt": "Connectez-vous pour créer ou rejoindre des ligues !",
+    "create": "Créer",
+    "join": "Rejoindre",
+    "createTitle": "Créer une Ligue",
+    "joinTitle": "Rejoindre une Ligue",
+    "leagueName": "Nom de la Ligue",
+    "leagueNamePlaceholder": "Ma Super Ligue",
+    "selectIcon": "Choisissez une icône",
+    "createButton": "Créer la Ligue",
+    "joinButton": "Rejoindre",
+    "joining": "Rejoindre...",
+    "enterCode": "Entrez le code à 6 chiffres partagé par un membre",
+    "backToList": "Retour aux Ligues",
+    "createdSuccess": "Ligue créée !",
+    "shareCode": "Partagez ce code avec vos amis :",
+    "codeCopied": "Code copié !",
+    "done": "Terminé",
+    "joinCode": "Code d'Invitation",
+    "member": "membre",
+    "members": "membres",
+    "membersList": "Membres",
+    "unknownUser": "Utilisateur Inconnu",
+    "noLeagues": "Vous n'êtes dans aucune ligue. Créez-en une ou rejoignez avec un code !",
+    "loading": "Chargement des ligues...",
+    "created": "Ligue créée avec succès !",
+    "createError": "Échec de la création",
+    "joined": "Rejoint {{name}} !",
+    "joinError": "Échec de l'adhésion",
+    "invalidCode": "Code invalide",
+    "alreadyMember": "Vous êtes déjà membre de cette ligue",
+    "left": "Ligue quittée",
+    "leaveError": "Échec du départ"
   }
 }

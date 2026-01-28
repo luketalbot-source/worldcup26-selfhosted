@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      league_members: {
+        Row: {
+          id: string
+          joined_at: string
+          league_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          league_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          league_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_members_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leagues: {
+        Row: {
+          avatar_emoji: string | null
+          created_at: string
+          creator_id: string
+          id: string
+          join_code: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_emoji?: string | null
+          created_at?: string
+          creator_id: string
+          id?: string
+          join_code: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_emoji?: string | null
+          created_at?: string
+          creator_id?: string
+          id?: string
+          join_code?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       live_matches: {
         Row: {
           api_match_id: number | null
@@ -156,7 +215,14 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_league_by_code: {
+        Args: { code: string }
+        Returns: {
+          avatar_emoji: string
+          id: string
+          name: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

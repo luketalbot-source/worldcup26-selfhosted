@@ -5,6 +5,7 @@ import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
 import { StandingsView } from '@/components/StandingsView';
 import { LeaderboardView } from '@/components/LeaderboardView';
+import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -41,6 +42,8 @@ const Index = () => {
         return <MatchesView />;
       case 'standings':
         return <StandingsView />;
+      case 'leagues':
+        return <LeaguesView />;
       case 'leaderboard':
         return <LeaderboardView />;
       case 'profile':

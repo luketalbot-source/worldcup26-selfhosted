@@ -2,6 +2,7 @@
   "nav": {
     "matches": "Matches",
     "standings": "Standings",
+    "leagues": "Leagues",
     "leaders": "Leaders"
   },
   "header": {
@@ -141,5 +142,41 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "leagues": {
+    "title": "Leagues",
+    "subtitle": "Compete with friends",
+    "loginPrompt": "Log in to create or join leagues!",
+    "create": "Create",
+    "join": "Join",
+    "createTitle": "Create League",
+    "joinTitle": "Join League",
+    "leagueName": "League Name",
+    "leagueNamePlaceholder": "My Awesome League",
+    "selectIcon": "Select an icon",
+    "createButton": "Create League",
+    "joinButton": "Join League",
+    "joining": "Joining...",
+    "enterCode": "Enter the 6-digit code shared by a league member",
+    "backToList": "Back to Leagues",
+    "createdSuccess": "League created!",
+    "shareCode": "Share this code with friends to invite them:",
+    "codeCopied": "Code copied!",
+    "done": "Done",
+    "joinCode": "Join Code",
+    "member": "member",
+    "members": "members",
+    "membersList": "Members",
+    "unknownUser": "Unknown User",
+    "noLeagues": "You're not in any leagues yet. Create one or join with a code!",
+    "loading": "Loading leagues...",
+    "created": "League created successfully!",
+    "createError": "Failed to create league",
+    "joined": "Joined {{name}}!",
+    "joinError": "Failed to join league",
+    "invalidCode": "Invalid join code",
+    "alreadyMember": "You're already a member of this league",
+    "left": "Left league",
+    "leaveError": "Failed to leave league"
   }
 }
