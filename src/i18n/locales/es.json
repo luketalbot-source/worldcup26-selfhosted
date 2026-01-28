@@ -2,6 +2,7 @@
   "nav": {
     "matches": "Partidos",
     "standings": "Clasificación",
+    "leagues": "Ligas",
     "leaders": "Líderes"
   },
   "header": {
@@ -140,5 +141,41 @@
     "light": "Claro",
     "dark": "Oscuro",
     "system": "Sistema"
+  },
+  "leagues": {
+    "title": "Ligas",
+    "subtitle": "Compite con amigos",
+    "loginPrompt": "¡Inicia sesión para crear o unirte a ligas!",
+    "create": "Crear",
+    "join": "Unirse",
+    "createTitle": "Crear Liga",
+    "joinTitle": "Unirse a Liga",
+    "leagueName": "Nombre de la Liga",
+    "leagueNamePlaceholder": "Mi Liga Increíble",
+    "selectIcon": "Selecciona un icono",
+    "createButton": "Crear Liga",
+    "joinButton": "Unirse",
+    "joining": "Uniéndose...",
+    "enterCode": "Ingresa el código de 6 dígitos compartido por un miembro",
+    "backToList": "Volver a Ligas",
+    "createdSuccess": "¡Liga creada!",
+    "shareCode": "Comparte este código con amigos para invitarlos:",
+    "codeCopied": "¡Código copiado!",
+    "done": "Listo",
+    "joinCode": "Código de Unión",
+    "member": "miembro",
+    "members": "miembros",
+    "membersList": "Miembros",
+    "unknownUser": "Usuario Desconocido",
+    "noLeagues": "No estás en ninguna liga. ¡Crea una o únete con un código!",
+    "loading": "Cargando ligas...",
+    "created": "¡Liga creada exitosamente!",
+    "createError": "Error al crear liga",
+    "joined": "¡Te uniste a {{name}}!",
+    "joinError": "Error al unirse a la liga",
+    "invalidCode": "Código inválido",
+    "alreadyMember": "Ya eres miembro de esta liga",
+    "left": "Saliste de la liga",
+    "leaveError": "Error al salir de la liga"
   }
 }

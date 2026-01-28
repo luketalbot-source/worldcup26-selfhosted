@@ -2,6 +2,7 @@
   "nav": {
     "matches": "Spiele",
     "standings": "Tabelle",
+    "leagues": "Ligen",
     "leaders": "Rangliste"
   },
   "header": {
@@ -140,5 +141,41 @@
     "light": "Hell",
     "dark": "Dunkel",
     "system": "System"
+  },
+  "leagues": {
+    "title": "Ligen",
+    "subtitle": "Mit Freunden konkurrieren",
+    "loginPrompt": "Melde dich an, um Ligen zu erstellen oder beizutreten!",
+    "create": "Erstellen",
+    "join": "Beitreten",
+    "createTitle": "Liga erstellen",
+    "joinTitle": "Liga beitreten",
+    "leagueName": "Liga-Name",
+    "leagueNamePlaceholder": "Meine tolle Liga",
+    "selectIcon": "Wähle ein Symbol",
+    "createButton": "Liga erstellen",
+    "joinButton": "Beitreten",
+    "joining": "Beitritt...",
+    "enterCode": "Gib den 6-stelligen Code ein, den ein Mitglied geteilt hat",
+    "backToList": "Zurück zu Ligen",
+    "createdSuccess": "Liga erstellt!",
+    "shareCode": "Teile diesen Code mit Freunden:",
+    "codeCopied": "Code kopiert!",
+    "done": "Fertig",
+    "joinCode": "Beitrittscode",
+    "member": "Mitglied",
+    "members": "Mitglieder",
+    "membersList": "Mitglieder",
+    "unknownUser": "Unbekannter Benutzer",
+    "noLeagues": "Du bist noch in keiner Liga. Erstelle eine oder tritt mit Code bei!",
+    "loading": "Lade Ligen...",
+    "created": "Liga erfolgreich erstellt!",
+    "createError": "Fehler beim Erstellen der Liga",
+    "joined": "{{name}} beigetreten!",
+    "joinError": "Fehler beim Beitreten",
+    "invalidCode": "Ungültiger Code",
+    "alreadyMember": "Du bist bereits Mitglied dieser Liga",
+    "left": "Liga verlassen",
+    "leaveError": "Fehler beim Verlassen der Liga"
   }
 }

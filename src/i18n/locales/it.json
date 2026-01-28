@@ -2,6 +2,7 @@
   "nav": {
     "matches": "Partite",
     "standings": "Classifica",
+    "leagues": "Leghe",
     "leaders": "Leader"
   },
   "header": {
@@ -140,5 +141,41 @@
     "light": "Chiaro",
     "dark": "Scuro",
     "system": "Sistema"
+  },
+  "leagues": {
+    "title": "Leghe",
+    "subtitle": "Sfida i tuoi amici",
+    "loginPrompt": "Accedi per creare o unirti a leghe!",
+    "create": "Crea",
+    "join": "Unisciti",
+    "createTitle": "Crea Lega",
+    "joinTitle": "Unisciti a Lega",
+    "leagueName": "Nome della Lega",
+    "leagueNamePlaceholder": "La Mia Fantastica Lega",
+    "selectIcon": "Seleziona un'icona",
+    "createButton": "Crea Lega",
+    "joinButton": "Unisciti",
+    "joining": "Unione...",
+    "enterCode": "Inserisci il codice a 6 cifre condiviso da un membro",
+    "backToList": "Torna alle Leghe",
+    "createdSuccess": "Lega creata!",
+    "shareCode": "Condividi questo codice con gli amici:",
+    "codeCopied": "Codice copiato!",
+    "done": "Fatto",
+    "joinCode": "Codice di Accesso",
+    "member": "membro",
+    "members": "membri",
+    "membersList": "Membri",
+    "unknownUser": "Utente Sconosciuto",
+    "noLeagues": "Non sei in nessuna lega. Creane una o unisciti con un codice!",
+    "loading": "Caricamento leghe...",
+    "created": "Lega creata con successo!",
+    "createError": "Impossibile creare la lega",
+    "joined": "Ti sei unito a {{name}}!",
+    "joinError": "Impossibile unirsi alla lega",
+    "invalidCode": "Codice non valido",
+    "alreadyMember": "Sei già membro di questa lega",
+    "left": "Hai lasciato la lega",
+    "leaveError": "Impossibile lasciare la lega"
   }
 }
