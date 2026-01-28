@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Match, Prediction } from '@/types/match';
 import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
@@ -15,6 +16,7 @@ interface MatchCardProps {
 }
 
 export const MatchCard = ({ match, prediction, onPredict, disabled = false }: MatchCardProps) => {
+  const { t } = useTranslation();
   const [homeScore, setHomeScore] = useState(prediction?.homeScore ?? 0);
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
   const [hasEdited, setHasEdited] = useState(false);
@@ -133,7 +135,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
           <div className="flex items-center gap-2 flex-wrap">
             {match.group && (
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white backdrop-blur-sm">
-                Group {match.group}
+                {t('matches.group', { letter: match.group })}
               </span>
             )}
             <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
@@ -152,7 +154,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                 ? 'bg-destructive text-white animate-pulse' 
                 : 'bg-black/60 text-white'
             }`}>
-              {isLive ? 'LIVE' : 'FT'}
+              {isLive ? t('matchCard.live') : t('matchCard.fullTime')}
             </div>
           )}
         </div>
@@ -212,7 +214,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                     ? 'bg-orange-500 text-white'
                     : 'bg-primary/80 text-white'
             }`}>
-              {isMatchLocked ? <Lock className="w-3 h-3 inline mr-1" /> : <Clock className="w-3 h-3 inline mr-1" />} {isMatchLocked ? 'Locked' : countdownText}
+              {isMatchLocked ? <Lock className="w-3 h-3 inline mr-1" /> : <Clock className="w-3 h-3 inline mr-1" />} {isMatchLocked ? t('matchCard.locked') : countdownText}
             </div>
             
             {/* Action Button */}
@@ -220,13 +222,13 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
               {disabled ? (
                 <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
                   <Lock className="w-3 h-3" />
-                  Log in to save
+                  {t('matchCard.logInToSave')}
                 </div>
               ) : isMatchLocked ? (
                 <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
                   {isPredicted 
                     ? `${prediction.homeScore} - ${prediction.awayScore}` 
-                    : 'No prediction'}
+                    : t('matchCard.noPrediction')}
                 </div>
               ) : isPredicted && !hasEdited ? (
                 <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium backdrop-blur-sm">
@@ -245,7 +247,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                       : 'bg-white/90 text-muted-foreground'
                   }`}
                 >
-                  {isSaving ? 'Saving...' : (isPredicted ? (hasEdited ? 'Update' : 'Saved ✓') : 'Save Prediction')}
+                  {isSaving ? t('matchCard.saving') : (isPredicted ? (hasEdited ? t('matchCard.update') : t('matchCard.saved')) : t('matchCard.savePrediction'))}
                 </motion.button>
               )}
             </div>
@@ -265,9 +267,9 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
             {predictionResult.resultType === 'correct' && <Check className="w-3 h-3" />}
             <span>
               {prediction.homeScore} - {prediction.awayScore}
-              {predictionResult.resultType === 'exact' && ' · Exact! +3 pts'}
-              {predictionResult.resultType === 'correct' && ' · Correct result +1 pt'}
-              {predictionResult.resultType === 'wrong' && ' · Wrong · 0 pts'}
+              {predictionResult.resultType === 'exact' && ` · ${t('matchCard.exactScore')}`}
+              {predictionResult.resultType === 'correct' && ` · ${t('matchCard.correctResult')}`}
+              {predictionResult.resultType === 'wrong' && ` · ${t('matchCard.wrongResult')}`}
             </span>
           </div>
         )}
@@ -275,14 +277,14 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
         {/* Show prediction for live matches */}
         {isLive && prediction && (
           <div className="py-1.5 px-3 rounded-lg text-xs font-medium text-center backdrop-blur-sm bg-white/90 text-muted-foreground">
-            Your prediction: {prediction.homeScore} - {prediction.awayScore}
+            {t('matchCard.yourPrediction', { home: prediction.homeScore, away: prediction.awayScore })}
           </div>
         )}
 
         {/* Show no prediction message for live/finished without prediction */}
         {(isLive || isFinished) && !prediction && (
           <div className="py-1.5 px-3 rounded-lg text-xs font-medium text-center backdrop-blur-sm bg-white/90 text-muted-foreground">
-            No prediction submitted
+            {t('matchCard.noPredictionSubmitted')}
           </div>
         )}
       </div>

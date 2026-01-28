@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 interface GroupTabsProps {
   groups: string[];
@@ -7,6 +8,8 @@ interface GroupTabsProps {
 }
 
 export const GroupTabs = ({ groups, activeGroup, onGroupChange }: GroupTabsProps) => {
+  const { t } = useTranslation();
+
   return (
     <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
       {groups.map((group) => (
@@ -21,7 +24,7 @@ export const GroupTabs = ({ groups, activeGroup, onGroupChange }: GroupTabsProps
               : 'bg-card text-muted-foreground hover:bg-muted'
           }`}
         >
-          Group {group}
+          {t('standings.group')} {group}
           {activeGroup === group && (
             <motion.div
               layoutId="activeGroup"
