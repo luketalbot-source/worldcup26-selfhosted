@@ -85,8 +85,10 @@ export const MatchesView = () => {
   };
   if (activeStage === 'knockout') {
     return <div className="space-y-4">
-        <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+        <div className="max-w-[700px] mx-auto space-y-4">
+          <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+          <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+        </div>
         <KnockoutView />
       </div>;
   }
@@ -116,10 +118,11 @@ export const MatchesView = () => {
   const standings = generateStandings(activeGroup);
 
   return <div className="space-y-4">
-      <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-      <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
-      
-      {renderLoginPrompt()}
+      <div className="max-w-[700px] mx-auto space-y-4">
+        <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+        {renderLoginPrompt()}
+      </div>
       
       {/* Mobile: horizontal tabs */}
       <div className="md:hidden sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">
