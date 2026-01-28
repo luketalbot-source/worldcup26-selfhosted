@@ -238,14 +238,14 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSave}
-                  disabled={isSaving || (!hasEdited && !isPredicted)}
+                  disabled={isSaving}
                   className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition-all backdrop-blur-sm ${
-                    hasEdited
+                    hasEdited || !isPredicted
                       ? 'bg-accent text-accent-foreground shadow-md'
                       : 'bg-white/90 text-muted-foreground'
                   }`}
                 >
-                  {isSaving ? 'Saving...' : (isPredicted ? 'Update' : 'Save Prediction')}
+                  {isSaving ? 'Saving...' : (isPredicted ? (hasEdited ? 'Update' : 'Saved ✓') : 'Save Prediction')}
                 </motion.button>
               )}
             </div>
