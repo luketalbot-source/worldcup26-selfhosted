@@ -176,6 +176,11 @@
     "invalidCode": "Ungültiger Code",
     "alreadyMember": "Du bist bereits Mitglied dieser Liga",
     "left": "Liga verlassen",
-    "leaveError": "Fehler beim Verlassen der Liga"
+    "leaveError": "Fehler beim Verlassen der Liga",
+    "editTitle": "Liga bearbeiten",
+    "backToDetail": "Zurück",
+    "saving": "Speichern...",
+    "updated": "Liga aktualisiert!",
+    "updateError": "Fehler beim Aktualisieren der Liga"
   }
 }
