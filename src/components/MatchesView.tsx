@@ -15,7 +15,7 @@ import { getTeamsByGroup } from '@/data/teams';
 import { GroupStanding, Match } from '@/types/match';
 import { LogIn } from 'lucide-react';
 import mascotsWaiting from '@/assets/mascots-waiting.png';
-import { groupStageMatches } from '@/data/matches';
+
 
 const calculateStandings = (group: string, matches: Match[]): GroupStanding[] => {
   const teams = getTeamsByGroup(group);
@@ -171,7 +171,7 @@ export const MatchesView = () => {
           </motion.div>}
       </div>;
   }
-  const standings = calculateStandings(activeGroup, groupStageMatches);
+  const standings = calculateStandings(activeGroup, matches);
 
   return <div className="space-y-4">
       <div className="max-w-[700px] mx-auto space-y-4">
