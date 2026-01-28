@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
-import { StandingsView } from '@/components/StandingsView';
 import { LeaderboardView } from '@/components/LeaderboardView';
 import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
@@ -40,8 +39,6 @@ const Index = () => {
     switch (activeTab) {
       case 'matches':
         return <MatchesView />;
-      case 'standings':
-        return <StandingsView />;
       case 'leagues':
         return <LeaguesView />;
       case 'leaderboard':
