@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone_number, code, username } = await req.json();
+    const { phone_number, code, username, tenant_id } = await req.json();
     
     if (!phone_number || !code) {
       return new Response(
@@ -75,7 +75,6 @@ serve(async (req) => {
       .eq('id', otpRecord.id);
 
     // If user is already authenticated, they're just verifying their phone
-    // Return success - the frontend will handle updating the profile
     if (authenticatedUserId) {
       console.log(`Phone verified for existing user: ${authenticatedUserId}`);
       return new Response(
@@ -88,20 +87,24 @@ serve(async (req) => {
       );
     }
 
-    // For unauthenticated requests, check if user exists with this phone number
-
-    // Mark OTP as used
-    await supabase
-      .from('otp_codes')
-      .update({ used: true })
-      .eq('id', otpRecord.id);
-
-    // Check if user exists with this phone number
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('user_id, display_name')
-      .eq('phone_number', phone_number)
-      .maybeSingle();
+    // Check if user exists with this phone number and tenant_id
+    let existingProfile = null;
+    if (tenant_id) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, display_name')
+        .eq('phone_number', phone_number)
+        .eq('tenant_id', tenant_id)
+        .maybeSingle();
+      existingProfile = data;
+    } else {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, display_name')
+        .eq('phone_number', phone_number)
+        .maybeSingle();
+      existingProfile = data;
+    }
 
     let userId: string;
     let isNewUser = false;
@@ -130,6 +133,7 @@ serve(async (req) => {
         user_metadata: {
           display_name: username,
           phone_number,
+          tenant_id,
         },
       });
 
@@ -144,19 +148,20 @@ serve(async (req) => {
       userId = authData.user.id;
       isNewUser = true;
 
-      // Update profile with phone number (profile is auto-created by trigger)
+      // Update profile with phone number and tenant_id (profile is auto-created by trigger)
+      const updateData: Record<string, unknown> = { phone_number };
+      if (tenant_id) {
+        updateData.tenant_id = tenant_id;
+      }
+      
       await supabase
         .from('profiles')
-        .update({ phone_number })
+        .update(updateData)
         .eq('user_id', userId);
 
-      console.log(`New user created: ${userId}`);
+      console.log(`New user created: ${userId} for tenant: ${tenant_id}`);
     }
 
-    // Generate a session for the user
-    // We'll use signInWithPassword with a magic link approach
-    // Actually, let's generate a custom token approach
-    
     // Get the user's email for signing in
     const { data: userData } = await supabase.auth.admin.getUserById(userId);
     

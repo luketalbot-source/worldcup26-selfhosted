@@ -9,7 +9,7 @@ export interface Prediction {
   timestamp: string;
 }
 
-export const usePredictions = () => {
+export const usePredictions = (tenantId?: string | null) => {
   const { user } = useAuth();
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +45,17 @@ export const usePredictions = () => {
   const addPrediction = async (matchId: string, homeScore: number, awayScore: number) => {
     if (!user) return;
 
+    // Get user's tenant_id from profile if not provided
+    let effectiveTenantId = tenantId;
+    if (!effectiveTenantId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      effectiveTenantId = profile?.tenant_id;
+    }
+
     const { error } = await supabase
       .from('predictions')
       .upsert({
@@ -52,6 +63,7 @@ export const usePredictions = () => {
         match_id: matchId,
         home_score: homeScore,
         away_score: awayScore,
+        tenant_id: effectiveTenantId,
       }, {
         onConflict: 'user_id,match_id',
       });

@@ -6,8 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  sendOtp: (phoneNumber: string) => Promise<{ error: Error | null; isNewUser: boolean }>;
-  verifyOtp: (phoneNumber: string, code: string, username?: string) => Promise<{ error: Error | null }>;
+  sendOtp: (phoneNumber: string, tenantId?: string) => Promise<{ error: Error | null; isNewUser: boolean }>;
+  verifyOtp: (phoneNumber: string, code: string, username?: string, tenantId?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -38,11 +38,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const sendOtp = async (phoneNumber: string): Promise<{ error: Error | null; isNewUser: boolean }> => {
+  const sendOtp = async (phoneNumber: string, tenantId?: string): Promise<{ error: Error | null; isNewUser: boolean }> => {
     try {
       // Call the send-otp edge function (server-side check for isNewUser bypasses RLS)
       const { data, error } = await supabase.functions.invoke('send-otp', {
-        body: { phone_number: phoneNumber },
+        body: { phone_number: phoneNumber, tenant_id: tenantId },
       });
 
       if (error) {
@@ -63,12 +63,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const verifyOtp = async (
     phoneNumber: string, 
     code: string, 
-    username?: string
+    username?: string,
+    tenantId?: string
   ): Promise<{ error: Error | null }> => {
     try {
       // Call the verify-otp edge function
       const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { phone_number: phoneNumber, code, username },
+        body: { phone_number: phoneNumber, code, username, tenant_id: tenantId },
       });
 
       if (error) {

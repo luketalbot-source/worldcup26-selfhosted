@@ -3,11 +3,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import { TenantProvider } from "@/contexts/TenantContext";
+import Landing from "./pages/Landing";
+import TenantApp from "./pages/TenantApp";
+import TenantAuth from "./pages/TenantAuth";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Wrapper component for tenant routes
+const TenantRouteWrapper = ({ children }: { children: React.ReactNode }) => (
+  <TenantProvider>{children}</TenantProvider>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -16,9 +24,17 @@ const App = () => (
         <TooltipProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              {/* Landing page */}
+              <Route path="/" element={<Landing />} />
+              
+              {/* Admin portal */}
+              <Route path="/admin" element={<Admin />} />
+              
+              {/* Tenant routes */}
+              <Route path="/t/:tenantUid" element={<TenantRouteWrapper><TenantApp /></TenantRouteWrapper>} />
+              <Route path="/t/:tenantUid/auth" element={<TenantRouteWrapper><TenantAuth /></TenantRouteWrapper>} />
+              
+              {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
