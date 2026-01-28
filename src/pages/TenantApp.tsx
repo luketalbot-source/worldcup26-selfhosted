@@ -19,6 +19,11 @@ const TenantApp = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
 
+  // Set document title
+  useEffect(() => {
+    document.title = 'WC2026 Predictor';
+  }, []);
+
   // Check if user belongs to this tenant, if not sign them out
   useEffect(() => {
     const checkUserTenant = async () => {
