@@ -118,5 +118,19 @@
     "fr": "Français",
     "pt": "Português",
     "it": "Italiano"
+  },
+  "knockout": {
+    "round32": "32 avos",
+    "round16": "Oitavas",
+    "quarter": "Quartas",
+    "semi": "Semifinais",
+    "finals": "Finais",
+    "loginPrompt": "<strong>Entrar</strong> para salvar seus palpites!",
+    "groupsComplete": "✓ Fase de grupos concluída!",
+    "groupsIncomplete": "Formato 48 times",
+    "groupsCompleteDesc": "Os times das eliminatórias foram definidos. Faça seus palpites!",
+    "groupsIncompleteDesc": "{{qualified}}/{{total}} grupos definidos. Atualização automática.",
+    "theFinal": "🏆 A Final",
+    "thirdPlace": "🥉 Disputa 3º Lugar"
   }
 }
