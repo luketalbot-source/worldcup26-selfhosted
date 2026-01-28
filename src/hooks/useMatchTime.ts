@@ -135,16 +135,17 @@ export const getEffectiveMatchStatus = (dateStr: string, timeStr: string, status
   
   const matchDateTime = parseMatchDateTime(dateStr, timeStr);
   const now = new Date();
-  const hoursSinceStart = differenceInHours(now, matchDateTime);
+  const minutesSinceStart = differenceInMinutes(now, matchDateTime);
   
   // If match started more than 3 hours ago, it should be finished
   // This applies to both 'live' and 'upcoming' matches that were never updated
-  if (hoursSinceStart >= 3) {
+  if (minutesSinceStart >= 180) {
     return 'finished';
   }
   
-  // If match has started (kickoff time passed) but less than 3 hours ago, treat as live
-  if (hoursSinceStart >= 0 && status === 'upcoming') {
+  // If match has actually started (kickoff time passed) but less than 3 hours ago, treat as live
+  // Use > 0 instead of >= 0 to ensure match has truly started
+  if (minutesSinceStart > 0 && status === 'upcoming') {
     return 'live';
   }
   
