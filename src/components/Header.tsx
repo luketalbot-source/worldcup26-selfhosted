@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
-import { LanguageSelector } from './LanguageSelector';
-import { ThemeToggle } from './ThemeToggle';
 import wc2026Logo from '@/assets/wc2026-logo.png';
 
 interface HeaderProps {
@@ -26,10 +24,7 @@ export const Header = ({ hideUserSection = false }: HeaderProps) => {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between"
         >
-          <div className="flex items-center gap-1">
-            <LanguageSelector />
-            <ThemeToggle />
-          </div>
+          <div className="w-20" />
           
           <div className="flex-shrink-0">
             <img 

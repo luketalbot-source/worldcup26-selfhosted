@@ -101,6 +101,9 @@
     "correctResults": "Richtige Ergebnisse",
     "wrongResults": "Falsche Ergebnisse",
     "accuracy": "Genauigkeit",
+    "settings": "Einstellungen",
+    "language": "Sprache",
+    "theme": "Thema",
     "signOut": "Abmelden",
     "edit": {
       "tapToSelect": "Tippen zum Auswählen",
