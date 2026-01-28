@@ -30,15 +30,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 }`}
               >
-                <div className="relative">
-                  <Icon className="w-6 h-6" />
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary"
-                    />
-                  )}
-                </div>
+                <Icon className="w-6 h-6" />
                 <span className="text-xs font-medium">{tab.label}</span>
               </motion.button>
             );
