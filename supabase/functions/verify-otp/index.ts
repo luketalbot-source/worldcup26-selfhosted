@@ -90,6 +90,7 @@ serve(async (req) => {
     // Check if user exists with this phone number and tenant_id
     let existingProfile = null;
     if (tenant_id) {
+      // Tenant-specific login: find profile by phone + tenant
       const { data } = await supabase
         .from('profiles')
         .select('user_id, display_name')
@@ -98,12 +99,35 @@ serve(async (req) => {
         .maybeSingle();
       existingProfile = data;
     } else {
-      const { data } = await supabase
+      // Admin login (no tenant): find any admin user with this phone number
+      // First get all profiles with this phone number
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, display_name')
-        .eq('phone_number', phone_number)
-        .maybeSingle();
-      existingProfile = data;
+        .eq('phone_number', phone_number);
+      
+      if (profiles && profiles.length > 0) {
+        // Check if any of these users has an admin role
+        for (const profile of profiles) {
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', profile.user_id)
+            .eq('role', 'admin')
+            .maybeSingle();
+          
+          if (roleData) {
+            existingProfile = profile;
+            console.log(`Admin user found: ${profile.user_id}`);
+            break;
+          }
+        }
+        
+        // If no admin found but profiles exist, use first one (for backwards compatibility)
+        if (!existingProfile && profiles.length === 1) {
+          existingProfile = profiles[0];
+        }
+      }
     }
 
     let userId: string;
