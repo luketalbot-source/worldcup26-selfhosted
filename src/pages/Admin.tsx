@@ -158,7 +158,8 @@ const Admin = () => {
   };
 
   const openTenantApp = (uid: string) => {
-    window.open(`/t/${uid}`, '_blank');
+    const publishedUrl = 'https://worldcup26.lovable.app';
+    window.open(`${publishedUrl}/t/${uid}`, '_blank');
   };
 
   // Show loading
