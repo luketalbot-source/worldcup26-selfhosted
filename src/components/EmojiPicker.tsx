@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Smile } from 'lucide-react';
-import { useTheme } from 'next-themes';
 
 interface EmojiPickerProps {
   value: string;
@@ -12,18 +16,72 @@ interface EmojiPickerProps {
   quickPicks?: string[];
 }
 
+// Lightweight built-in emoji set (keeps the app fast + avoids heavy emoji picker deps)
+const EMOJI_CATEGORIES: { name: string; emojis: string[] }[] = [
+  {
+    name: 'Faces',
+    emojis: ['😀','😁','😂','🤣','😅','😊','😍','😎','🥳','😴','🤔','😮','😢','😭','😡','😇','🤩','😬','😶‍🌫️','🤯'],
+  },
+  {
+    name: 'Sports',
+    emojis: ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🏓','🏸','🥊','🥋','⛳','🏒','🏑','🏏','🛹','🏂','⛷️','🏊‍♂️','🚴‍♂️'],
+  },
+  {
+    name: 'Awards',
+    emojis: ['🏆','🏅','🥇','🥈','🥉','🎖️','🏵️','👑','🌟','✨','💫','🔥','⚡','💎','🎉','🎊','🎯','✅','💪','🙌'],
+  },
+  {
+    name: 'Animals',
+    emojis: ['🐶','🐱','🦁','🐯','🦊','🐻','🐼','🐨','🐸','🐵','🦅','🦉','🐺','🐗','🐮','🐷','🐴','🦄','🐙','🦈'],
+  },
+  {
+    name: 'Food',
+    emojis: ['🍕','🍔','🌮','🍟','🍿','🍣','🍜','🍱','🥗','🍦','🍩','🍪','🍫','🍎','🍉','🍌','🍓','🥑','☕','🍺'],
+  },
+  {
+    name: 'Objects',
+    emojis: ['🎮','📱','💻','⌚','🎧','📷','🎸','🎹','🎺','🧩','🧠','📌','📚','✏️','🖊️','🧭','🗺️','🚀','🛸','🪄'],
+  },
+];
+
 export const EmojiPicker = ({ 
   value, 
   onChange, 
   quickPicks = ['👤', '⚽', '🏆', '🎯', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎮', '🏅', '🥇']
 }: EmojiPickerProps) => {
   const [open, setOpen] = useState(false);
-  const { resolvedTheme } = useTheme();
+  const [query, setQuery] = useState('');
 
-  const handleEmojiSelect = (emoji: { native: string }) => {
-    onChange(emoji.native);
-    setOpen(false);
-  };
+  const allEmojis = useMemo(
+    () => EMOJI_CATEGORIES.flatMap((c) => c.emojis),
+    [],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allEmojis;
+    // Simple search: match by known aliases we provide for common terms; otherwise fallback to no filter.
+    const aliasMap: Record<string, string[]> = {
+      ball: ['⚽','🏀','🏈','⚾','🎾','🏐'],
+      trophy: ['🏆','🏅','🥇','🥈','🥉'],
+      star: ['🌟','✨','💫'],
+      fire: ['🔥'],
+      lightning: ['⚡'],
+      game: ['🎮'],
+      phone: ['📱'],
+      computer: ['💻'],
+      rocket: ['🚀'],
+      crown: ['👑'],
+      lion: ['🦁'],
+      eagle: ['🦅'],
+      soccer: ['⚽'],
+      football: ['🏈','⚽'],
+    };
+    const hits = Object.entries(aliasMap)
+      .filter(([k]) => k.includes(q))
+      .flatMap(([, v]) => v);
+    return hits.length ? hits : allEmojis;
+  }, [allEmojis, query]);
 
   return (
     <div className="space-y-3">
@@ -55,33 +113,53 @@ export const EmojiPicker = ({
 
       {/* Emoji picker button */}
       <div className="text-center">
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
             <Button
               variant="outline"
               size="sm"
               className="bg-white/20 border-white/30 text-white hover:bg-white/30 hover:text-white"
+              type="button"
             >
               <Smile className="w-4 h-4 mr-2" />
               Browse all emojis
             </Button>
-          </PopoverTrigger>
-          <PopoverContent 
-            className="w-auto p-0 border-0 bg-transparent shadow-none" 
-            side="bottom"
-            align="center"
-            sideOffset={8}
-          >
-            <Picker 
-              data={data} 
-              onEmojiSelect={handleEmojiSelect}
-              theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-              previewPosition="none"
-              skinTonePosition="search"
-              maxFrequentRows={2}
-            />
-          </PopoverContent>
-        </Popover>
+          </DialogTrigger>
+
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Pick an emoji</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search (e.g. trophy, ball, star)"
+              />
+
+              <div className="max-h-72 overflow-auto rounded-md border border-border bg-popover p-2">
+                <div className="grid grid-cols-8 gap-1">
+                  {filtered.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="h-9 w-9 rounded-md hover:bg-muted flex items-center justify-center text-xl"
+                      onClick={() => {
+                        onChange(emoji);
+                        setOpen(false);
+                        setQuery('');
+                      }}
+                      aria-label={`Select ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
