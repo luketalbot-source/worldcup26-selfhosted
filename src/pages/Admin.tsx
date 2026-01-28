@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -18,14 +18,12 @@ import {
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
@@ -35,6 +33,15 @@ interface Tenant {
   name: string;
   created_at: string;
   profiles: { count: number }[];
+}
+
+interface TenantUser {
+  id: string;
+  user_id: string;
+  display_name: string;
+  avatar_emoji: string | null;
+  phone_number: string | null;
+  created_at: string;
 }
 
 const Admin = () => {
@@ -49,6 +56,14 @@ const Admin = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  
+  // Tenant detail view state
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [tenantUsers, setTenantUsers] = useState<TenantUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<TenantUser | null>(null);
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [deleteUserConfirmation, setDeleteUserConfirmation] = useState('');
 
   // Set document title
   useEffect(() => {
@@ -146,6 +161,60 @@ const Admin = () => {
     }
   };
 
+  const fetchTenantUsers = async (tenant: Tenant) => {
+    setLoadingUsers(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTenantUsers(data || []);
+    } catch (err) {
+      console.error('Error fetching tenant users:', err);
+      toast.error('Failed to load users');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleViewTenant = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    fetchTenantUsers(tenant);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete || deleteUserConfirmation !== userToDelete.display_name) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userToDelete.id);
+
+      if (error) throw error;
+
+      setTenantUsers(tenantUsers.filter(u => u.id !== userToDelete.id));
+      
+      // Update tenant user count in the list
+      setTenants(tenants.map(t => 
+        t.id === selectedTenant?.id 
+          ? { ...t, profiles: [{ count: (t.profiles?.[0]?.count ?? 1) - 1 }] }
+          : t
+      ));
+      
+      toast.success(`User "${userToDelete.display_name}" deleted`);
+      setDeleteUserDialogOpen(false);
+      setUserToDelete(null);
+      setDeleteUserConfirmation('');
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      toast.error('Failed to delete user');
+    }
+  };
+
   const copyTenantPath = async (uid: string) => {
     const path = `/t/${uid}`;
     try {
@@ -203,6 +272,143 @@ const Admin = () => {
     );
   }
 
+  // Tenant detail view
+  if (selectedTenant) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container py-8">
+          <button
+            onClick={() => {
+              setSelectedTenant(null);
+              setTenantUsers([]);
+            }}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Tenants
+          </button>
+
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">{selectedTenant.name}</h1>
+              <p className="text-muted-foreground font-mono">/t/{selectedTenant.uid}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyTenantPath(selectedTenant.uid)}
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Path
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openTenantApp(selectedTenant.uid)}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Open App
+              </Button>
+            </div>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Users ({tenantUsers.length})
+              </CardTitle>
+              <CardDescription>Manage users in this tenant</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingUsers ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              ) : tenantUsers.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  No users in this tenant yet.
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {tenantUsers.map((tenantUser) => (
+                    <div key={tenantUser.id} className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{tenantUser.avatar_emoji || '👤'}</span>
+                        <div>
+                          <p className="font-medium text-foreground">{tenantUser.display_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {tenantUser.phone_number || 'No phone number'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          Joined {new Date(tenantUser.created_at).toLocaleDateString()}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            setUserToDelete(tenantUser);
+                            setDeleteUserConfirmation('');
+                            setDeleteUserDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Delete User Confirmation Dialog */}
+          <AlertDialog open={deleteUserDialogOpen} onOpenChange={setDeleteUserDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete User?</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3">
+                  <p>
+                    This will permanently delete <strong>"{userToDelete?.display_name}"</strong> and all their predictions and league memberships.
+                  </p>
+                  <p className="font-medium text-destructive">This action cannot be undone.</p>
+                  <div className="pt-2">
+                    <label className="text-sm text-foreground">
+                      Type <strong>{userToDelete?.display_name}</strong> to confirm:
+                    </label>
+                    <Input
+                      value={deleteUserConfirmation}
+                      onChange={(e) => setDeleteUserConfirmation(e.target.value)}
+                      placeholder="Enter display name"
+                      className="mt-2"
+                    />
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeleteUserConfirmation('')}>
+                  Cancel
+                </AlertDialogCancel>
+                <Button
+                  variant="destructive"
+                  disabled={deleteUserConfirmation !== userToDelete?.display_name}
+                  onClick={handleDeleteUser}
+                >
+                  Delete User
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container py-8">
@@ -255,7 +461,11 @@ const Admin = () => {
             </Card>
           ) : (
             tenants.map((tenant) => (
-              <Card key={tenant.id}>
+              <Card 
+                key={tenant.id} 
+                className="cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => handleViewTenant(tenant)}
+              >
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
@@ -268,7 +478,7 @@ const Admin = () => {
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="outline"
                         size="icon"
