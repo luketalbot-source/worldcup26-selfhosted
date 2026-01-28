@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trophy, Trash2, LogOut, X, Globe } from 'lucide-react';
+import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trash2, LogOut, X, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { EmojiPicker } from '@/components/EmojiPicker';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const LEAGUE_EMOJIS = ['🏆', '⚽', '🥇', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎯', '🏅', '🎮', '🌍'];
+const LEAGUE_QUICK_PICKS = ['🏆', '⚽', '🥇', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎯', '🏅', '🎮', '🌍'];
 
 // Special "Everyone" league constant
 const EVERYONE_LEAGUE_ID = 'everyone';
@@ -506,28 +507,11 @@ export const LeaguesView = () => {
           
           <div className="p-6 space-y-6">
             {/* Emoji picker */}
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-3 text-4xl border-2 border-primary/20">
-                {editEmoji}
-              </div>
-              <p className="text-xs text-muted-foreground mb-2">{t('leagues.selectIcon')}</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {LEAGUE_EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => setEditEmoji(emoji)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all ${
-                      editEmoji === emoji
-                        ? 'bg-primary/20 ring-2 ring-primary scale-110'
-                        : 'bg-muted hover:bg-muted/80'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <EmojiPicker 
+              value={editEmoji} 
+              onChange={setEditEmoji} 
+              quickPicks={LEAGUE_QUICK_PICKS}
+            />
             
             {/* Name input */}
             <div>
@@ -627,28 +611,11 @@ export const LeaguesView = () => {
           
           <div className="p-6 space-y-6">
             {/* Emoji picker */}
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-3 text-4xl border-2 border-primary/20">
-                {newEmoji}
-              </div>
-              <p className="text-xs text-muted-foreground mb-2">{t('leagues.selectIcon')}</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {LEAGUE_EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => setNewEmoji(emoji)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all ${
-                      newEmoji === emoji
-                        ? 'bg-primary/20 ring-2 ring-primary scale-110'
-                        : 'bg-muted hover:bg-muted/80'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <EmojiPicker 
+              value={newEmoji} 
+              onChange={setNewEmoji} 
+              quickPicks={LEAGUE_QUICK_PICKS}
+            />
             
             {/* Name input */}
             <div>
