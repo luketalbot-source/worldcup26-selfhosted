@@ -9,9 +9,9 @@
     "user": "Utilisateur"
   },
   "stage": {
-    "today": "Aujourd'hui",
-    "groups": "Groupes",
-    "knockout": "Éliminatoires"
+    "today": "Jour",
+    "groups": "Poules",
+    "knockout": "KO"
   },
   "sync": {
     "button": "Synchroniser",
