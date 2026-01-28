@@ -91,9 +91,6 @@ export const LeaguesView = () => {
       setView('detail');
     }
   };
-    setCreatedLeague(null);
-    setView('list');
-  };
 
   const resetCreate = () => {
     setNewName('');
