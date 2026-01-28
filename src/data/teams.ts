@@ -72,6 +72,9 @@ export const teams: Team[] = [
   { id: 'cro', name: 'Croatia', code: 'CRO', flag: '🇭🇷', group: 'L' },
   { id: 'gha', name: 'Ghana', code: 'GHA', flag: '🇬🇭', group: 'L' },
   { id: 'pan', name: 'Panama', code: 'PAN', flag: '🇵🇦', group: 'L' },
+  
+  // Test teams (not in World Cup 2026 but useful for testing)
+  { id: 'ita', name: 'Italy', code: 'ITA', flag: '🇮🇹', group: 'TEST' },
 ];
 
 export const getTeamById = (id: string): Team | undefined => {
