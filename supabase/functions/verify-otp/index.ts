@@ -25,7 +25,23 @@ serve(async (req) => {
     // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if the caller is already authenticated (existing user adding phone)
+    let authenticatedUserId: string | null = null;
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } }
+      });
+      const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+      if (!claimsError && claimsData?.claims?.sub) {
+        authenticatedUserId = claimsData.claims.sub as string;
+        console.log(`Authenticated user updating phone: ${authenticatedUserId}`);
+      }
+    }
 
     // Verify the OTP
     const { data: otpRecord, error: otpError } = await supabase
@@ -51,6 +67,28 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Mark OTP as used
+    await supabase
+      .from('otp_codes')
+      .update({ used: true })
+      .eq('id', otpRecord.id);
+
+    // If user is already authenticated, they're just verifying their phone
+    // Return success - the frontend will handle updating the profile
+    if (authenticatedUserId) {
+      console.log(`Phone verified for existing user: ${authenticatedUserId}`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          isNewUser: false,
+          phoneVerified: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // For unauthenticated requests, check if user exists with this phone number
 
     // Mark OTP as used
     await supabase
