@@ -91,7 +91,7 @@ export const MatchesView = () => {
       </div>;
   }
   if (activeStage === 'today') {
-    return <div className="space-y-4">
+    return <div className="space-y-4 max-w-[700px] mx-auto">
         <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
         <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
         
@@ -108,7 +108,7 @@ export const MatchesView = () => {
         x: 0
       }} transition={{
         duration: 0.3
-      }} className="space-y-4 max-w-[700px] mx-auto">
+      }} className="space-y-4">
             {todayMatches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
           </motion.div>}
       </div>;
