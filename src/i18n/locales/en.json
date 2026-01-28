@@ -201,6 +201,12 @@
       "description": "Remove {{name}} from this league?",
       "cancel": "No",
       "confirm": "Yes, remove"
+    },
+    "confirmLeave": {
+      "title": "Are you sure?",
+      "description": "Leave {{name}}? You can rejoin later with the invite code.",
+      "cancel": "No",
+      "confirm": "Yes, leave"
     }
   }
 }

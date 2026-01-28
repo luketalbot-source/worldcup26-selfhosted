@@ -200,6 +200,12 @@
       "description": "Rimuovere {{name}} da questa lega?",
       "cancel": "No",
       "confirm": "Sì, rimuovi"
+    },
+    "confirmLeave": {
+      "title": "Sei sicuro?",
+      "description": "Lasciare {{name}}? Potrai rientrare in seguito con il codice di invito.",
+      "cancel": "No",
+      "confirm": "Sì, lascia"
     }
   }
 }
