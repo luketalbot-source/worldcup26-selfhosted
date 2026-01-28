@@ -182,6 +182,13 @@
     "backToDetail": "Back",
     "saving": "Saving...",
     "updated": "League updated!",
-    "updateError": "Failed to update league"
+    "updateError": "Failed to update league",
+    "leaveLeague": "Leave League",
+    "deleteLeague": "Delete League",
+    "removeMember": "Remove from league",
+    "memberRemoved": "Member removed",
+    "removeMemberError": "Failed to remove member",
+    "deleted": "League deleted",
+    "deleteError": "Failed to delete league"
   }
 }

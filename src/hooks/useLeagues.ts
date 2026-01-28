@@ -199,6 +199,49 @@ export const useLeagues = () => {
     }
   };
 
+  const removeMember = async (leagueId: string, memberId: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('league_members')
+        .delete()
+        .eq('league_id', leagueId)
+        .eq('user_id', memberId);
+
+      if (error) throw error;
+
+      toast.success(t('leagues.memberRemoved'));
+      return true;
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error(t('leagues.removeMemberError'));
+      return false;
+    }
+  };
+
+  const deleteLeague = async (leagueId: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('leagues')
+        .delete()
+        .eq('id', leagueId)
+        .eq('creator_id', user.id);
+
+      if (error) throw error;
+
+      toast.success(t('leagues.deleted'));
+      await fetchLeagues();
+      return true;
+    } catch (error) {
+      console.error('Error deleting league:', error);
+      toast.error(t('leagues.deleteError'));
+      return false;
+    }
+  };
+
   const updateLeague = async (leagueId: string, name: string, avatarEmoji: string): Promise<boolean> => {
     if (!user) return false;
 
@@ -260,6 +303,8 @@ export const useLeagues = () => {
     createLeague,
     joinLeague,
     leaveLeague,
+    removeMember,
+    deleteLeague,
     updateLeague,
     getLeagueMembers,
     refetch: fetchLeagues

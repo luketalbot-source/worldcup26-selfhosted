@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trophy } from 'lucide-react';
+import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2, Trophy, Trash2, LogOut, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeagues, League } from '@/hooks/useLeagues';
@@ -29,7 +29,7 @@ export const LeaguesView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { leagues, loading, createLeague, joinLeague, updateLeague } = useLeagues();
+  const { leagues, loading, createLeague, joinLeague, leaveLeague, removeMember, deleteLeague, updateLeague, refetch } = useLeagues();
   
   const [view, setView] = useState<'list' | 'create' | 'join' | 'detail' | 'edit'>('list');
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
@@ -105,6 +105,35 @@ export const LeaguesView = () => {
     if (success) {
       setSelectedLeague({ ...selectedLeague, name: editName.trim(), avatar_emoji: editEmoji });
       setView('detail');
+    }
+  };
+
+  const handleLeaveLeague = async () => {
+    if (!selectedLeague || !user) return;
+    
+    const success = await leaveLeague(selectedLeague.id);
+    if (success) {
+      setSelectedLeague(null);
+      setView('list');
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!selectedLeague) return;
+    
+    const success = await removeMember(selectedLeague.id, memberId);
+    if (success) {
+      refetchLeaderboard();
+    }
+  };
+
+  const handleDeleteLeague = async () => {
+    if (!selectedLeague) return;
+    
+    const success = await deleteLeague(selectedLeague.id);
+    if (success) {
+      setSelectedLeague(null);
+      setView('list');
     }
   };
 
@@ -216,7 +245,7 @@ export const LeaguesView = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className={`flex items-center gap-4 p-4 ${
+                    className={`flex items-center gap-3 p-4 ${
                       entry.userId === user.id ? 'bg-primary/5' : ''
                     }`}
                   >
@@ -243,6 +272,16 @@ export const LeaguesView = () => {
                         <p className="text-lg font-bold text-foreground">{entry.points}</p>
                         <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
                       </div>
+                      {/* Remove button - only for creator, not for self or other creator */}
+                      {selectedLeague?.creator_id === user.id && entry.userId !== user.id && !entry.isCreator && (
+                        <button
+                          onClick={() => handleRemoveMember(entry.userId)}
+                          className="ml-2 p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                          title={t('leagues.removeMember')}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 ))}
@@ -268,6 +307,29 @@ export const LeaguesView = () => {
               <p className="text-xs text-muted-foreground text-center mt-2">
                 {t('leaderboard.pointsPerType')}
               </p>
+            </div>
+            
+            {/* Leave / Delete League actions */}
+            <div className="mt-4 pt-4 border-t border-border space-y-3">
+              {selectedLeague?.creator_id === user.id ? (
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={handleDeleteLeague}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {t('leagues.deleteLeague')}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={handleLeaveLeague}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {t('leagues.leaveLeague')}
+                </Button>
+              )}
             </div>
           </div>
         </motion.div>

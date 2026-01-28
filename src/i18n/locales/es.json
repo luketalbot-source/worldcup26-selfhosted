@@ -181,6 +181,13 @@
     "backToDetail": "Volver",
     "saving": "Guardando...",
     "updated": "¡Liga actualizada!",
-    "updateError": "Error al actualizar liga"
+    "updateError": "Error al actualizar liga",
+    "leaveLeague": "Salir de la Liga",
+    "deleteLeague": "Eliminar Liga",
+    "removeMember": "Eliminar de la liga",
+    "memberRemoved": "Miembro eliminado",
+    "removeMemberError": "Error al eliminar miembro",
+    "deleted": "Liga eliminada",
+    "deleteError": "Error al eliminar liga"
   }
 }
