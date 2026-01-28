@@ -12,23 +12,79 @@ import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTeamsByGroup } from '@/data/teams';
-import { GroupStanding } from '@/types/match';
+import { GroupStanding, Match } from '@/types/match';
 import { LogIn } from 'lucide-react';
 import mascotsWaiting from '@/assets/mascots-waiting.png';
+import { groupStageMatches } from '@/data/matches';
 
-const generateStandings = (group: string): GroupStanding[] => {
+const calculateStandings = (group: string, matches: Match[]): GroupStanding[] => {
   const teams = getTeamsByGroup(group);
-  return teams.map((team) => ({
-    team,
-    played: 0,
-    won: 0,
-    drawn: 0,
-    lost: 0,
-    goalsFor: 0,
-    goalsAgainst: 0,
-    goalDifference: 0,
-    points: 0,
-  }));
+  const standingsMap = new Map<string, GroupStanding>();
+  
+  // Initialize all teams with zero stats
+  teams.forEach((team) => {
+    standingsMap.set(team.id, {
+      team,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDifference: 0,
+      points: 0,
+    });
+  });
+  
+  // Process finished matches only
+  const groupMatches = matches.filter(m => m.group === group && m.status === 'finished');
+  
+  groupMatches.forEach((match) => {
+    const homeTeam = standingsMap.get(match.homeTeam.id);
+    const awayTeam = standingsMap.get(match.awayTeam.id);
+    
+    if (!homeTeam || !awayTeam || match.homeScore === undefined || match.awayScore === undefined) return;
+    
+    const homeScore = match.homeScore;
+    const awayScore = match.awayScore;
+    
+    // Update played
+    homeTeam.played++;
+    awayTeam.played++;
+    
+    // Update goals
+    homeTeam.goalsFor += homeScore;
+    homeTeam.goalsAgainst += awayScore;
+    awayTeam.goalsFor += awayScore;
+    awayTeam.goalsAgainst += homeScore;
+    
+    // Update goal difference
+    homeTeam.goalDifference = homeTeam.goalsFor - homeTeam.goalsAgainst;
+    awayTeam.goalDifference = awayTeam.goalsFor - awayTeam.goalsAgainst;
+    
+    // Determine winner and update W/D/L and points
+    if (homeScore > awayScore) {
+      homeTeam.won++;
+      homeTeam.points += 3;
+      awayTeam.lost++;
+    } else if (awayScore > homeScore) {
+      awayTeam.won++;
+      awayTeam.points += 3;
+      homeTeam.lost++;
+    } else {
+      homeTeam.drawn++;
+      awayTeam.drawn++;
+      homeTeam.points += 1;
+      awayTeam.points += 1;
+    }
+  });
+  
+  // Convert to array and sort by points, then goal difference, then goals for
+  return Array.from(standingsMap.values()).sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+    return b.goalsFor - a.goalsFor;
+  });
 };
 const groups = ['X', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 export const MatchesView = () => {
@@ -115,7 +171,7 @@ export const MatchesView = () => {
           </motion.div>}
       </div>;
   }
-  const standings = generateStandings(activeGroup);
+  const standings = calculateStandings(activeGroup, groupStageMatches);
 
   return <div className="space-y-4">
       <div className="max-w-[700px] mx-auto space-y-4">
