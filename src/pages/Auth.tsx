@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Phone, ArrowLeft, Loader2 } from 'lucide-react';
+import { User, ArrowLeft, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Header } from '@/components/Header';
+import { PhoneInput } from '@/components/PhoneInput';
 import { z } from 'zod';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
@@ -217,21 +218,11 @@ const Auth = () => {
                     <label className="text-sm font-medium text-foreground">
                       {t('auth.phoneLabel', 'Phone Number')}
                     </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        type="tel"
-                        placeholder={t('auth.phonePlaceholder', '+1234567890')}
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="pl-10 h-12 rounded-xl"
-                        autoComplete="tel"
-                        autoFocus
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t('auth.phoneHint', 'Use international format with country code (e.g., +1 for US)')}
-                    </p>
+                    <PhoneInput
+                      value={phoneNumber}
+                      onChange={setPhoneNumber}
+                      autoFocus
+                    />
                   </div>
 
                   {error && (

@@ -10,6 +10,7 @@ import { useUserStats } from '@/hooks/useUserStats';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PhoneInput } from '@/components/PhoneInput';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const languages = [
@@ -359,19 +360,10 @@ export const ProfileView = () => {
             {phoneStep === 'input' ? (
               <>
                 <div className="space-y-2">
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type="tel"
-                      placeholder={t('auth.phonePlaceholder')}
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t('auth.phoneHint')}
-                  </p>
+                  <PhoneInput
+                    value={editPhone}
+                    onChange={setEditPhone}
+                  />
                 </div>
                 {phoneError && (
                   <p className="text-sm text-destructive">{phoneError}</p>
