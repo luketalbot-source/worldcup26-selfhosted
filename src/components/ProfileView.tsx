@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap } from 'lucide-react';
+import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { usePredictions } from '@/hooks/usePredictions';
@@ -10,8 +11,18 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
+const languages = [
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'pt', name: 'Português', flag: '🇧🇷' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+];
+
 export const ProfileView = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { theme, setTheme } = useTheme();
   const { user, signOut } = useAuth();
   const { profile, updateProfile } = useProfile(user?.id);
   const { predictions } = usePredictions();
@@ -21,6 +32,8 @@ export const ProfileView = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
+  
+  const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
   const handleEdit = () => {
     setEditName(profile?.displayName || '');
@@ -234,11 +247,90 @@ export const ProfileView = () => {
         </div>
       </motion.div>
 
+      {/* Settings Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
+      >
+        <h3 className="font-semibold text-foreground mb-4">{t('profile.settings')}</h3>
+        
+        <div className="space-y-4">
+          {/* Language Setting */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Globe className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm text-foreground">{t('profile.language')}</span>
+            </div>
+            <div className="flex gap-1 flex-wrap justify-end">
+              {languages.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => i18n.changeLanguage(lang.code)}
+                  className={`px-2 py-1 rounded-lg text-lg transition-colors ${
+                    i18n.language === lang.code 
+                      ? 'bg-primary/20 ring-1 ring-primary' 
+                      : 'hover:bg-muted'
+                  }`}
+                  title={lang.name}
+                >
+                  {lang.flag}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Theme Setting */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {theme === 'dark' ? (
+                <Moon className="w-5 h-5 text-muted-foreground" />
+              ) : theme === 'light' ? (
+                <Sun className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Monitor className="w-5 h-5 text-muted-foreground" />
+              )}
+              <span className="text-sm text-foreground">{t('profile.theme')}</span>
+            </div>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setTheme('light')}
+                className={`p-2 rounded-lg transition-colors ${
+                  theme === 'light' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
+                }`}
+                title={t('theme.light')}
+              >
+                <Sun className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={`p-2 rounded-lg transition-colors ${
+                  theme === 'dark' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
+                }`}
+                title={t('theme.dark')}
+              >
+                <Moon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setTheme('system')}
+                className={`p-2 rounded-lg transition-colors ${
+                  theme === 'system' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
+                }`}
+                title={t('theme.system')}
+              >
+                <Monitor className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Sign Out */}
       <motion.button
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.3 }}
         onClick={handleSignOut}
         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
       >

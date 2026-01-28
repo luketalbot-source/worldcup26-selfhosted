@@ -101,6 +101,9 @@
     "correctResults": "Resultados Corretos",
     "wrongResults": "Resultados Errados",
     "accuracy": "Precisão",
+    "settings": "Configurações",
+    "language": "Idioma",
+    "theme": "Tema",
     "signOut": "Sair",
     "edit": {
       "tapToSelect": "Toque para selecionar",

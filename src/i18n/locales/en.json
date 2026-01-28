@@ -101,6 +101,10 @@
     "correctResults": "Correct Results",
     "wrongResults": "Wrong Results",
     "accuracy": "Accuracy",
+    "settings": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "signOut": "Sign Out",
     "signOut": "Sign Out",
     "edit": {
       "tapToSelect": "Tap to select",
