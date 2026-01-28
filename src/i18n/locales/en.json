@@ -166,6 +166,7 @@
     "createdSuccess": "League created!",
     "shareCode": "Share this code with friends to invite them:",
     "codeCopied": "Code copied!",
+    "copyFailed": "Failed to copy code",
     "done": "Done",
     "joinCode": "Join Code",
     "member": "member",
