@@ -188,6 +188,18 @@
     "memberRemoved": "Membro rimosso",
     "removeMemberError": "Impossibile rimuovere il membro",
     "deleted": "Lega eliminata",
-    "deleteError": "Impossibile eliminare la lega"
+    "deleteError": "Impossibile eliminare la lega",
+    "confirmDelete": {
+      "title": "Sei sicuro?",
+      "description": "Questo eliminerà definitivamente questa lega e rimuoverà tutti i membri. Questa azione non può essere annullata.",
+      "cancel": "No",
+      "confirm": "Sì, elimina"
+    },
+    "confirmRemove": {
+      "title": "Sei sicuro?",
+      "description": "Rimuovere {{name}} da questa lega?",
+      "cancel": "No",
+      "confirm": "Sì, rimuovi"
+    }
   }
 }

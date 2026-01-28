@@ -188,6 +188,18 @@
     "memberRemoved": "Miembro eliminado",
     "removeMemberError": "Error al eliminar miembro",
     "deleted": "Liga eliminada",
-    "deleteError": "Error al eliminar liga"
+    "deleteError": "Error al eliminar liga",
+    "confirmDelete": {
+      "title": "¿Estás seguro?",
+      "description": "Esto eliminará permanentemente esta liga y todos sus miembros. Esta acción no se puede deshacer.",
+      "cancel": "No",
+      "confirm": "Sí, eliminar"
+    },
+    "confirmRemove": {
+      "title": "¿Estás seguro?",
+      "description": "¿Eliminar a {{name}} de esta liga?",
+      "cancel": "No",
+      "confirm": "Sí, eliminar"
+    }
   }
 }
