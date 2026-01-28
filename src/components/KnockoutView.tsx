@@ -77,7 +77,7 @@ export const KnockoutView = () => {
       </div>
 
       {/* Desktop: side-by-side layout */}
-      <div className="gap-6 flex items-start justify-center">
+      <div className="gap-6 flex items-start justify-center max-w-[700px] mx-auto">
         {/* Vertical tabs - hidden on mobile */}
         <div className="hidden md:flex flex-col gap-2 sticky top-[120px] self-start">
           {stages.map(stage => <motion.button key={stage} whileHover={{
@@ -91,7 +91,7 @@ export const KnockoutView = () => {
         </div>
 
         {/* Match cards */}
-        <div className="flex-1 space-y-4 max-w-[700px]">
+        <div className="flex-1 space-y-4">
           {/* Dynamic Info Banner */}
           <motion.div initial={{
           opacity: 0,

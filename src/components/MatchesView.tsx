@@ -130,7 +130,7 @@ export const MatchesView = () => {
       </div>
       
       {/* Desktop: side-by-side layout */}
-      <div className="gap-6 flex items-start justify-center">
+      <div className="gap-6 flex items-start justify-center max-w-[700px] mx-auto">
         {/* Vertical tabs - hidden on mobile */}
         <div className="hidden md:block sticky top-[120px] self-start">
           <GroupTabs groups={groups} activeGroup={activeGroup} onGroupChange={setActiveGroup} vertical />
@@ -145,7 +145,7 @@ export const MatchesView = () => {
         x: 0
       }} transition={{
         duration: 0.3
-      }} className="flex-1 space-y-4 max-w-[700px]">
+      }} className="flex-1 space-y-4">
           <GroupStandings standings={standings} group={activeGroup} />
           {matches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
         </motion.div>
