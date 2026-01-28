@@ -13,9 +13,10 @@ interface MatchCardProps {
   prediction?: Prediction;
   onPredict: (matchId: string, homeScore: number, awayScore: number) => void;
   disabled?: boolean;
+  showGroup?: boolean;
 }
 
-export const MatchCard = ({ match, prediction, onPredict, disabled = false }: MatchCardProps) => {
+export const MatchCard = ({ match, prediction, onPredict, disabled = false, showGroup = false }: MatchCardProps) => {
   const { t } = useTranslation();
   const [homeScore, setHomeScore] = useState(prediction?.homeScore ?? 0);
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
@@ -141,6 +142,11 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false }: Ma
               <MapPin className="w-3 h-3" />
               <span>{match.city}</span>
             </div>
+            {showGroup && match.group && (
+              <div className="bg-primary/90 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs font-semibold">
+                {t('matches.group', { letter: match.group })}
+              </div>
+            )}
           </div>
           
           {(isLive || isFinished) && (

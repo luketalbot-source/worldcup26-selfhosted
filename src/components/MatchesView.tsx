@@ -167,7 +167,7 @@ export const MatchesView = () => {
       }} transition={{
         duration: 0.3
       }} className="space-y-4">
-            {todayMatches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
+            {todayMatches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} showGroup />)}
           </motion.div>}
       </div>;
   }
