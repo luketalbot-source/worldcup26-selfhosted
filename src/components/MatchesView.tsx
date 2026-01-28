@@ -30,7 +30,7 @@ const generateStandings = (group: string): GroupStanding[] => {
     points: 0,
   }));
 };
-const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+const groups = ['X', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 export const MatchesView = () => {
   const {
     t
