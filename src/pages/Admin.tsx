@@ -137,10 +137,23 @@ const Admin = () => {
     }
   };
 
-  const copyTenantUrl = (uid: string) => {
-    const url = `${window.location.origin}/t/${uid}`;
-    navigator.clipboard.writeText(url);
-    toast.success('URL copied to clipboard');
+  const copyTenantPath = async (uid: string) => {
+    const path = `/t/${uid}`;
+    try {
+      await navigator.clipboard.writeText(path);
+      toast.success('Path copied to clipboard');
+    } catch {
+      // Fallback for iframe contexts
+      const textarea = document.createElement('textarea');
+      textarea.value = path;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      toast.success('Path copied to clipboard');
+    }
   };
 
   const openTenantApp = (uid: string) => {
@@ -247,7 +260,7 @@ const Admin = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => copyTenantUrl(tenant.uid)}
+                        onClick={() => copyTenantPath(tenant.uid)}
                         title="Copy URL"
                       >
                         <Copy className="w-4 h-4" />
