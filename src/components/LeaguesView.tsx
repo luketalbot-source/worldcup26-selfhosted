@@ -9,6 +9,16 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const LEAGUE_EMOJIS = ['🏆', '⚽', '🥇', '🌟', '🔥', '💪', '🦁', '🐯', '🦅', '👑', '⚡', '🎯', '🏅', '🎮', '🌍'];
 
@@ -52,6 +62,11 @@ export const LeaguesView = () => {
   // Edit form state
   const [editName, setEditName] = useState('');
   const [editEmoji, setEditEmoji] = useState('🏆');
+  
+  // Confirmation dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRemoveMemberDialog, setShowRemoveMemberDialog] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const handleCreate = async () => {
@@ -118,16 +133,23 @@ export const LeaguesView = () => {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (!selectedLeague) return;
+  const openRemoveMemberDialog = (memberId: string, memberName: string) => {
+    setMemberToRemove({ id: memberId, name: memberName });
+    setShowRemoveMemberDialog(true);
+  };
+
+  const handleConfirmRemoveMember = async () => {
+    if (!selectedLeague || !memberToRemove) return;
     
-    const success = await removeMember(selectedLeague.id, memberId);
+    const success = await removeMember(selectedLeague.id, memberToRemove.id);
     if (success) {
       refetchLeaderboard();
     }
+    setShowRemoveMemberDialog(false);
+    setMemberToRemove(null);
   };
 
-  const handleDeleteLeague = async () => {
+  const handleConfirmDeleteLeague = async () => {
     if (!selectedLeague) return;
     
     const success = await deleteLeague(selectedLeague.id);
@@ -135,6 +157,7 @@ export const LeaguesView = () => {
       setSelectedLeague(null);
       setView('list');
     }
+    setShowDeleteDialog(false);
   };
 
   const resetCreate = () => {
@@ -275,7 +298,7 @@ export const LeaguesView = () => {
                       {/* Remove button - only for creator, not for self or other creator */}
                       {selectedLeague?.creator_id === user.id && entry.userId !== user.id && !entry.isCreator && (
                         <button
-                          onClick={() => handleRemoveMember(entry.userId)}
+                          onClick={() => openRemoveMemberDialog(entry.userId, entry.displayName)}
                           className="ml-2 p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
                           title={t('leagues.removeMember')}
                         >
@@ -315,7 +338,7 @@ export const LeaguesView = () => {
                 <Button
                   variant="destructive"
                   className="w-full"
-                  onClick={handleDeleteLeague}
+                  onClick={() => setShowDeleteDialog(true)}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   {t('leagues.deleteLeague')}
@@ -331,6 +354,48 @@ export const LeaguesView = () => {
                 </Button>
               )}
             </div>
+            
+            {/* Delete League Confirmation Dialog */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('leagues.confirmDelete.title')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('leagues.confirmDelete.description')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('leagues.confirmDelete.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmDeleteLeague}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {t('leagues.confirmDelete.confirm')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            
+            {/* Remove Member Confirmation Dialog */}
+            <AlertDialog open={showRemoveMemberDialog} onOpenChange={setShowRemoveMemberDialog}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('leagues.confirmRemove.title')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('leagues.confirmRemove.description', { name: memberToRemove?.name })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('leagues.confirmRemove.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmRemoveMember}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {t('leagues.confirmRemove.confirm')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </motion.div>
       </div>

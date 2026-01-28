@@ -188,6 +188,18 @@
     "memberRemoved": "Mitglied entfernt",
     "removeMemberError": "Fehler beim Entfernen des Mitglieds",
     "deleted": "Liga gelöscht",
-    "deleteError": "Fehler beim Löschen der Liga"
+    "deleteError": "Fehler beim Löschen der Liga",
+    "confirmDelete": {
+      "title": "Bist du sicher?",
+      "description": "Dies löscht diese Liga dauerhaft und entfernt alle Mitglieder. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "cancel": "Nein",
+      "confirm": "Ja, löschen"
+    },
+    "confirmRemove": {
+      "title": "Bist du sicher?",
+      "description": "{{name}} aus dieser Liga entfernen?",
+      "cancel": "Nein",
+      "confirm": "Ja, entfernen"
+    }
   }
 }

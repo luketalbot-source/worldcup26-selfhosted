@@ -189,6 +189,18 @@
     "memberRemoved": "Member removed",
     "removeMemberError": "Failed to remove member",
     "deleted": "League deleted",
-    "deleteError": "Failed to delete league"
+    "deleteError": "Failed to delete league",
+    "confirmDelete": {
+      "title": "Are you sure?",
+      "description": "This will permanently delete this league and remove all members. This action cannot be undone.",
+      "cancel": "No",
+      "confirm": "Yes, delete"
+    },
+    "confirmRemove": {
+      "title": "Are you sure?",
+      "description": "Remove {{name}} from this league?",
+      "cancel": "No",
+      "confirm": "Yes, remove"
+    }
   }
 }

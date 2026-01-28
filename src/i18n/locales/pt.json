@@ -188,6 +188,18 @@
     "memberRemoved": "Membro removido",
     "removeMemberError": "Falha ao remover membro",
     "deleted": "Liga excluída",
-    "deleteError": "Falha ao excluir liga"
+    "deleteError": "Falha ao excluir liga",
+    "confirmDelete": {
+      "title": "Tem certeza?",
+      "description": "Isso excluirá permanentemente esta liga e removerá todos os membros. Esta ação não pode ser desfeita.",
+      "cancel": "Não",
+      "confirm": "Sim, excluir"
+    },
+    "confirmRemove": {
+      "title": "Tem certeza?",
+      "description": "Remover {{name}} desta liga?",
+      "cancel": "Não",
+      "confirm": "Sim, remover"
+    }
   }
 }

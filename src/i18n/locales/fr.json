@@ -188,6 +188,18 @@
     "memberRemoved": "Membre retiré",
     "removeMemberError": "Échec du retrait du membre",
     "deleted": "Ligue supprimée",
-    "deleteError": "Échec de la suppression"
+    "deleteError": "Échec de la suppression",
+    "confirmDelete": {
+      "title": "Êtes-vous sûr ?",
+      "description": "Cela supprimera définitivement cette ligue et tous ses membres. Cette action est irréversible.",
+      "cancel": "Non",
+      "confirm": "Oui, supprimer"
+    },
+    "confirmRemove": {
+      "title": "Êtes-vous sûr ?",
+      "description": "Retirer {{name}} de cette ligue ?",
+      "cancel": "Non",
+      "confirm": "Oui, retirer"
+    }
   }
 }
