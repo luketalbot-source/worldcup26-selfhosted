@@ -98,8 +98,8 @@ export const PhoneInput = ({
   }, []);
 
   const handleLocalNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove spaces and non-numeric characters (except for initial setup)
-    const cleaned = e.target.value.replace(/\s/g, '').replace(/[^0-9]/g, '');
+    // Remove spaces and non-numeric characters, then strip leading zeros
+    const cleaned = e.target.value.replace(/\s/g, '').replace(/[^0-9]/g, '').replace(/^0+/, '');
     setLocalNumber(cleaned);
     onChange(`${selectedCountry.code}${cleaned}`);
   };
