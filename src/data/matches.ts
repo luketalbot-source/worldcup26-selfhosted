@@ -41,8 +41,8 @@ export const groupStageMatches: Match[] = [
   // FINISHED: Germany vs France - Final score 0-0 draw (predict wrong result for 0pts, e.g. 2-0)
   createMatch('TEST_WRONG', 'ger_x', 'fra_x', 'January 27, 2026', '14:00', 'Test Stadium', 'Test City', 'X', 'finished', 0, 0),
   
-  // LIVE: England vs Brazil - currently 1-0
-  createMatch('TEST_LIVE', 'eng_x', 'bra_x', 'January 28, 2026', '08:00', 'Test Stadium', 'Test City', 'X', 'live', 1, 0),
+  // FINISHED: England vs Brazil - Final score 1-0
+  createMatch('TEST_LIVE', 'eng_x', 'bra_x', 'January 28, 2026', '08:00', 'Test Stadium', 'Test City', 'X', 'finished', 1, 0),
   
   // UPCOMING: Spain vs Argentina - kicks off later today
   createMatch('TEST_UPCOMING', 'esp_x', 'arg_x', 'January 28, 2026', '10:30', 'Test Stadium', 'Test City', 'X'),
