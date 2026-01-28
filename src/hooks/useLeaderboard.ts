@@ -12,21 +12,30 @@ interface LeaderboardEntry {
   points: number;
 }
 
-export const useLeaderboard = () => {
+export const useLeaderboard = (tenantId: string | null) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLeaderboard();
-  }, []);
+    if (tenantId) {
+      fetchLeaderboard();
+    }
+  }, [tenantId]);
 
   const fetchLeaderboard = async () => {
+    if (!tenantId) {
+      setLeaderboard([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     
-    // Get ALL profiles in the tenant (everyone in the system)
+    // Get ALL profiles in the current tenant only
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('*');
+      .select('*')
+      .eq('tenant_id', tenantId);
 
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);

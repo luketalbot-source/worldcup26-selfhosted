@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Trophy, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,7 +22,8 @@ const getRankDisplay = (rank: number) => {
 export const LeaderboardView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { leaderboard, loading } = useLeaderboard();
+  const { tenantId } = useTenant();
+  const { leaderboard, loading } = useLeaderboard(tenantId);
   const navigate = useNavigate();
 
   if (!user) {
