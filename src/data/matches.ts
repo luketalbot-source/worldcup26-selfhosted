@@ -45,7 +45,7 @@ export const groupStageMatches: Match[] = [
   createMatch('TEST_LIVE', 'eng', 'bra', 'January 28, 2026', '08:00', 'Test Stadium', 'Test City', 'A', 'live', 1, 0),
   
   // UPCOMING: Spain vs Argentina - kicks off later today
-  createMatch('TEST_UPCOMING', 'esp', 'arg', 'January 28, 2026', '21:00', 'Test Stadium', 'Test City', 'A'),
+  createMatch('TEST_UPCOMING', 'esp', 'arg', 'January 28, 2026', '10:30', 'Test Stadium', 'Test City', 'A'),
 
   // ============ MATCHDAY 1 ============
   
