@@ -30,7 +30,7 @@ const generateJoinCode = (): string => {
   return code;
 };
 
-export const useLeagues = () => {
+export const useLeagues = (tenantId?: string | null) => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [leagues, setLeagues] = useState<League[]>([]);
@@ -96,13 +96,25 @@ export const useLeagues = () => {
     try {
       const joinCode = generateJoinCode();
       
+      // Get user's tenant_id from profile if not provided
+      let effectiveTenantId = tenantId;
+      if (!effectiveTenantId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        effectiveTenantId = profile?.tenant_id;
+      }
+      
       const { data, error } = await supabase
         .from('leagues')
         .insert({
           name,
           avatar_emoji: avatarEmoji,
           join_code: joinCode,
-          creator_id: user.id
+          creator_id: user.id,
+          tenant_id: effectiveTenantId,
         })
         .select()
         .single();
@@ -114,7 +126,8 @@ export const useLeagues = () => {
         .from('league_members')
         .insert({
           league_id: data.id,
-          user_id: user.id
+          user_id: user.id,
+          tenant_id: effectiveTenantId,
         });
 
       toast.success(t('leagues.created'));
@@ -157,12 +170,24 @@ export const useLeagues = () => {
         return false;
       }
 
+      // Get user's tenant_id from profile if not provided
+      let effectiveTenantId = tenantId;
+      if (!effectiveTenantId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        effectiveTenantId = profile?.tenant_id;
+      }
+
       // Join the league
       const { error: joinError } = await supabase
         .from('league_members')
         .insert({
           league_id: league.id,
-          user_id: user.id
+          user_id: user.id,
+          tenant_id: effectiveTenantId,
         });
 
       if (joinError) throw joinError;

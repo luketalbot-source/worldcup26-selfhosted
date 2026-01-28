@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone_number } = await req.json();
+    const { phone_number, tenant_id } = await req.json();
     
     if (!phone_number) {
       return new Response(
@@ -49,12 +49,25 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if user exists with this phone number (server-side check bypasses RLS)
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('user_id')
-      .eq('phone_number', phone_number)
-      .maybeSingle();
+    // Check if user exists with this phone number AND tenant_id
+    let existingProfile = null;
+    if (tenant_id) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('phone_number', phone_number)
+        .eq('tenant_id', tenant_id)
+        .maybeSingle();
+      existingProfile = data;
+    } else {
+      // Legacy: check without tenant
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('phone_number', phone_number)
+        .maybeSingle();
+      existingProfile = data;
+    }
 
     const isNewUser = !existingProfile;
 
@@ -117,9 +130,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`OTP sent successfully to ${phone_number}`);
-
-    console.log(`OTP sent to ${phone_number}, isNewUser: ${isNewUser}`);
+    console.log(`OTP sent to ${phone_number}, tenant_id: ${tenant_id}, isNewUser: ${isNewUser}`);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Verification code sent', isNewUser }),
