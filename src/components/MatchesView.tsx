@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MatchCard } from './MatchCard';
 import { GroupTabs } from './GroupTabs';
 import { StageSelector } from './StageSelector';
@@ -15,6 +16,7 @@ import mascotsWaiting from '@/assets/mascots-waiting.png';
 const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
 export const MatchesView = () => {
+  const { t } = useTranslation();
   const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('today');
   const [activeGroup, setActiveGroup] = useState('A');
   const { addPrediction, getPrediction, predictions } = usePredictions();
@@ -42,14 +44,14 @@ export const MatchesView = () => {
         className="bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-center justify-between"
       >
         <p className="text-sm text-foreground">
-          <strong>Log in</strong> to save your predictions!
+          <strong>{t('header.login')}</strong> {t('matches.loginPrompt').replace('Log in', '').trim()}
         </p>
         <button
           onClick={() => navigate('/auth')}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground font-semibold text-sm"
         >
           <LogIn className="w-4 h-4" />
-          Log In
+          {t('header.login')}
         </button>
       </motion.div>
     );
@@ -80,7 +82,7 @@ export const MatchesView = () => {
               alt="World Cup 2026 mascots waiting for matches" 
               className="w-full max-w-[600px] h-auto mx-auto"
             />
-            <p className="text-muted-foreground">No matches scheduled for today</p>
+            <p className="text-muted-foreground">{t('matches.noMatchesToday')}</p>
           </div>
         ) : (
           <motion.div 

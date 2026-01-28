@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "matches": "Matches",
+    "standings": "Standings",
+    "leaders": "Leaders"
+  },
+  "header": {
+    "login": "Log In",
+    "user": "User"
+  },
+  "stage": {
+    "today": "Today",
+    "groups": "Groups",
+    "knockout": "Knockout"
+  },
+  "sync": {
+    "button": "Sync Scores",
+    "syncing": "Syncing...",
+    "wait": "Wait {{seconds}}s",
+    "locksInfo": "Locks 30min before Kickoff",
+    "justNow": "Just now",
+    "minutesAgo": "{{minutes}}m ago",
+    "hoursAgo": "{{hours}}h ago",
+    "neverSynced": "Never synced"
+  },
+  "matches": {
+    "noMatchesToday": "No matches scheduled for today",
+    "loginPrompt": "Log in to save your predictions!",
+    "group": "Group {{letter}}"
+  },
+  "auth": {
+    "title": "Enter Your Username",
+    "subtitle": "Just pick a username to start predicting!",
+    "usernameLabel": "Username",
+    "usernamePlaceholder": "YourUsername",
+    "usernameHint": "Letters, numbers, and underscores only",
+    "rememberMe": "Remember my username",
+    "submit": "Let's Go! 🚀",
+    "loading": "Please wait...",
+    "validation": {
+      "minLength": "Username must be at least 2 characters",
+      "maxLength": "Username must be 20 characters or less",
+      "pattern": "Username can only contain letters, numbers, and underscores"
+    },
+    "unexpectedError": "An unexpected error occurred."
+  },
+  "profile": {
+    "guest": "Guest",
+    "guestSubtitle": "Enter a username to save your predictions",
+    "guestPrompt": "Pick a username to save your predictions and compete on the leaderboard!",
+    "enterUsername": "Enter Username",
+    "predictor": "Predictor",
+    "predictions": "Predictions",
+    "points": "Points",
+    "yourStats": "Your Stats",
+    "exactScores": "Exact Scores",
+    "correctResults": "Correct Results",
+    "wrongResults": "Wrong Results",
+    "accuracy": "Accuracy",
+    "signOut": "Sign Out",
+    "edit": {
+      "tapToSelect": "Tap to select",
+      "orTypeEmoji": "Or type/paste any emoji",
+      "displayName": "Display name",
+      "cancel": "Cancel",
+      "save": "Save"
+    }
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "es": "Español",
+    "de": "Deutsch",
+    "fr": "Français",
+    "pt": "Português",
+    "it": "Italiano"
+  }
+}

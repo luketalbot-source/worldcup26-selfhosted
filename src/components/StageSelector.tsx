@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Calendar, Swords, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface StageSelectorProps {
   activeStage: 'today' | 'groups' | 'knockout';
@@ -8,6 +9,8 @@ interface StageSelectorProps {
 }
 
 export const StageSelector = ({ activeStage, onStageChange, todayCount = 0 }: StageSelectorProps) => {
+  const { t } = useTranslation();
+  
   return (
     <div className="flex gap-2 p-1 bg-muted rounded-xl">
       <motion.button
@@ -20,7 +23,7 @@ export const StageSelector = ({ activeStage, onStageChange, todayCount = 0 }: St
         }`}
       >
         <Clock className="w-4 h-4" />
-        Today
+        {t('stage.today')}
         {todayCount > 0 && (
           <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-background/50">
             {todayCount}
@@ -37,7 +40,7 @@ export const StageSelector = ({ activeStage, onStageChange, todayCount = 0 }: St
         }`}
       >
         <Calendar className="w-4 h-4" />
-        Groups
+        {t('stage.groups')}
       </motion.button>
       <motion.button
         whileTap={{ scale: 0.95 }}
@@ -49,7 +52,7 @@ export const StageSelector = ({ activeStage, onStageChange, todayCount = 0 }: St
         }`}
       >
         <Swords className="w-4 h-4" />
-        Knockout
+        {t('stage.knockout')}
       </motion.button>
     </div>
   );

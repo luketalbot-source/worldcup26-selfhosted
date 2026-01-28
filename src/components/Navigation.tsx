@@ -1,18 +1,21 @@
 import { motion } from 'framer-motion';
 import { Calendar, Trophy, BarChart3 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface NavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
 
-const tabs = [
-  { id: 'matches', label: 'Matches', icon: Calendar },
-  { id: 'standings', label: 'Standings', icon: BarChart3 },
-  { id: 'leaderboard', label: 'Leaders', icon: Trophy },
-];
-
 export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
+  const { t } = useTranslation();
+  
+  const tabs = [
+    { id: 'matches', labelKey: 'nav.matches', icon: Calendar },
+    { id: 'standings', labelKey: 'nav.standings', icon: BarChart3 },
+    { id: 'leaderboard', labelKey: 'nav.leaders', icon: Trophy },
+  ];
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-inset-bottom">
       <div className="container">
@@ -31,7 +34,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
                 }`}
               >
                 <Icon className="w-6 h-6" />
-                <span className="text-xs font-medium">{tab.label}</span>
+                <span className="text-xs font-medium">{t(tab.labelKey)}</span>
               </motion.button>
             );
           })}

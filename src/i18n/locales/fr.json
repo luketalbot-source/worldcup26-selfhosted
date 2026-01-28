@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "matches": "Matchs",
+    "standings": "Classement",
+    "leaders": "Leaders"
+  },
+  "header": {
+    "login": "Connexion",
+    "user": "Utilisateur"
+  },
+  "stage": {
+    "today": "Aujourd'hui",
+    "groups": "Groupes",
+    "knockout": "Éliminatoires"
+  },
+  "sync": {
+    "button": "Synchroniser",
+    "syncing": "Synchronisation...",
+    "wait": "Attendre {{seconds}}s",
+    "locksInfo": "Verrouille 30min avant le coup d'envoi",
+    "justNow": "À l'instant",
+    "minutesAgo": "il y a {{minutes}}m",
+    "hoursAgo": "il y a {{hours}}h",
+    "neverSynced": "Jamais synchronisé"
+  },
+  "matches": {
+    "noMatchesToday": "Aucun match prévu aujourd'hui",
+    "loginPrompt": "Connectez-vous pour sauvegarder vos pronostics !",
+    "group": "Groupe {{letter}}"
+  },
+  "auth": {
+    "title": "Entrez votre nom d'utilisateur",
+    "subtitle": "Choisissez simplement un nom d'utilisateur pour commencer à pronostiquer !",
+    "usernameLabel": "Nom d'utilisateur",
+    "usernamePlaceholder": "VotreNom",
+    "usernameHint": "Lettres, chiffres et underscores uniquement",
+    "rememberMe": "Se souvenir de mon nom d'utilisateur",
+    "submit": "C'est parti ! 🚀",
+    "loading": "Veuillez patienter...",
+    "validation": {
+      "minLength": "Le nom d'utilisateur doit contenir au moins 2 caractères",
+      "maxLength": "Le nom d'utilisateur doit contenir 20 caractères ou moins",
+      "pattern": "Le nom d'utilisateur ne peut contenir que des lettres, des chiffres et des underscores"
+    },
+    "unexpectedError": "Une erreur inattendue s'est produite."
+  },
+  "profile": {
+    "guest": "Invité",
+    "guestSubtitle": "Entrez un nom d'utilisateur pour sauvegarder vos pronostics",
+    "guestPrompt": "Choisissez un nom d'utilisateur pour sauvegarder vos pronostics et concourir au classement !",
+    "enterUsername": "Entrer un nom",
+    "predictor": "Pronostiqueur",
+    "predictions": "Pronostics",
+    "points": "Points",
+    "yourStats": "Vos Statistiques",
+    "exactScores": "Scores Exacts",
+    "correctResults": "Résultats Corrects",
+    "wrongResults": "Résultats Incorrects",
+    "accuracy": "Précision",
+    "signOut": "Déconnexion",
+    "edit": {
+      "tapToSelect": "Appuyez pour sélectionner",
+      "orTypeEmoji": "Ou tapez/collez un emoji",
+      "displayName": "Nom affiché",
+      "cancel": "Annuler",
+      "save": "Enregistrer"
+    }
+  },
+  "language": {
+    "label": "Langue",
+    "en": "English",
+    "es": "Español",
+    "de": "Deutsch",
+    "fr": "Français",
+    "pt": "Português",
+    "it": "Italiano"
+  }
+}

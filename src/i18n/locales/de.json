@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "matches": "Spiele",
+    "standings": "Tabelle",
+    "leaders": "Rangliste"
+  },
+  "header": {
+    "login": "Anmelden",
+    "user": "Benutzer"
+  },
+  "stage": {
+    "today": "Heute",
+    "groups": "Gruppen",
+    "knockout": "K.O.-Runde"
+  },
+  "sync": {
+    "button": "Synchronisieren",
+    "syncing": "Synchronisiere...",
+    "wait": "Warte {{seconds}}s",
+    "locksInfo": "Sperrt 30min vor Anpfiff",
+    "justNow": "Gerade eben",
+    "minutesAgo": "vor {{minutes}}m",
+    "hoursAgo": "vor {{hours}}h",
+    "neverSynced": "Nie synchronisiert"
+  },
+  "matches": {
+    "noMatchesToday": "Heute keine Spiele geplant",
+    "loginPrompt": "Melde dich an, um deine Tipps zu speichern!",
+    "group": "Gruppe {{letter}}"
+  },
+  "auth": {
+    "title": "Gib deinen Benutzernamen ein",
+    "subtitle": "Wähle einfach einen Benutzernamen, um loszulegen!",
+    "usernameLabel": "Benutzername",
+    "usernamePlaceholder": "DeinName",
+    "usernameHint": "Nur Buchstaben, Zahlen und Unterstriche",
+    "rememberMe": "Benutzernamen merken",
+    "submit": "Los geht's! 🚀",
+    "loading": "Bitte warten...",
+    "validation": {
+      "minLength": "Benutzername muss mindestens 2 Zeichen haben",
+      "maxLength": "Benutzername darf maximal 20 Zeichen haben",
+      "pattern": "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten"
+    },
+    "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten."
+  },
+  "profile": {
+    "guest": "Gast",
+    "guestSubtitle": "Gib einen Benutzernamen ein, um deine Tipps zu speichern",
+    "guestPrompt": "Wähle einen Benutzernamen, um deine Tipps zu speichern und auf der Rangliste zu konkurrieren!",
+    "enterUsername": "Benutzername eingeben",
+    "predictor": "Tipper",
+    "predictions": "Tipps",
+    "points": "Punkte",
+    "yourStats": "Deine Statistiken",
+    "exactScores": "Exakte Ergebnisse",
+    "correctResults": "Richtige Ergebnisse",
+    "wrongResults": "Falsche Ergebnisse",
+    "accuracy": "Genauigkeit",
+    "signOut": "Abmelden",
+    "edit": {
+      "tapToSelect": "Tippen zum Auswählen",
+      "orTypeEmoji": "Oder tippe/füge ein Emoji ein",
+      "displayName": "Anzeigename",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    }
+  },
+  "language": {
+    "label": "Sprache",
+    "en": "English",
+    "es": "Español",
+    "de": "Deutsch",
+    "fr": "Français",
+    "pt": "Português",
+    "it": "Italiano"
+  }
+}
