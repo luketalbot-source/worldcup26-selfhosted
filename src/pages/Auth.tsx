@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { User } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Phone, ArrowLeft, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,16 +9,23 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Header } from '@/components/Header';
 import { z } from 'zod';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
-const REMEMBERED_USERNAME_KEY = 'wc2026_remembered_username';
+const REMEMBERED_PHONE_KEY = 'wc2026_remembered_phone';
+
+type AuthStep = 'phone' | 'username' | 'verify';
 
 const Auth = () => {
   const { t } = useTranslation();
+  const [step, setStep] = useState<AuthStep>('phone');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [username, setUsername] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { loginWithUsername } = useAuth();
+  const [isNewUser, setIsNewUser] = useState(false);
+  const { sendOtp, verifyOtp, user } = useAuth();
   const navigate = useNavigate();
 
   const usernameSchema = z.string()
@@ -26,17 +33,59 @@ const Auth = () => {
     .max(20, t('auth.validation.maxLength'))
     .regex(/^[a-zA-Z0-9_]+$/, t('auth.validation.pattern'));
 
-  // Load remembered username on mount
+  const phoneSchema = z.string()
+    .regex(/^\+[1-9]\d{6,14}$/, t('auth.validation.phoneFormat', 'Invalid phone format. Use +1234567890'));
+
+  // Redirect if already logged in
   useEffect(() => {
-    const savedUsername = localStorage.getItem(REMEMBERED_USERNAME_KEY);
-    if (savedUsername) {
-      setUsername(savedUsername);
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  // Load remembered phone on mount
+  useEffect(() => {
+    const savedPhone = localStorage.getItem(REMEMBERED_PHONE_KEY);
+    if (savedPhone) {
+      setPhoneNumber(savedPhone);
       setRememberMe(true);
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendOtp = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Validate phone number
+      const phoneResult = phoneSchema.safeParse(phoneNumber);
+      if (!phoneResult.success) {
+        setError(phoneResult.error.errors[0].message);
+        setIsLoading(false);
+        return;
+      }
+
+      const { error: sendError, isNewUser: newUser } = await sendOtp(phoneNumber);
+      
+      if (sendError) {
+        setError(sendError.message);
+      } else {
+        setIsNewUser(newUser);
+        // New users need to enter username first
+        if (newUser) {
+          setStep('username');
+        } else {
+          setStep('verify');
+        }
+      }
+    } catch (err) {
+      setError(t('auth.unexpectedError'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUsernameSubmit = async () => {
     setIsLoading(true);
     setError('');
 
@@ -49,18 +98,66 @@ const Auth = () => {
         return;
       }
 
-      const { error: loginError } = await loginWithUsername(username);
+      setStep('verify');
+    } catch (err) {
+      setError(t('auth.unexpectedError'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) return;
+    
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const { error: verifyError } = await verifyOtp(
+        phoneNumber, 
+        otpCode, 
+        isNewUser ? username : undefined
+      );
       
-      if (loginError) {
-        setError(loginError.message);
+      if (verifyError) {
+        setError(verifyError.message);
+        setOtpCode('');
       } else {
-        // Save or clear remembered username based on checkbox
+        // Save or clear remembered phone based on checkbox
         if (rememberMe) {
-          localStorage.setItem(REMEMBERED_USERNAME_KEY, username);
+          localStorage.setItem(REMEMBERED_PHONE_KEY, phoneNumber);
         } else {
-          localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+          localStorage.removeItem(REMEMBERED_PHONE_KEY);
         }
         navigate('/');
+      }
+    } catch (err) {
+      setError(t('auth.unexpectedError'));
+      setOtpCode('');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    setError('');
+    if (step === 'verify') {
+      setStep(isNewUser ? 'username' : 'phone');
+      setOtpCode('');
+    } else if (step === 'username') {
+      setStep('phone');
+    }
+  };
+
+  const handleResendCode = async () => {
+    setIsLoading(true);
+    setError('');
+    setOtpCode('');
+
+    try {
+      const { error: sendError } = await sendOtp(phoneNumber);
+      if (sendError) {
+        setError(sendError.message);
       }
     } catch (err) {
       setError(t('auth.unexpectedError'));
@@ -79,64 +176,222 @@ const Auth = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-sm mx-auto"
         >
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              {t('auth.title')}
-            </h2>
-            <p className="text-muted-foreground">
-              {t('auth.subtitle')}
-            </p>
-          </div>
+          {/* Back button */}
+          {step !== 'phone' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBack}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {t('common.back', 'Back')}
+            </Button>
+          )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t('auth.usernameLabel')}</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder={t('auth.usernamePlaceholder')}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10 h-12 rounded-xl"
-                  autoComplete="username"
-                  autoFocus
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t('auth.usernameHint')}
-              </p>
-            </div>
+          <AnimatePresence mode="wait">
+            {/* Step 1: Phone Number */}
+            {step === 'phone' && (
+              <motion.div
+                key="phone"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+              >
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-foreground mb-2">
+                    {t('auth.title')}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {t('auth.phoneSubtitle', 'Enter your phone number to sign in or create an account')}
+                  </p>
+                </div>
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('auth.phoneLabel', 'Phone Number')}
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        type="tel"
+                        placeholder={t('auth.phonePlaceholder', '+1234567890')}
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="pl-10 h-12 rounded-xl"
+                        autoComplete="tel"
+                        autoFocus
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t('auth.phoneHint', 'Use international format with country code (e.g., +1 for US)')}
+                    </p>
+                  </div>
+
+                  {error && (
+                    <p className="text-sm text-destructive">{error}</p>
+                  )}
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="remember" 
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked === true)}
+                    />
+                    <label 
+                      htmlFor="remember" 
+                      className="text-sm text-muted-foreground cursor-pointer select-none"
+                    >
+                      {t('auth.staySignedIn', 'Stay signed in')}
+                    </label>
+                  </div>
+
+                  <Button
+                    onClick={handleSendOtp}
+                    disabled={isLoading || !phoneNumber.trim()}
+                    className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-base"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {t('auth.sendingCode', 'Sending code...')}
+                      </>
+                    ) : (
+                      t('auth.sendCode', 'Send Verification Code')
+                    )}
+                  </Button>
+                </div>
+              </motion.div>
             )}
 
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="remember" 
-                checked={rememberMe}
-                onCheckedChange={(checked) => setRememberMe(checked === true)}
-              />
-              <label 
-                htmlFor="remember" 
-                className="text-sm text-muted-foreground cursor-pointer select-none"
+            {/* Step 2: Username (for new users) */}
+            {step === 'username' && (
+              <motion.div
+                key="username"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
               >
-                {t('auth.rememberMe')}
-              </label>
-            </div>
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-foreground mb-2">
+                    {t('auth.chooseUsername', 'Choose Your Username')}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {t('auth.usernameSubtitle', 'This will be your display name on the leaderboard')}
+                  </p>
+                </div>
 
-            <Button
-              type="submit"
-              disabled={isLoading || !username.trim()}
-              className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-base"
-            >
-              {isLoading ? t('auth.loading') : t('auth.submit')}
-            </Button>
-          </form>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      {t('auth.usernameLabel')}
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder={t('auth.usernamePlaceholder')}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="pl-10 h-12 rounded-xl"
+                        autoComplete="username"
+                        autoFocus
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t('auth.usernameHint')}
+                    </p>
+                  </div>
 
+                  {error && (
+                    <p className="text-sm text-destructive">{error}</p>
+                  )}
+
+                  <Button
+                    onClick={handleUsernameSubmit}
+                    disabled={isLoading || !username.trim()}
+                    className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-base"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      t('auth.continue', 'Continue')
+                    )}
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 3: Verify OTP */}
+            {step === 'verify' && (
+              <motion.div
+                key="verify"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+              >
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-foreground mb-2">
+                    {t('auth.enterCode', 'Enter Verification Code')}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {t('auth.codeSentTo', 'We sent a 6-digit code to')}
+                  </p>
+                  <p className="font-medium text-foreground">{phoneNumber}</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(value) => setOtpCode(value)}
+                      onComplete={handleVerifyOtp}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+
+                  {error && (
+                    <p className="text-sm text-destructive text-center">{error}</p>
+                  )}
+
+                  <Button
+                    onClick={handleVerifyOtp}
+                    disabled={isLoading || otpCode.length !== 6}
+                    className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-base"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {t('auth.verifying', 'Verifying...')}
+                      </>
+                    ) : (
+                      t('auth.verify', 'Verify & Sign In')
+                    )}
+                  </Button>
+
+                  <div className="text-center">
+                    <button
+                      onClick={handleResendCode}
+                      disabled={isLoading}
+                      className="text-sm text-muted-foreground hover:text-foreground underline"
+                    >
+                      {t('auth.resendCode', "Didn't receive a code? Resend")}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </main>
     </div>

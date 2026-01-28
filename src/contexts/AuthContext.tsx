@@ -6,20 +6,12 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  loginWithUsername: (username: string) => Promise<{ error: Error | null; isNewUser: boolean }>;
+  sendOtp: (phoneNumber: string) => Promise<{ error: Error | null; isNewUser: boolean }>;
+  verifyOtp: (phoneNumber: string, code: string, username?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Generate a consistent "email" and password from username
-const generateCredentials = (username: string) => {
-  const normalizedUsername = username.toLowerCase().trim();
-  const email = `${normalizedUsername}@wc2026predictor.app`;
-  // Use a consistent password based on username (simple for this use case)
-  const password = `wc2026_${normalizedUsername}_predictor`;
-  return { email, password, displayName: username.trim() };
-};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -46,45 +38,72 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loginWithUsername = async (username: string): Promise<{ error: Error | null; isNewUser: boolean }> => {
-    const { email, password, displayName } = generateCredentials(username);
-    
-    // First, try to sign in (existing user)
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (!signInError) {
-      // Successfully signed in as existing user
-      return { error: null, isNewUser: false };
-    }
-    
-    // If sign in failed, try to create a new account
-    if (signInError.message.includes('Invalid login credentials')) {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            display_name: displayName,
-          },
-        },
+  const sendOtp = async (phoneNumber: string): Promise<{ error: Error | null; isNewUser: boolean }> => {
+    try {
+      // Check if user exists with this phone number
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('phone_number', phoneNumber)
+        .maybeSingle();
+
+      const isNewUser = !existingProfile;
+
+      // Call the send-otp edge function
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { phone_number: phoneNumber },
       });
-      
-      if (signUpError) {
-        return { error: signUpError as Error, isNewUser: false };
+
+      if (error) {
+        return { error: new Error(error.message || 'Failed to send OTP'), isNewUser };
       }
-      
-      // Successfully created new user
-      return { error: null, isNewUser: true };
+
+      if (data?.error) {
+        return { error: new Error(data.error), isNewUser };
+      }
+
+      return { error: null, isNewUser };
+    } catch (err) {
+      return { error: err as Error, isNewUser: false };
     }
-    
-    // Some other error occurred
-    return { error: signInError as Error, isNewUser: false };
+  };
+
+  const verifyOtp = async (
+    phoneNumber: string, 
+    code: string, 
+    username?: string
+  ): Promise<{ error: Error | null }> => {
+    try {
+      // Call the verify-otp edge function
+      const { data, error } = await supabase.functions.invoke('verify-otp', {
+        body: { phone_number: phoneNumber, code, username },
+      });
+
+      if (error) {
+        return { error: new Error(error.message || 'Failed to verify OTP') };
+      }
+
+      if (data?.error) {
+        return { error: new Error(data.error) };
+      }
+
+      if (data?.token && data?.email) {
+        // Use the magic link token to sign in
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          email: data.email,
+          token: data.token,
+          type: 'magiclink',
+        });
+
+        if (verifyError) {
+          return { error: verifyError };
+        }
+      }
+
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signOut = async () => {
@@ -92,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, loginWithUsername, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, sendOtp, verifyOtp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

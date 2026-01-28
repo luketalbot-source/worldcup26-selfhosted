@@ -1,4 +1,7 @@
 {
+  "common": {
+    "back": "Back"
+  },
   "nav": {
     "matches": "Matches",
     "standings": "Standings",
@@ -75,18 +78,34 @@
     "pointsPerType": "Points per prediction type"
   },
   "auth": {
-    "title": "Enter Your Username",
+    "title": "Welcome",
     "subtitle": "Just pick a username to start predicting!",
+    "phoneSubtitle": "Enter your phone number to sign in or create an account",
+    "phoneLabel": "Phone Number",
+    "phonePlaceholder": "+1234567890",
+    "phoneHint": "Use international format with country code (e.g., +1 for US)",
     "usernameLabel": "Username",
     "usernamePlaceholder": "YourUsername",
     "usernameHint": "Letters, numbers, and underscores only",
+    "chooseUsername": "Choose Your Username",
+    "usernameSubtitle": "This will be your display name on the leaderboard",
     "rememberMe": "Remember my username",
+    "staySignedIn": "Stay signed in",
     "submit": "Let's Go! 🚀",
     "loading": "Please wait...",
+    "sendCode": "Send Verification Code",
+    "sendingCode": "Sending code...",
+    "enterCode": "Enter Verification Code",
+    "codeSentTo": "We sent a 6-digit code to",
+    "verify": "Verify & Sign In",
+    "verifying": "Verifying...",
+    "resendCode": "Didn't receive a code? Resend",
+    "continue": "Continue",
     "validation": {
       "minLength": "Username must be at least 2 characters",
       "maxLength": "Username must be 20 characters or less",
-      "pattern": "Username can only contain letters, numbers, and underscores"
+      "pattern": "Username can only contain letters, numbers, and underscores",
+      "phoneFormat": "Invalid phone format. Use +1234567890"
     },
     "unexpectedError": "An unexpected error occurred."
   },

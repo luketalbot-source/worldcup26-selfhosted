@@ -2,3 +2,9 @@ project_id = "dvbklbeevpaicwavobox"
 
 [functions.sync-matches]
 verify_jwt = false
+
+[functions.send-otp]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false
