@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown } from 'lucide-react';
+import { Plus, Users, Copy, Check, LogIn, ArrowLeft, Crown, Edit2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeagues, League, LeagueMember } from '@/hooks/useLeagues';
@@ -15,9 +15,9 @@ export const LeaguesView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { leagues, loading, createLeague, joinLeague, getLeagueMembers } = useLeagues();
+  const { leagues, loading, createLeague, joinLeague, updateLeague, getLeagueMembers } = useLeagues();
   
-  const [view, setView] = useState<'list' | 'create' | 'join' | 'detail'>('list');
+  const [view, setView] = useState<'list' | 'create' | 'join' | 'detail' | 'edit'>('list');
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [leagueMembers, setLeagueMembers] = useState<LeagueMember[]>([]);
   
@@ -30,6 +30,11 @@ export const LeaguesView = () => {
   // Join form state
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
+  
+  // Edit form state
+  const [editName, setEditName] = useState('');
+  const [editEmoji, setEditEmoji] = useState('🏆');
+  const [saving, setSaving] = useState(false);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -65,6 +70,29 @@ export const LeaguesView = () => {
     const members = await getLeagueMembers(league.id);
     setLeagueMembers(members);
     setView('detail');
+  };
+
+  const handleEditLeague = () => {
+    if (!selectedLeague) return;
+    setEditName(selectedLeague.name);
+    setEditEmoji(selectedLeague.avatar_emoji || '🏆');
+    setView('edit');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedLeague || !editName.trim()) return;
+    
+    setSaving(true);
+    const success = await updateLeague(selectedLeague.id, editName.trim(), editEmoji);
+    setSaving(false);
+    
+    if (success) {
+      setSelectedLeague({ ...selectedLeague, name: editName.trim(), avatar_emoji: editEmoji });
+      setView('detail');
+    }
+  };
+    setCreatedLeague(null);
+    setView('list');
   };
 
   const resetCreate = () => {
@@ -116,7 +144,7 @@ export const LeaguesView = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
         >
-          <div className="gradient-navy px-4 py-6">
+          <div className="gradient-navy px-4 py-6 relative">
             <button
               onClick={() => setView('list')}
               className="flex items-center gap-1 text-white/70 hover:text-white mb-4 text-sm"
@@ -124,6 +152,15 @@ export const LeaguesView = () => {
               <ArrowLeft className="w-4 h-4" />
               {t('leagues.backToList')}
             </button>
+            
+            {selectedLeague.creator_id === user.id && (
+              <button
+                onClick={handleEditLeague}
+                className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                <Edit2 className="w-4 h-4 text-white" />
+              </button>
+            )}
             
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur flex items-center justify-center mx-auto mb-3 text-3xl">
@@ -167,6 +204,84 @@ export const LeaguesView = () => {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Edit League View
+  if (view === 'edit' && selectedLeague) {
+    return (
+      <div className="space-y-4 max-w-[700px] mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+        >
+          <div className="gradient-navy px-4 py-6">
+            <button
+              onClick={() => setView('detail')}
+              className="flex items-center gap-1 text-white/70 hover:text-white mb-4 text-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {t('leagues.backToDetail')}
+            </button>
+            <h2 className="text-xl font-bold text-white text-center">{t('leagues.editTitle')}</h2>
+          </div>
+          
+          <div className="p-6 space-y-6">
+            {/* Emoji picker */}
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-3 text-4xl border-2 border-primary/20">
+                {editEmoji}
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">{t('leagues.selectIcon')}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {LEAGUE_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setEditEmoji(emoji)}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all ${
+                      editEmoji === emoji
+                        ? 'bg-primary/20 ring-2 ring-primary scale-110'
+                        : 'bg-muted hover:bg-muted/80'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Name input */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">{t('leagues.leagueName')}</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder={t('leagues.leagueNamePlaceholder')}
+                maxLength={30}
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setView('detail')}
+              >
+                {t('profile.edit.cancel')}
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleSaveEdit}
+                disabled={!editName.trim() || saving}
+              >
+                {saving ? t('leagues.saving') : t('profile.edit.save')}
+              </Button>
             </div>
           </div>
         </motion.div>

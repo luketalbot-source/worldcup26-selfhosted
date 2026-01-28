@@ -176,6 +176,11 @@
     "invalidCode": "Code invalide",
     "alreadyMember": "Vous êtes déjà membre de cette ligue",
     "left": "Ligue quittée",
-    "leaveError": "Échec du départ"
+    "leaveError": "Échec du départ",
+    "editTitle": "Modifier la Ligue",
+    "backToDetail": "Retour",
+    "saving": "Enregistrement...",
+    "updated": "Ligue mise à jour !",
+    "updateError": "Échec de la mise à jour"
   }
 }

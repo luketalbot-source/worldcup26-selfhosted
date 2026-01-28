@@ -177,6 +177,11 @@
     "invalidCode": "Invalid join code",
     "alreadyMember": "You're already a member of this league",
     "left": "Left league",
-    "leaveError": "Failed to leave league"
+    "leaveError": "Failed to leave league",
+    "editTitle": "Edit League",
+    "backToDetail": "Back",
+    "saving": "Saving...",
+    "updated": "League updated!",
+    "updateError": "Failed to update league"
   }
 }

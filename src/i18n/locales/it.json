@@ -176,6 +176,11 @@
     "invalidCode": "Codice non valido",
     "alreadyMember": "Sei già membro di questa lega",
     "left": "Hai lasciato la lega",
-    "leaveError": "Impossibile lasciare la lega"
+    "leaveError": "Impossibile lasciare la lega",
+    "editTitle": "Modifica Lega",
+    "backToDetail": "Indietro",
+    "saving": "Salvataggio...",
+    "updated": "Lega aggiornata!",
+    "updateError": "Impossibile aggiornare la lega"
   }
 }

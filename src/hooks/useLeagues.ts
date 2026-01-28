@@ -199,6 +199,31 @@ export const useLeagues = () => {
     }
   };
 
+  const updateLeague = async (leagueId: string, name: string, avatarEmoji: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('leagues')
+        .update({
+          name,
+          avatar_emoji: avatarEmoji
+        })
+        .eq('id', leagueId)
+        .eq('creator_id', user.id);
+
+      if (error) throw error;
+
+      toast.success(t('leagues.updated'));
+      await fetchLeagues();
+      return true;
+    } catch (error) {
+      console.error('Error updating league:', error);
+      toast.error(t('leagues.updateError'));
+      return false;
+    }
+  };
+
   const getLeagueMembers = async (leagueId: string): Promise<LeagueMember[]> => {
     try {
       const { data: members, error } = await supabase
@@ -235,6 +260,7 @@ export const useLeagues = () => {
     createLeague,
     joinLeague,
     leaveLeague,
+    updateLeague,
     getLeagueMembers,
     refetch: fetchLeagues
   };

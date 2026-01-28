@@ -176,6 +176,11 @@
     "invalidCode": "Código inválido",
     "alreadyMember": "Você já é membro desta liga",
     "left": "Saiu da liga",
-    "leaveError": "Falha ao sair da liga"
+    "leaveError": "Falha ao sair da liga",
+    "editTitle": "Editar Liga",
+    "backToDetail": "Voltar",
+    "saving": "Salvando...",
+    "updated": "Liga atualizada!",
+    "updateError": "Falha ao atualizar liga"
   }
 }
