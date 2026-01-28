@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, Trophy, Users } from 'lucide-react';
+import { Calendar, Users, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface NavigationProps {
@@ -13,7 +13,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const tabs = [
     { id: 'matches', labelKey: 'nav.matches', icon: Calendar },
     { id: 'leagues', labelKey: 'nav.leagues', icon: Users },
-    { id: 'leaderboard', labelKey: 'nav.leaders', icon: Trophy },
+    { id: 'profile', labelKey: 'nav.me', icon: User },
   ];
 
   return (

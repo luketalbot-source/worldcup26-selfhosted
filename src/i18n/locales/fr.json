@@ -3,7 +3,8 @@
     "matches": "Matchs",
     "standings": "Classement",
     "leagues": "Ligues",
-    "leaders": "Leaders"
+    "leaders": "Leaders",
+    "me": "Moi"
   },
   "header": {
     "login": "Connexion",
