@@ -40,29 +40,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const sendOtp = async (phoneNumber: string): Promise<{ error: Error | null; isNewUser: boolean }> => {
     try {
-      // Check if user exists with this phone number
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('phone_number', phoneNumber)
-        .maybeSingle();
-
-      const isNewUser = !existingProfile;
-
-      // Call the send-otp edge function
+      // Call the send-otp edge function (server-side check for isNewUser bypasses RLS)
       const { data, error } = await supabase.functions.invoke('send-otp', {
         body: { phone_number: phoneNumber },
       });
 
       if (error) {
-        return { error: new Error(error.message || 'Failed to send OTP'), isNewUser };
+        return { error: new Error(error.message || 'Failed to send OTP'), isNewUser: false };
       }
 
       if (data?.error) {
-        return { error: new Error(data.error), isNewUser };
+        return { error: new Error(data.error), isNewUser: false };
       }
 
-      return { error: null, isNewUser };
+      // Use the server-side isNewUser check result
+      return { error: null, isNewUser: data?.isNewUser ?? false };
     } catch (err) {
       return { error: err as Error, isNewUser: false };
     }

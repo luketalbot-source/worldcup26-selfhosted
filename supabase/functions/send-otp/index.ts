@@ -49,6 +49,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check if user exists with this phone number (server-side check bypasses RLS)
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('phone_number', phone_number)
+      .maybeSingle();
+
+    const isNewUser = !existingProfile;
+
     // Generate 6-digit OTP code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -110,8 +119,10 @@ serve(async (req) => {
 
     console.log(`OTP sent successfully to ${phone_number}`);
 
+    console.log(`OTP sent to ${phone_number}, isNewUser: ${isNewUser}`);
+
     return new Response(
-      JSON.stringify({ success: true, message: 'Verification code sent' }),
+      JSON.stringify({ success: true, message: 'Verification code sent', isNewUser }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
