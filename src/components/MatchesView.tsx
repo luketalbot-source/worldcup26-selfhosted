@@ -7,11 +7,29 @@ import { GroupTabs } from './GroupTabs';
 import { StageSelector } from './StageSelector';
 import { KnockoutView } from './KnockoutView';
 import { SyncButton } from './SyncButton';
+import { GroupStandings } from './GroupStandings';
 import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
+import { getTeamsByGroup } from '@/data/teams';
+import { GroupStanding } from '@/types/match';
 import { LogIn } from 'lucide-react';
 import mascotsWaiting from '@/assets/mascots-waiting.png';
+
+const generateStandings = (group: string): GroupStanding[] => {
+  const teams = getTeamsByGroup(group);
+  return teams.map((team) => ({
+    team,
+    played: 0,
+    won: 0,
+    drawn: 0,
+    lost: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    goalDifference: 0,
+    points: 0,
+  }));
+};
 const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 export const MatchesView = () => {
   const {
@@ -95,6 +113,8 @@ export const MatchesView = () => {
           </motion.div>}
       </div>;
   }
+  const standings = generateStandings(activeGroup);
+
   return <div className="space-y-4">
       <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
       <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
@@ -113,7 +133,7 @@ export const MatchesView = () => {
           <GroupTabs groups={groups} activeGroup={activeGroup} onGroupChange={setActiveGroup} vertical />
         </div>
         
-        {/* Match cards */}
+        {/* Standings + Match cards */}
         <motion.div key={activeGroup} initial={{
         opacity: 0,
         x: 20
@@ -123,6 +143,7 @@ export const MatchesView = () => {
       }} transition={{
         duration: 0.3
       }} className="flex-1 space-y-4 max-w-[700px]">
+          <GroupStandings standings={standings} group={activeGroup} />
           {matches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
         </motion.div>
       </div>
