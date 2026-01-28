@@ -152,6 +152,8 @@ export const PhoneInput = ({
         <Input
           ref={inputRef}
           type="tel"
+          inputMode="numeric"
+          pattern="[0-9]*"
           placeholder={placeholder}
           value={localNumber}
           onChange={handleLocalNumberChange}
