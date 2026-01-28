@@ -121,3 +121,24 @@ export const isMatchLocked = (dateStr: string, timeStr: string, status: string):
   
   return minutesUntilStart <= 30;
 };
+
+/**
+ * Get the effective match status, accounting for matches that should have ended
+ * If a match is marked as 'live' but started more than 3 hours ago, treat it as 'finished'
+ */
+export const getEffectiveMatchStatus = (dateStr: string, timeStr: string, status: string): string => {
+  if (status !== 'live') {
+    return status;
+  }
+  
+  const matchDateTime = parseMatchDateTime(dateStr, timeStr);
+  const now = new Date();
+  const hoursSinceStart = differenceInHours(now, matchDateTime);
+  
+  // If match started more than 3 hours ago, it should be finished
+  if (hoursSinceStart >= 3) {
+    return 'finished';
+  }
+  
+  return status;
+};
