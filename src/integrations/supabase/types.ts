@@ -397,21 +397,32 @@ export type Database = {
           avatar_emoji: string | null
           display_name: string | null
           id: string | null
+          tenant_id: string | null
           user_id: string | null
         }
         Insert: {
           avatar_emoji?: string | null
           display_name?: string | null
           id?: string | null
+          tenant_id?: string | null
           user_id?: string | null
         }
         Update: {
           avatar_emoji?: string | null
           display_name?: string | null
           id?: string | null
+          tenant_id?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -430,6 +441,15 @@ export type Database = {
           id: string
           name: string
           uid: string
+        }[]
+      }
+      get_tenant_profiles: {
+        Args: { _tenant_id: string }
+        Returns: {
+          avatar_emoji: string
+          display_name: string
+          id: string
+          user_id: string
         }[]
       }
       get_user_league_ids: { Args: { _user_id: string }; Returns: string[] }

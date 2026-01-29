@@ -31,11 +31,9 @@ export const useLeaderboard = (tenantId: string | null) => {
 
     setLoading(true);
     
-    // Get ALL profiles in the current tenant only
+    // Get ALL profiles in the current tenant only using secure function (excludes phone numbers)
     const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('tenant_id', tenantId);
+      .rpc('get_tenant_profiles', { _tenant_id: tenantId });
 
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);
