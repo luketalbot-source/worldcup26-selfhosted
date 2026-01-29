@@ -164,8 +164,13 @@ serve(async (req) => {
       }
 
       // Create new user with email based on OIDC subject
-      const email = oidcEmail || `${oidcSubject}@oidc.${tenant_id}.local`;
-      const password = `oidc_${tenant_id}_${oidcSubject}_${Date.now()}`;
+      // Use a shorter, valid email format - hash the subject to keep it short
+      const shortSubject = oidcSubject.replace(/-/g, '').substring(0, 16);
+      const shortTenant = tenant_id.replace(/-/g, '').substring(0, 8);
+      const email = oidcEmail || `${shortSubject}@oidc-${shortTenant}.local`;
+      const password = crypto.randomUUID(); // Use a random UUID as password
+      
+      console.log('Creating user with email:', email);
 
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
