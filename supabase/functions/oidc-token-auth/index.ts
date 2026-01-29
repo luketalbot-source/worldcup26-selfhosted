@@ -131,10 +131,13 @@ serve(async (req) => {
       userId = authData.user.id;
       isNewUser = true;
 
-      // Update profile with tenant_id
+      // Update profile with tenant_id and consent timestamp
       await supabase
         .from('profiles')
-        .update({ tenant_id })
+        .update({ 
+          tenant_id,
+          privacy_consent_at: new Date().toISOString(),
+        })
         .eq('user_id', userId);
 
       // Store OIDC identity mapping

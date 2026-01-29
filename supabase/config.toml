@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.oidc-token-auth]
 verify_jwt = false
+
+[functions.cleanup-unconsented-users]
+verify_jwt = false

@@ -24,6 +24,8 @@ const OIDCCallback = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authCode, setAuthCode] = useState<string | null>(null);
   const [pkceParams, setPkceParams] = useState<{ verifier: string; state: string; tenantId: string } | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [consentSaving, setConsentSaving] = useState(false);
   
   const processedRef = useRef(false);
 
@@ -97,6 +99,7 @@ const OIDCCallback = () => {
       if (data?.error) {
         if (data.needsUsername) {
           setSuggestedName(data.suggestedName || '');
+          setIsNewUser(true);
           // New users go to consent first, then username
           setStep('consent');
           setIsLoading(false);
@@ -116,6 +119,26 @@ const OIDCCallback = () => {
         if (verifyError) {
           throw new Error(verifyError.message);
         }
+
+        // Check if returning user has consented
+        if (!data.needsUsername) {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session?.user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('privacy_consent_at')
+              .eq('user_id', session.session.user.id)
+              .single();
+
+            if (!profile?.privacy_consent_at) {
+              // Returning SSO user who hasn't consented yet
+              setIsNewUser(false);
+              setStep('consent');
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
       }
 
       // Success - redirect to tenant app
@@ -134,8 +157,37 @@ const OIDCCallback = () => {
     await exchangeCode(authCode, pkceParams.verifier, pkceParams.tenantId, username.trim());
   };
 
-  const handleConsentAgree = () => {
-    setStep('username');
+  const handleConsentAgree = async () => {
+    if (isNewUser) {
+      // New user - proceed to username step (consent will be saved after username is set)
+      setStep('username');
+    } else {
+      // Returning user - save consent now and redirect
+      setConsentSaving(true);
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (session?.session?.user) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ privacy_consent_at: new Date().toISOString() })
+            .eq('user_id', session.session.user.id);
+
+          if (updateError) {
+            console.error('Failed to save consent:', updateError);
+            setError('Failed to save consent. Please try again.');
+            setStep('error');
+            return;
+          }
+        }
+        navigate(`/t/${tenantUid}`);
+      } catch (err) {
+        console.error('Consent save error:', err);
+        setError('Failed to save consent. Please try again.');
+        setStep('error');
+      } finally {
+        setConsentSaving(false);
+      }
+    }
   };
 
   const handleRetry = () => {
@@ -218,14 +270,21 @@ const OIDCCallback = () => {
               {/* Big agree button styled as checkbox */}
               <button
                 onClick={handleConsentAgree}
-                className="w-full p-5 rounded-xl border-2 border-primary bg-primary/10 hover:bg-primary/20 transition-colors flex items-center justify-center gap-3"
+                disabled={consentSaving}
+                className="w-full p-5 rounded-xl border-2 border-primary bg-primary/10 hover:bg-primary/20 transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                <div className="w-7 h-7 rounded-md border-2 border-primary bg-background flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary opacity-0 group-hover:opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <span className="text-lg font-semibold text-foreground">I agree!</span>
+                {consentSaving ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                ) : (
+                  <div className="w-7 h-7 rounded-md border-2 border-primary bg-background flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary opacity-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+                <span className="text-lg font-semibold text-foreground">
+                  {consentSaving ? 'Saving...' : 'I agree!'}
+                </span>
               </button>
             </motion.div>
           </motion.div>
