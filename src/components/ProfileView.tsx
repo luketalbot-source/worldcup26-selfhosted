@@ -4,6 +4,7 @@ import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Z
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useProfile } from '@/hooks/useProfile';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useUserStats } from '@/hooks/useUserStats';
@@ -27,6 +28,8 @@ export const ProfileView = () => {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { user, signOut, sendOtp, verifyOtp } = useAuth();
+  const { tenant } = useTenant();
+  const isSSO = tenant?.auth_method === 'oidc';
   const { profile, updateProfile, updatePhoneNumber } = useProfile(user?.id);
   const { predictions } = usePredictions();
   const { stats } = useUserStats(user?.id);
@@ -296,101 +299,103 @@ export const ProfileView = () => {
         </div>
       </motion.div>
 
-      {/* Phone Number Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-foreground">{t('profile.phoneNumber', 'Phone Number')}</h3>
-          {!isEditingPhone && (
-            <button
-              onClick={handleEditPhone}
-              className="text-sm text-primary hover:underline"
-            >
-              {profile?.phoneNumber ? t('profile.edit.change', 'Change') : t('profile.edit.add', 'Add')}
-            </button>
-          )}
-        </div>
-
-        {isEditingPhone ? (
-          <div className="space-y-4">
-            {phoneStep === 'input' ? (
-              <>
-                <div className="space-y-2">
-                  <PhoneInput
-                    value={editPhone}
-                    onChange={setEditPhone}
-                  />
-                </div>
-                {phoneError && (
-                  <p className="text-sm text-destructive">{phoneError}</p>
-                )}
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleCancelPhoneEdit}>
-                    {t('profile.edit.cancel')}
-                  </Button>
-                  <Button size="sm" onClick={handleSendPhoneOtp} disabled={phoneLoading || !editPhone.trim()}>
-                    {phoneLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      t('auth.sendCode')
-                    )}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-center mb-4">
-                  <p className="text-sm text-muted-foreground">{t('auth.codeSentTo')}</p>
-                  <p className="font-medium">{editPhone}</p>
-                </div>
-                <div className="flex justify-center mb-4">
-                  <InputOTP
-                    maxLength={6}
-                    value={otpCode}
-                    onChange={(value) => setOtpCode(value)}
-                    onComplete={handleVerifyPhoneOtp}
-                  >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                {phoneError && (
-                  <p className="text-sm text-destructive text-center">{phoneError}</p>
-                )}
-                <div className="flex gap-2 justify-center">
-                  <Button variant="outline" size="sm" onClick={() => setPhoneStep('input')}>
-                    {t('common.back')}
-                  </Button>
-                  <Button size="sm" onClick={handleVerifyPhoneOtp} disabled={phoneLoading || otpCode.length !== 6}>
-                    {phoneLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      t('auth.verify')
-                    )}
-                  </Button>
-                </div>
-              </>
+      {/* Phone Number Card - Only show for OTP users */}
+      {!isSSO && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-foreground">{t('profile.phoneNumber', 'Phone Number')}</h3>
+            {!isEditingPhone && (
+              <button
+                onClick={handleEditPhone}
+                className="text-sm text-primary hover:underline"
+              >
+                {profile?.phoneNumber ? t('profile.edit.change', 'Change') : t('profile.edit.add', 'Add')}
+              </button>
             )}
           </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Phone className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm text-foreground">
-              {profile?.phoneNumber || t('profile.noPhone', 'Not set')}
-            </span>
-          </div>
-        )}
-      </motion.div>
+
+          {isEditingPhone ? (
+            <div className="space-y-4">
+              {phoneStep === 'input' ? (
+                <>
+                  <div className="space-y-2">
+                    <PhoneInput
+                      value={editPhone}
+                      onChange={setEditPhone}
+                    />
+                  </div>
+                  {phoneError && (
+                    <p className="text-sm text-destructive">{phoneError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleCancelPhoneEdit}>
+                      {t('profile.edit.cancel')}
+                    </Button>
+                    <Button size="sm" onClick={handleSendPhoneOtp} disabled={phoneLoading || !editPhone.trim()}>
+                      {phoneLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        t('auth.sendCode')
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center mb-4">
+                    <p className="text-sm text-muted-foreground">{t('auth.codeSentTo')}</p>
+                    <p className="font-medium">{editPhone}</p>
+                  </div>
+                  <div className="flex justify-center mb-4">
+                    <InputOTP
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(value) => setOtpCode(value)}
+                      onComplete={handleVerifyPhoneOtp}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  {phoneError && (
+                    <p className="text-sm text-destructive text-center">{phoneError}</p>
+                  )}
+                  <div className="flex gap-2 justify-center">
+                    <Button variant="outline" size="sm" onClick={() => setPhoneStep('input')}>
+                      {t('common.back')}
+                    </Button>
+                    <Button size="sm" onClick={handleVerifyPhoneOtp} disabled={phoneLoading || otpCode.length !== 6}>
+                      {phoneLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        t('auth.verify')
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Phone className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm text-foreground">
+                {profile?.phoneNumber || t('profile.noPhone', 'Not set')}
+              </span>
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Settings Card */}
       <motion.div
@@ -471,17 +476,19 @@ export const ProfileView = () => {
         </div>
       </motion.div>
 
-      {/* Sign Out */}
-      <motion.button
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        onClick={handleSignOut}
-        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
-      >
-        <LogOut className="w-5 h-5" />
-        {t('profile.signOut')}
-      </motion.button>
+      {/* Sign Out - Only show for OTP users */}
+      {!isSSO && (
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          {t('profile.signOut')}
+        </motion.button>
+      )}
     </div>
   );
 };
