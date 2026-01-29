@@ -64,6 +64,7 @@ export const AdminBoostResults = () => {
   // Local form state
   const [formValues, setFormValues] = useState<Map<string, { teamCode: string; playerName: string }>>(new Map());
   const [resetting, setResetting] = useState(false);
+  const [resettingAward, setResettingAward] = useState<string | null>(null);
 
   const uniqueTeams = useMemo(() => getUniqueTeams(), []);
 
@@ -181,6 +182,34 @@ export const AdminBoostResults = () => {
     }
   };
 
+  const handleResetAward = async (award: BoostAward) => {
+    setResettingAward(award.id);
+    try {
+      const { error } = await supabase
+        .from('boost_results')
+        .delete()
+        .eq('award_id', award.id);
+
+      if (error) throw error;
+
+      // Clear local state for this award
+      const newResults = new Map(results);
+      newResults.delete(award.id);
+      setResults(newResults);
+
+      const newFormValues = new Map(formValues);
+      newFormValues.delete(award.id);
+      setFormValues(newFormValues);
+      
+      toast.success(`Result reset for ${award.name}`);
+    } catch (err) {
+      console.error('Error resetting award result:', err);
+      toast.error('Failed to reset result');
+    } finally {
+      setResettingAward(null);
+    }
+  };
+
   const updateFormValue = (awardId: string, field: 'teamCode' | 'playerName', value: string) => {
     const newFormValues = new Map(formValues);
     const current = newFormValues.get(awardId) || { teamCode: '', playerName: '' };
@@ -259,6 +288,9 @@ export const AdminBoostResults = () => {
             ? formValue.teamCode !== (existingResult?.result_team_code || '')
             : formValue.playerName !== (existingResult?.result_player_name || '');
 
+          const hasResult = existingResult && (existingResult.result_team_code || existingResult.result_player_name);
+          const isResettingThis = resettingAward === award.id;
+
           return (
             <div
               key={award.id}
@@ -315,6 +347,40 @@ export const AdminBoostResults = () => {
                     <Save className="w-4 h-4" />
                   )}
                 </Button>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!hasResult || isResettingThis}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      {isResettingThis ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RotateCcw className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Reset "{award.name}" Result?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will delete the result for this boost award. Users will no longer see scoring for this prediction.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={() => handleResetAward(award)} 
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Reset
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           );
