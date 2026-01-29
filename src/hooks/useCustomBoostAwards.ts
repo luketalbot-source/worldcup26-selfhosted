@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
@@ -14,6 +15,9 @@ export interface CustomBoostAward {
   display_order: number;
   original_language: string | null;
   isCustom: true; // Flag to identify as custom
+  // Original values for translation
+  originalTitle: string;
+  originalDescription: string | null;
 }
 
 export interface CustomBoostPrediction {
@@ -29,15 +33,62 @@ export interface CustomBoostResult {
   result_player_name: string | null;
 }
 
+// Cache translations to avoid repeated API calls
+const translationCache = new Map<string, { title: string; description: string | null }>();
+
 export const useCustomBoostAwards = () => {
   const { user } = useAuth();
   const { tenantId } = useTenant();
+  const { i18n } = useTranslation();
   const [awards, setAwards] = useState<CustomBoostAward[]>([]);
   const [predictions, setPredictions] = useState<CustomBoostPrediction[]>([]);
   const [results, setResults] = useState<CustomBoostResult[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const translateAward = useCallback(async (
+    award: { id: string; title: string; description: string | null; original_language: string | null },
+    targetLanguage: string
+  ): Promise<{ title: string; description: string | null }> => {
+    const sourceLanguage = award.original_language || 'en';
+    
+    // If same language, no translation needed
+    if (sourceLanguage === targetLanguage) {
+      return { title: award.title, description: award.description };
+    }
+
+    // Check cache
+    const cacheKey = `${award.id}-${targetLanguage}`;
+    if (translationCache.has(cacheKey)) {
+      return translationCache.get(cacheKey)!;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('translate-boost', {
+        body: {
+          title: award.title,
+          description: award.description,
+          sourceLanguage,
+          targetLanguage,
+        },
+      });
+
+      if (error) throw error;
+
+      const translated = {
+        title: data.title || award.title,
+        description: data.description ?? award.description,
+      };
+
+      // Cache the result
+      translationCache.set(cacheKey, translated);
+      return translated;
+    } catch (err) {
+      console.error('Translation error:', err);
+      return { title: award.title, description: award.description };
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
     if (!tenantId) {
       setLoading(false);
       return;
@@ -54,27 +105,37 @@ export const useCustomBoostAwards = () => {
 
       if (awardsError) throw awardsError;
       
-      const customAwards: CustomBoostAward[] = (awardsData || []).map(award => ({
-        id: award.id,
-        title: award.title,
-        description: award.description,
-        prediction_type: award.prediction_type as 'team' | 'player',
-        points_value: award.points_value,
-        lock_date: award.lock_date,
-        image_url: award.image_url,
-        display_order: award.display_order,
-        original_language: award.original_language,
-        isCustom: true,
-      }));
+      const currentLang = i18n.language?.slice(0, 2) || 'en';
       
-      setAwards(customAwards);
+      // Translate awards in parallel
+      const translatedAwards = await Promise.all(
+        (awardsData || []).map(async (award) => {
+          const translated = await translateAward(award, currentLang);
+          return {
+            id: award.id,
+            title: translated.title,
+            description: translated.description,
+            prediction_type: award.prediction_type as 'team' | 'player',
+            points_value: award.points_value,
+            lock_date: award.lock_date,
+            image_url: award.image_url,
+            display_order: award.display_order,
+            original_language: award.original_language,
+            isCustom: true as const,
+            originalTitle: award.title,
+            originalDescription: award.description,
+          };
+        })
+      );
+      
+      setAwards(translatedAwards);
 
-      if (customAwards.length === 0) {
+      if (translatedAwards.length === 0) {
         setLoading(false);
         return;
       }
 
-      const awardIds = customAwards.map(a => a.id);
+      const awardIds = translatedAwards.map(a => a.id);
 
       // Fetch user predictions if logged in
       if (user) {
@@ -101,7 +162,7 @@ export const useCustomBoostAwards = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId, user, i18n.language, translateAward]);
 
   useEffect(() => {
     fetchData();
