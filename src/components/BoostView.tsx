@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Rocket, LogIn, Loader2, Trophy } from 'lucide-react';
+import { LogIn, Loader2, Trophy } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBoostAwards } from '@/hooks/useBoostAwards';
 import { BoostAwardCard } from './BoostAwardCard';
@@ -55,13 +55,16 @@ export const BoostView = () => {
   return (
     <div className="space-y-4 max-w-[700px] mx-auto">
       {/* Header */}
-      <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-2">
-          <Rocket className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold">{t('boost.title')}</h1>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+      >
+        <div className="gradient-navy px-4 py-6 text-center">
+          <h2 className="text-xl font-bold text-white">{t('boost.title')}</h2>
+          <p className="text-white/70 text-sm mt-1">{t('boost.subtitle')}</p>
         </div>
-        <p className="text-muted-foreground text-sm">{t('boost.subtitle')}</p>
-      </div>
+      </motion.div>
 
       {/* Points Summary */}
       {user && totalPoints > 0 && (
