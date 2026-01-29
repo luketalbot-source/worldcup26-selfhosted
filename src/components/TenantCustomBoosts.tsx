@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Loader2, Trash2, Image, Save, Check, RotateCcw, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, Trash2, Image, Save, Check, RotateCcw, RefreshCw, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,16 +81,25 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
   const [results, setResults] = useState<Map<string, CustomBoostResult>>(new Map());
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingBoost, setEditingBoost] = useState<CustomBoost | null>(null);
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [generatingImage, setGeneratingImage] = useState<string | null>(null);
   const [savingResult, setSavingResult] = useState<string | null>(null);
   const [resettingResult, setResettingResult] = useState<string | null>(null);
   
-  // Form state
+  // Form state for create
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [pointsValue, setPointsValue] = useState('5');
   const [predictionType, setPredictionType] = useState<'team' | 'player'>('team');
+  
+  // Form state for edit
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPointsValue, setEditPointsValue] = useState('5');
+  const [editPredictionType, setEditPredictionType] = useState<'team' | 'player'>('team');
   
   // Result form state
   const [resultValues, setResultValues] = useState<Map<string, { teamCode: string; playerName: string }>>(new Map());
@@ -234,6 +243,59 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
     } catch (err) {
       console.error('Error deleting custom boost:', err);
       toast.error('Failed to delete custom boost');
+    }
+  };
+
+  const openEditDialog = (boost: CustomBoost) => {
+    setEditingBoost(boost);
+    setEditTitle(boost.title);
+    setEditDescription(boost.description || '');
+    setEditPointsValue(boost.points_value.toString());
+    setEditPredictionType(boost.prediction_type);
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingBoost || !editTitle.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('tenant_custom_boosts')
+        .update({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          points_value: parseInt(editPointsValue) || 5,
+          prediction_type: editPredictionType,
+        })
+        .eq('id', editingBoost.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setBoosts(boosts.map(b => 
+        b.id === editingBoost.id 
+          ? { 
+              ...b, 
+              title: editTitle.trim(), 
+              description: editDescription.trim() || null,
+              points_value: parseInt(editPointsValue) || 5,
+              prediction_type: editPredictionType,
+            } 
+          : b
+      ));
+      
+      setEditDialogOpen(false);
+      setEditingBoost(null);
+      toast.success('Custom boost updated!');
+    } catch (err) {
+      console.error('Error updating custom boost:', err);
+      toast.error('Failed to update custom boost');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -564,6 +626,15 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                 
                 {/* Actions */}
                 <div className="flex items-start gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openEditDialog(boost)}
+                    title="Edit boost"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  
                   {!boost.image_url && (
                     <Button
                       size="sm"
@@ -609,6 +680,84 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
           })
         )}
       </CardContent>
+      
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Custom Boost</DialogTitle>
+            <DialogDescription>
+              Update the details of this custom boost.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="e.g., Top Scorer Prediction"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="e.g., Predict which team will score the most goals"
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-points">Points Value</Label>
+                <Input
+                  id="edit-points"
+                  type="number"
+                  value={editPointsValue}
+                  onChange={(e) => setEditPointsValue(e.target.value)}
+                  min={1}
+                  max={100}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-type">Prediction Type</Label>
+                <Select value={editPredictionType} onValueChange={(v) => setEditPredictionType(v as 'team' | 'player')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="player">Player</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdate} disabled={updating || !editTitle.trim()}>
+              {updating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
