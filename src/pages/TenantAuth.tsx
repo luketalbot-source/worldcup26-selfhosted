@@ -77,25 +77,27 @@ const TenantAuth = () => {
     }
   }, []);
 
-  // Auto-trigger SSO for OIDC-only tenants in iframe (only if no token received via postMessage)
+  // Auto-trigger SSO for OIDC-only tenants
   useEffect(() => {
     if (
       !autoSSOTriggered &&
       !user &&
       !tenantLoading &&
-      !tokenReceived && // Skip if we received a token via postMessage
       tenant?.auth_method === 'oidc' &&
-      tenant?.oidc_config &&
-      isInIframe
+      tenant?.oidc_config
     ) {
       setAutoSSOTriggered(true);
-      // Delay to ensure parent app can send token via postMessage first
+      
+      // In iframe: wait for potential postMessage token first
+      // Otherwise: trigger immediately
+      const delay = isInIframe && !tokenReceived ? 2000 : 100;
+      
       const timer = setTimeout(() => {
-        if (!user && !tokenReceived) {
-          console.log('[TenantAuth] Auto-triggering SSO (no postMessage token received)');
+        if (!user && !(isInIframe && tokenReceived)) {
+          console.log('[TenantAuth] Auto-triggering SSO redirect');
           handleOIDCLogin();
         }
-      }, 2000);
+      }, delay);
       return () => clearTimeout(timer);
     }
   }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe, tokenReceived]);
