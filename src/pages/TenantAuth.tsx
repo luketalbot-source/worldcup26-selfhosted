@@ -266,8 +266,21 @@ const TenantAuth = () => {
   const showOTP = tenant.auth_method === 'otp' || tenant.auth_method === 'both';
   const showOIDC = (tenant.auth_method === 'oidc' || tenant.auth_method === 'both') && tenant.oidc_config;
 
-  // If only OIDC is enabled, show simplified view
+  // If only OIDC is enabled, show simplified view or auto-redirect
   if (tenant.auth_method === 'oidc' && tenant.oidc_config) {
+    // In iframe mode, show loading while waiting for token or auto-SSO
+    if (isInIframe && !error) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Signing in...</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Outside iframe or after error, show manual button
     return (
       <div className="min-h-screen bg-background">
         <main className="container py-8">
