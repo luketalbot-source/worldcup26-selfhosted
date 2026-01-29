@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@supabase/supabase-js';
@@ -41,6 +41,7 @@ export const useIframeAuth = ({
 }: UseIframeAuthOptions) => {
   const { user, signOut } = useAuth();
   const processingRef = useRef(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const getCurrentOidcSubject = useCallback((u: User | null) => {
     if (!u) return null;
@@ -53,6 +54,7 @@ export const useIframeAuth = ({
   const authenticateWithToken = useCallback(async (payload: IframeAuthMessage['payload']) => {
     if (!payload || !tenantId || processingRef.current) return;
     
+    setIsProcessing(true);
     processingRef.current = true;
 
     try {
@@ -140,6 +142,7 @@ export const useIframeAuth = ({
       onAuthError?.(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       processingRef.current = false;
+      setIsProcessing(false);
     }
   }, [tenantId, onAuthSuccess, onAuthError]);
 
@@ -209,6 +212,7 @@ export const useIframeAuth = ({
 
   return {
     isInIframe: window.parent !== window,
+    isProcessing,
     authenticateWithToken,
   };
 };
