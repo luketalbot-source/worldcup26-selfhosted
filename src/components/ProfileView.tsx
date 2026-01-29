@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor, Phone, Loader2 } from 'lucide-react';
+import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor, Phone, Loader2, Rocket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -283,6 +283,14 @@ export const ProfileView = () => {
               <span className="text-sm text-foreground">{t('profile.wrongResults')}</span>
             </div>
             <span className="font-semibold text-foreground">{stats.wrongResults}</span>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <Rocket className="w-5 h-5 text-primary" />
+              <span className="text-sm text-foreground">{t('profile.boostPoints', 'Boost Points')}</span>
+            </div>
+            <span className="font-semibold text-foreground">{stats.boostPoints}</span>
           </div>
           
           <div className="flex items-center justify-between py-2">

@@ -62,12 +62,18 @@ export const useLeaderboard = (tenantId: string | null) => {
     // Get boost predictions for these users
     const { data: boostPredictions, error: boostError } = await supabase
       .from('boost_predictions')
-      .select('user_id')
+      .select('user_id, award_id, predicted_team_code, predicted_player_name')
       .in('user_id', userIds);
 
     if (boostError) {
       console.error('Error fetching boost predictions:', boostError);
     }
+
+    // Get boost awards and results for scoring
+    const [awardsRes, resultsRes] = await Promise.all([
+      supabase.from('boost_awards').select('id, prediction_type, points_value'),
+      supabase.from('boost_results').select('award_id, result_team_code, result_player_name'),
+    ]);
 
     // Get all finished matches from live_matches (database)
     const { data: finishedMatches, error: matchesError } = await supabase
@@ -127,10 +133,29 @@ export const useLeaderboard = (tenantId: string | null) => {
       }
     });
 
-    // Add boost predictions to the count
+    // Add boost predictions to the count and calculate boost points
+    const awards = awardsRes.data || [];
+    const results = resultsRes.data || [];
+    
     boostPredictions?.forEach(p => {
       if (userStats[p.user_id]) {
         userStats[p.user_id].predictions++;
+        
+        // Calculate boost points if result exists
+        const result = results.find(r => r.award_id === p.award_id);
+        const award = awards.find(a => a.id === p.award_id);
+        
+        if (result && award) {
+          if (award.prediction_type === 'team') {
+            if (p.predicted_team_code === result.result_team_code) {
+              userStats[p.user_id].points += award.points_value;
+            }
+          } else {
+            if (p.predicted_player_name === result.result_player_name) {
+              userStats[p.user_id].points += award.points_value;
+            }
+          }
+        }
       }
     });
 
