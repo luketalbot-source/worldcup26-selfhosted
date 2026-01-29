@@ -1,10 +1,26 @@
 {
   "nav": {
     "matches": "Partidos",
+    "boost": "¡Boost!",
     "standings": "Clasificación",
     "leagues": "Ligas",
     "leaders": "Líderes",
     "me": "Yo"
+  },
+  "boost": {
+    "title": "¡Boost!",
+    "subtitle": "Predice premios especiales para puntos extra",
+    "loginPrompt": "para guardar tus predicciones de boost!",
+    "bonusPoints": "Puntos Boost",
+    "fromCorrectPredictions": "de predicciones correctas",
+    "infoText": "Gana 5 puntos por cada predicción correcta. Los resultados son establecidos por admins al final del torneo.",
+    "selectTeam": "Selecciona un equipo...",
+    "playerListNotReady": "Lista de jugadores WC2026 aún no finalizada",
+    "locksIn": "Bloquea en {{time}}",
+    "locked": "Bloqueado",
+    "noPrediction": "Sin predicción",
+    "result": "Resultado",
+    "yourPrediction": "Tu predicción"
   },
   "header": {
     "login": "Iniciar Sesión",
