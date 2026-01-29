@@ -268,8 +268,9 @@ const TenantAuth = () => {
 
   // If only OIDC is enabled, show simplified view or auto-redirect
   if (tenant.auth_method === 'oidc' && tenant.oidc_config) {
-    // In iframe mode, show loading while waiting for token or auto-SSO
-    if (isInIframe && !error) {
+    // In iframe mode, show loading while waiting for token or auto-SSO redirect
+    // The auto-SSO useEffect will trigger handleOIDCLogin which redirects to IDP
+    if (isInIframe && !error && !isOIDCLoading) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center">
