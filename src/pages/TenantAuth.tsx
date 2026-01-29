@@ -33,8 +33,15 @@ const TenantAuth = () => {
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
   const [autoSSOTriggered, setAutoSSOTriggered] = useState(false);
   const verifyInFlightRef = useRef(false);
+  const autoSSOTimerRef = useRef<number | null>(null);
   const { sendOtp, verifyOtp, user } = useAuth();
+  const userRef = useRef(user);
   const navigate = useNavigate();
+
+  // Keep latest user value for async timers
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
   
   // Iframe auth support
   const { isInIframe } = useIframeAuth({
@@ -78,46 +85,46 @@ const TenantAuth = () => {
   }, []);
 
   // Auto-trigger SSO for OIDC-only tenants in iframe
+  // NOTE: We intentionally do NOT return a cleanup from this effect, because a state update
+  // (setAutoSSOTriggered) causes a re-render and React would run the cleanup immediately,
+  // cancelling the timer before it fires.
   useEffect(() => {
-    console.log('Auto-SSO check:', {
-      autoSSOTriggered,
-      user: !!user,
-      tenantLoading,
-      authMethod: tenant?.auth_method,
-      hasOidcConfig: !!tenant?.oidc_config,
-      isInIframe,
-    });
-    
-    if (
-      !autoSSOTriggered &&
-      !user &&
-      !tenantLoading &&
-      tenant?.auth_method === 'oidc' &&
-      tenant?.oidc_config &&
-      isInIframe
-    ) {
-      console.log('Auto-SSO: triggering in 500ms');
-      setAutoSSOTriggered(true);
-      // Small delay to ensure parent app can send token via postMessage first
-      const timer = setTimeout(() => {
-        console.log('Auto-SSO: timer fired, user:', !!user);
-        if (!user) {
-          handleOIDCLogin();
-        }
-      }, 500);
-      return () => clearTimeout(timer);
+    if (autoSSOTriggered) return;
+    if (user) return;
+    if (tenantLoading) return;
+    if (!isInIframe) return;
+    if (tenant?.auth_method !== 'oidc') return;
+    if (!tenant?.oidc_config) return;
+
+    setAutoSSOTriggered(true);
+
+    // Small delay to ensure parent app can send token via postMessage first
+    if (autoSSOTimerRef.current) {
+      window.clearTimeout(autoSSOTimerRef.current);
     }
+    autoSSOTimerRef.current = window.setTimeout(() => {
+      if (!userRef.current) {
+        handleOIDCLogin();
+      }
+    }, 500);
   }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
 
+  // Cleanup auto-SSO timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSSOTimerRef.current) {
+        window.clearTimeout(autoSSOTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleOIDCLogin = async () => {
-    console.log('handleOIDCLogin called, oidc_config:', tenant?.oidc_config);
     if (!tenant?.oidc_config) return;
     
     setIsOIDCLoading(true);
     setError('');
 
     try {
-      console.log('Building auth URL...');
       const authUrl = await buildAuthorizationUrl(
         tenant.oidc_config.auth_url,
         tenant.oidc_config.client_id,
@@ -125,7 +132,6 @@ const TenantAuth = () => {
         tenant.id
       );
       
-      console.log('Redirecting to:', authUrl);
       // Redirect to IDP
       window.location.href = authUrl;
     } catch (err) {
