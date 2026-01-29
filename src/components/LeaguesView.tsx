@@ -671,10 +671,23 @@ export const LeaguesView = () => {
             
             <Input
               value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+              onChange={(e) => {
+                // Remove any non-alphanumeric characters and convert to uppercase
+                const cleaned = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
+                setJoinCode(cleaned);
+              }}
+              onPaste={(e) => {
+                e.preventDefault();
+                const pasted = e.clipboardData.getData('text');
+                const cleaned = pasted.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
+                setJoinCode(cleaned);
+              }}
               placeholder="XXXXXX"
               className="text-center font-mono text-2xl tracking-widest h-14"
               maxLength={6}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
             />
             
             <Button
