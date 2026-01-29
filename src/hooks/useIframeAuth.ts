@@ -42,6 +42,7 @@ export const useIframeAuth = ({
   const { user, signOut } = useAuth();
   const processingRef = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const pendingAuthPayloadRef = useRef<IframeAuthMessage['payload'] | null>(null);
 
   const getCurrentOidcSubject = useCallback((u: User | null) => {
     if (!u) return null;
@@ -52,7 +53,15 @@ export const useIframeAuth = ({
 
   // Handle direct token authentication
   const authenticateWithToken = useCallback(async (payload: IframeAuthMessage['payload']) => {
-    if (!payload || !tenantId || processingRef.current) return;
+    if (!payload || processingRef.current) return;
+
+    // Race fix: the parent can send the token before the tenant is loaded.
+    // Queue the payload and process it as soon as tenantId becomes available.
+    if (!tenantId) {
+      pendingAuthPayloadRef.current = payload;
+      setIsProcessing(true);
+      return;
+    }
     
     setIsProcessing(true);
     processingRef.current = true;
@@ -110,32 +119,9 @@ export const useIframeAuth = ({
 
         onAuthSuccess?.();
       } else if (payload.sub) {
-        // We only have claims, not a full token - need to use claims-based auth
-        const { data, error } = await supabase.functions.invoke('oidc-claims-auth', {
-          body: {
-            oidc_subject: payload.sub,
-            email: payload.email,
-            name: payload.name || payload.preferred_username,
-            tenant_id: tenantId,
-          },
-        });
-
-        if (error) {
-          throw new Error(error.message || 'Claims authentication failed');
-        }
-
-        if (data?.error) {
-          throw new Error(data.error);
-        }
-
-        if (data?.token) {
-          await supabase.auth.verifyOtp({
-            token_hash: data.token,
-            type: data.tokenType || 'magiclink',
-          });
-        }
-
-        onAuthSuccess?.();
+        // We cannot safely authenticate with only decoded claims unless the backend provides a dedicated flow.
+        // Avoid invoking non-existent functions; instead show a clear error so the host integration can be fixed.
+        throw new Error('Host did not provide an id_token for SSO. Please pass an id_token in the postMessage payload.');
       }
     } catch (err) {
       console.error('Iframe auth error:', err);
@@ -145,6 +131,16 @@ export const useIframeAuth = ({
       setIsProcessing(false);
     }
   }, [tenantId, onAuthSuccess, onAuthError]);
+
+  // Process any queued auth payload once tenantId becomes available
+  useEffect(() => {
+    if (!tenantId) return;
+    if (processingRef.current) return;
+    const pending = pendingAuthPayloadRef.current;
+    if (!pending) return;
+    pendingAuthPayloadRef.current = null;
+    authenticateWithToken(pending);
+  }, [tenantId, authenticateWithToken]);
 
   // Handle user mismatch + session switch
   const handleUserChanged = useCallback(async (payload: IframeAuthMessage['payload']) => {
