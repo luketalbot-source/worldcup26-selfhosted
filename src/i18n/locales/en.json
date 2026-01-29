@@ -173,7 +173,14 @@
     "loginPrompt": "to save your boost predictions!",
     "bonusPoints": "Boost Points",
     "fromCorrectPredictions": "from correct predictions",
-    "infoText": "Earn 5 points for each correct prediction. Results are set by admins at the end of the tournament."
+    "infoText": "Earn 5 points for each correct prediction. Results are set by admins at the end of the tournament.",
+    "selectTeam": "Select a team...",
+    "playerListNotReady": "WC2026 Player List not yet finalised",
+    "locksIn": "Locks in {{time}}",
+    "locked": "Locked",
+    "noPrediction": "No prediction",
+    "result": "Result",
+    "yourPrediction": "Your prediction"
   },
   "leagues": {
     "title": "Leagues",

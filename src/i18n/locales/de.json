@@ -1,10 +1,26 @@
 {
   "nav": {
     "matches": "Spiele",
+    "boost": "Boost!",
     "standings": "Tabelle",
     "leagues": "Ligen",
     "leaders": "Rangliste",
     "me": "Ich"
+  },
+  "boost": {
+    "title": "Boost!",
+    "subtitle": "Sage Sonderpreise für Bonuspunkte voraus",
+    "loginPrompt": "um deine Boost-Tipps zu speichern!",
+    "bonusPoints": "Boost-Punkte",
+    "fromCorrectPredictions": "aus richtigen Tipps",
+    "infoText": "Verdiene 5 Punkte für jeden richtigen Tipp. Ergebnisse werden am Ende des Turniers von Admins festgelegt.",
+    "selectTeam": "Team auswählen...",
+    "playerListNotReady": "WC2026-Spielerliste noch nicht finalisiert",
+    "locksIn": "Sperrt in {{time}}",
+    "locked": "Gesperrt",
+    "noPrediction": "Kein Tipp",
+    "result": "Ergebnis",
+    "yourPrediction": "Dein Tipp"
   },
   "header": {
     "login": "Anmelden",
