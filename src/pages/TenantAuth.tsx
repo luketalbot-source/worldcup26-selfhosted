@@ -8,7 +8,6 @@ import { useTenant } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Header } from '@/components/Header';
 import { PhoneInput } from '@/components/PhoneInput';
 import { z } from 'zod';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -200,8 +199,6 @@ const TenantAuth = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-
       <main className="container py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
