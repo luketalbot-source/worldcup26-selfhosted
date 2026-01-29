@@ -91,7 +91,7 @@ export const MatchesView = () => {
   const {
     t
   } = useTranslation();
-  const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('today');
+  const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('groups');
   const [activeGroup, setActiveGroup] = useState('A');
   const {
     addPrediction,
