@@ -131,7 +131,7 @@ export const CustomBoostAwardCard = ({
           
           <Badge 
             variant="secondary" 
-            className="absolute top-2 left-2 bg-accent text-accent-foreground text-xs font-semibold flex items-center gap-1"
+            className="absolute top-2 left-2 bg-accent text-accent-foreground text-xs font-semibold flex items-center gap-1 pointer-events-none"
           >
             <Star className="w-3 h-3" />
             {t('boost.custom')}
