@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
+import { BoostView } from '@/components/BoostView';
 import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
@@ -118,6 +119,8 @@ const TenantApp = () => {
     switch (activeTab) {
       case 'matches':
         return <MatchesView />;
+      case 'boost':
+        return <BoostView />;
       case 'leagues':
         return <LeaguesView />;
       case 'profile':

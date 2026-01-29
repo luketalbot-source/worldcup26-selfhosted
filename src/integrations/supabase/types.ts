@@ -14,6 +14,134 @@ export type Database = {
   }
   public: {
     Tables: {
+      boost_awards: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          image_url: string | null
+          lock_date: string | null
+          name: string
+          points_value: number
+          prediction_type: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          lock_date?: string | null
+          name: string
+          points_value?: number
+          prediction_type: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          lock_date?: string | null
+          name?: string
+          points_value?: number
+          prediction_type?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      boost_predictions: {
+        Row: {
+          award_id: string
+          created_at: string
+          id: string
+          predicted_player_name: string | null
+          predicted_team_code: string | null
+          tenant_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          award_id: string
+          created_at?: string
+          id?: string
+          predicted_player_name?: string | null
+          predicted_team_code?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          award_id?: string
+          created_at?: string
+          id?: string
+          predicted_player_name?: string | null
+          predicted_team_code?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boost_predictions_award_id_fkey"
+            columns: ["award_id"]
+            isOneToOne: false
+            referencedRelation: "boost_awards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boost_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boost_results: {
+        Row: {
+          award_id: string
+          created_at: string
+          id: string
+          result_player_name: string | null
+          result_team_code: string | null
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          award_id: string
+          created_at?: string
+          id?: string
+          result_player_name?: string | null
+          result_team_code?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          award_id?: string
+          created_at?: string
+          id?: string
+          result_player_name?: string | null
+          result_team_code?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boost_results_award_id_fkey"
+            columns: ["award_id"]
+            isOneToOne: true
+            referencedRelation: "boost_awards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       league_members: {
         Row: {
           id: string
