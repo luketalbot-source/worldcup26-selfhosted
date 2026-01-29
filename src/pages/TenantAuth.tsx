@@ -77,8 +77,14 @@ const TenantAuth = () => {
     }
   }, []);
 
-  // Auto-trigger SSO for OIDC-only tenants
+  // Auto-trigger SSO for OIDC-only tenants (iframe only)
   useEffect(() => {
+    // Only auto-trigger when inside an iframe
+    if (!isInIframe) {
+      console.log('[TenantAuth] Not in iframe, skipping auto-SSO');
+      return;
+    }
+
     const triggerSSO = async () => {
       if (!tenant?.oidc_config) return;
       
@@ -108,14 +114,15 @@ const TenantAuth = () => {
     ) {
       setAutoSSOTriggered(true);
       
-      // In iframe: wait for potential postMessage token first
-      // Otherwise: trigger immediately
-      const delay = isInIframe && !tokenReceived ? 2000 : 100;
-      console.log('[TenantAuth] Will auto-trigger SSO in', delay, 'ms');
+      // Wait for potential postMessage token first (2s delay)
+      const delay = tokenReceived ? 0 : 2000;
+      console.log('[TenantAuth] Will auto-trigger SSO in', delay, 'ms (tokenReceived:', tokenReceived, ')');
       
       const timer = setTimeout(() => {
-        if (!user && !(isInIframe && tokenReceived)) {
+        if (!user && !tokenReceived) {
           triggerSSO();
+        } else {
+          console.log('[TenantAuth] Skipping auto-SSO: user=', !!user, 'tokenReceived=', tokenReceived);
         }
       }, delay);
       return () => clearTimeout(timer);
