@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type { User } from '@supabase/supabase-js';
 
 export interface IframeAuthMessage {
   type: 'OIDC_TOKEN' | 'AUTH_LOGOUT' | 'AUTH_USER_CHANGED';
@@ -40,6 +41,13 @@ export const useIframeAuth = ({
 }: UseIframeAuthOptions) => {
   const { user, signOut } = useAuth();
   const processingRef = useRef(false);
+
+  const getCurrentOidcSubject = useCallback((u: User | null) => {
+    if (!u) return null;
+    const meta = (u.user_metadata || {}) as Record<string, unknown>;
+    const sub = meta.oidc_subject || meta.sub;
+    return typeof sub === 'string' && sub.length > 0 ? sub : null;
+  }, []);
 
   // Handle direct token authentication
   const authenticateWithToken = useCallback(async (payload: IframeAuthMessage['payload']) => {
@@ -135,23 +143,32 @@ export const useIframeAuth = ({
     }
   }, [tenantId, onAuthSuccess, onAuthError]);
 
-  // Handle user mismatch detection
-  const checkUserMatch = useCallback(async (payload: IframeAuthMessage['payload']) => {
-    if (!user || !payload?.sub) return;
+  // Handle user mismatch + session switch
+  const handleUserChanged = useCallback(async (payload: IframeAuthMessage['payload']) => {
+    if (!payload) {
+      // Parent explicitly indicates no user
+      await signOut();
+      return;
+    }
 
-    // Get the current user's OIDC identity
-    const { data: identity } = await supabase
-      .from('oidc_identities')
-      .select('oidc_subject')
-      .eq('user_id', user.id)
-      .single();
+    // If we're not logged in, just authenticate.
+    if (!user) {
+      await authenticateWithToken(payload);
+      return;
+    }
 
-    if (identity && identity.oidc_subject !== payload.sub) {
-      console.log('User mismatch detected, logging out');
+    // If we are logged in, switch sessions if the parent user differs (or if we can't reliably compare).
+    const currentSub = getCurrentOidcSubject(user);
+    const incomingSub = payload.sub;
+
+    const shouldSwitch = !incomingSub || !currentSub || incomingSub !== currentSub;
+
+    if (shouldSwitch) {
       await signOut();
       onUserMismatch?.();
+      await authenticateWithToken(payload);
     }
-  }, [user, signOut, onUserMismatch]);
+  }, [authenticateWithToken, getCurrentOidcSubject, onUserMismatch, signOut, user]);
 
   // Listen for postMessage events
   useEffect(() => {
@@ -171,19 +188,14 @@ export const useIframeAuth = ({
           break;
 
         case 'AUTH_USER_CHANGED':
-          if (user) {
-            await checkUserMatch(message.payload);
-          } else if (message.payload) {
-            // Not logged in, try to authenticate
-            await authenticateWithToken(message.payload);
-          }
+          await handleUserChanged(message.payload);
           break;
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [authenticateWithToken, checkUserMatch, signOut, user]);
+  }, [authenticateWithToken, handleUserChanged, signOut]);
 
   // Send ready message to parent when mounted
   useEffect(() => {
