@@ -184,12 +184,14 @@ export const BoostAwardCard = ({
                   </SelectContent>
                 </Select>
               ) : (
-                <Input
-                  placeholder="Enter player name..."
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  disabled={isLocked || disabled}
-                />
+                <Select disabled>
+                  <SelectTrigger>
+                    <SelectValue placeholder="WC2026 Player List not yet finalised" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder">Placeholder</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
 
               {/* Save Button */}
