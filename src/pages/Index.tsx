@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
 import { LeaguesView } from '@/components/LeaguesView';
@@ -49,8 +48,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <Header />
-      
       <main className="container py-4">
         {renderContent()}
       </main>
