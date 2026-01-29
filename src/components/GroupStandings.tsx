@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import { GroupStanding } from '@/types/match';
+import { useTeamName } from '@/hooks/useTeamName';
 
 interface GroupStandingsProps {
   standings: GroupStanding[];
@@ -11,6 +12,7 @@ interface GroupStandingsProps {
 
 export const GroupStandings = ({ standings, group }: GroupStandingsProps) => {
   const { t } = useTranslation();
+  const { getTeamName } = useTeamName();
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -76,7 +78,7 @@ export const GroupStandings = ({ standings, group }: GroupStandingsProps) => {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <span className="text-xl">{standing.team.flag}</span>
-                          <span className="font-medium text-foreground">{standing.team.code}</span>
+                          <span className="font-medium text-foreground">{getTeamName(standing.team.code, standing.team.name)}</span>
                         </div>
                       </td>
                       <td className="text-center py-3 px-2 text-foreground">{standing.played}</td>

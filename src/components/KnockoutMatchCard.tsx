@@ -8,6 +8,7 @@ import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
 import { getFlagUrl } from '@/lib/flagUtils';
 import { useMatchTime } from '@/hooks/useMatchTime';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
+import { useTeamName } from '@/hooks/useTeamName';
 
 interface KnockoutMatchCardProps {
   match: KnockoutMatch;
@@ -25,6 +26,7 @@ export const KnockoutMatchCard = ({
   isHighlighted = false 
 }: KnockoutMatchCardProps) => {
   const { t } = useTranslation();
+  const { getTeamName } = useTeamName();
   const [homeScore, setHomeScore] = useState(prediction?.homeScore ?? 0);
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
   const [hasEdited, setHasEdited] = useState(false);
@@ -76,6 +78,10 @@ export const KnockoutMatchCard = ({
 
   const homeFlagUrl = getFlagUrl(match.homeTeam.code);
   const awayFlagUrl = getFlagUrl(match.awayTeam.code);
+
+  // Get translated team names
+  const homeTeamName = getTeamName(match.homeTeam.code, match.homeTeam.name);
+  const awayTeamName = getTeamName(match.awayTeam.code, match.awayTeam.name);
 
   // Determine what scores to show in the selector area
   const displayHomeScore = (isLive || isFinished) ? (match.homeScore ?? 0) : homeScore;
@@ -170,24 +176,24 @@ export const KnockoutMatchCard = ({
           <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
             {(isFinished || isLive) ? (
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{match.homeTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
                 <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
                 <div className="text-2xl font-bold text-foreground w-8 text-center">{displayAwayScore}</div>
-                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{match.awayTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
               </div>
             ) : isMatchLocked ? (
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{match.homeTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
                 <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayHomeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
                 <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayAwayScore}</div>
-                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{match.awayTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{match.homeTeam.name}</span>
-                <ScoreSelector 
+                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                <ScoreSelector
                   value={homeScore} 
                   onChange={(v) => handleScoreChange('home', v)}
                   disabled={disabled || isMatchLocked}
@@ -198,7 +204,7 @@ export const KnockoutMatchCard = ({
                   onChange={(v) => handleScoreChange('away', v)}
                   disabled={disabled || isMatchLocked}
                 />
-                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{match.awayTeam.name}</span>
+                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
               </div>
             )}
           </div>
