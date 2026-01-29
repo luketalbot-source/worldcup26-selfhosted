@@ -31,9 +31,7 @@ const TenantAuth = () => {
   const [error, setError] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
-  const [hostAuthTimedOut, setHostAuthTimedOut] = useState(false);
-  const hostAuthRequestedRef = useRef(false);
-  const hostAuthTimerRef = useRef<number | null>(null);
+  const [autoSSOTriggered, setAutoSSOTriggered] = useState(false);
   const verifyInFlightRef = useRef(false);
   const { sendOtp, verifyOtp, user } = useAuth();
   const navigate = useNavigate();
@@ -79,50 +77,34 @@ const TenantAuth = () => {
     }
   }, []);
 
-  // In iframe mode, do NOT redirect to the IdP login page.
-  // Instead, request the host app to provide an OIDC token via postMessage (OIDC_TOKEN).
+  // Auto-trigger SSO for OIDC-only tenants in iframe
   useEffect(() => {
-    if (!isInIframe) return;
-    if (user) return;
-    if (tenantLoading) return;
-    if (tenant?.auth_method !== 'oidc') return;
-    if (!tenant.oidc_config) return;
-    if (hostAuthRequestedRef.current) return;
-
-    hostAuthRequestedRef.current = true;
-    setHostAuthTimedOut(false);
-
-    if (window.parent !== window) {
-      window.parent.postMessage(
-        {
-          type: 'IFRAME_AUTH_REQUEST',
-          payload: { tenantUid, tenantId: tenant.id },
-        },
-        '*'
-      );
+    if (
+      !autoSSOTriggered &&
+      !user &&
+      !tenantLoading &&
+      tenant?.auth_method === 'oidc' &&
+      tenant?.oidc_config &&
+      isInIframe
+    ) {
+      setAutoSSOTriggered(true);
+      // Small delay to ensure parent app can send token via postMessage first
+      const timer = setTimeout(() => {
+        if (!user) {
+          handleOIDCLogin();
+        }
+      }, 500);
+      return () => clearTimeout(timer);
     }
-
-    hostAuthTimerRef.current = window.setTimeout(() => {
-      setHostAuthTimedOut(true);
-    }, 5000);
-
-    return () => {
-      if (hostAuthTimerRef.current) {
-        window.clearTimeout(hostAuthTimerRef.current);
-        hostAuthTimerRef.current = null;
-      }
-    };
-  }, [isInIframe, tenantLoading, tenant, user, tenantUid]);
+  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
 
   const handleOIDCLogin = async () => {
-    console.log('handleOIDCLogin called, oidc_config:', tenant?.oidc_config);
     if (!tenant?.oidc_config) return;
     
     setIsOIDCLoading(true);
     setError('');
 
     try {
-      console.log('Building auth URL...');
       const authUrl = await buildAuthorizationUrl(
         tenant.oidc_config.auth_url,
         tenant.oidc_config.client_id,
@@ -130,7 +112,6 @@ const TenantAuth = () => {
         tenant.id
       );
       
-      console.log('Redirecting to:', authUrl);
       // Redirect to IDP
       window.location.href = authUrl;
     } catch (err) {
@@ -285,25 +266,8 @@ const TenantAuth = () => {
   const showOTP = tenant.auth_method === 'otp' || tenant.auth_method === 'both';
   const showOIDC = (tenant.auth_method === 'oidc' || tenant.auth_method === 'both') && tenant.oidc_config;
 
-  // If only OIDC is enabled, show simplified view or auto-redirect
+  // If only OIDC is enabled, show simplified view
   if (tenant.auth_method === 'oidc' && tenant.oidc_config) {
-    // In iframe mode, we never redirect to the IdP login page; we wait for host-provided auth.
-    if (isInIframe && !error) {
-      return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {hostAuthTimedOut
-                ? 'Waiting for host login… Please sign in to the host app.'
-                : 'Signing in via host session…'}
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    // Outside iframe or after error, show manual button
     return (
       <div className="min-h-screen bg-background">
         <main className="container py-8">
