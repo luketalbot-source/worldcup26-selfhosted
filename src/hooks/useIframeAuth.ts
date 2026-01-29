@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { iframeMessageBridge } from '@/lib/iframeMessageBridge';
 
 export interface IframeAuthMessage {
   type: 'OIDC_TOKEN' | 'AUTH_LOGOUT' | 'AUTH_USER_CHANGED';
@@ -26,10 +27,8 @@ interface UseIframeAuthOptions {
 /**
  * Hook for handling iframe authentication via postMessage
  * 
- * Supports:
- * - Receiving OIDC tokens from parent app (skip redirect flow)
- * - Logout signals from parent app
- * - User change detection (logout when parent user changes)
+ * Uses a global message bridge to ensure no messages are lost during
+ * React component mount/unmount cycles (including StrictMode double-mount)
  */
 export const useIframeAuth = ({
   tenantId,
@@ -41,9 +40,6 @@ export const useIframeAuth = ({
   const { user, signOut } = useAuth();
   const processingRef = useRef(false);
   const [tokenReceived, setTokenReceived] = useState(false);
-  
-  // Queue to store messages that arrive before tenant is ready
-  const messageQueueRef = useRef<IframeAuthMessage[]>([]);
 
   // Handle direct token authentication
   const authenticateWithToken = useCallback(async (payload: IframeAuthMessage['payload']) => {
@@ -84,7 +80,6 @@ export const useIframeAuth = ({
         if (data?.error) {
           if (data.needsUsername) {
             console.log('[useIframeAuth] New user needs username, using name from token');
-            // New user needs username - for now, use name from token
             const username = payload.name || payload.preferred_username || payload.sub?.substring(0, 16);
             const { data: retryData, error: retryError } = await supabase.functions.invoke('oidc-token-auth', {
               body: {
@@ -109,7 +104,6 @@ export const useIframeAuth = ({
             throw new Error(data.error);
           }
         } else if (data?.token) {
-          // Verify the token to sign in
           console.log('[useIframeAuth] Verifying OTP token');
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: data.token,
@@ -126,7 +120,6 @@ export const useIframeAuth = ({
         return true;
       } else if (payload.sub) {
         console.log('[useIframeAuth] No id_token, only sub claim - claims-based auth not implemented');
-        // We only have claims, not a full token - this path needs a separate edge function
         onAuthError?.('Claims-based authentication requires an id_token');
         return false;
       }
@@ -147,7 +140,6 @@ export const useIframeAuth = ({
 
     console.log('[useIframeAuth] Checking user match');
     
-    // Get the current user's OIDC identity
     const { data: identity } = await supabase
       .from('oidc_identities')
       .select('oidc_subject')
@@ -161,32 +153,13 @@ export const useIframeAuth = ({
     }
   }, [user, signOut, onUserMismatch]);
 
-  // Process queued messages when tenant becomes available
-  useEffect(() => {
-    if (tenantId && messageQueueRef.current.length > 0) {
-      console.log('[useIframeAuth] Tenant ready, processing queued messages:', messageQueueRef.current.length);
-      const messages = [...messageQueueRef.current];
-      messageQueueRef.current = [];
-      
-      messages.forEach(async (message) => {
-        if (message.type === 'OIDC_TOKEN' && message.payload) {
-          const success = await authenticateWithToken(message.payload);
-          if (success) {
-            setTokenReceived(true);
-          }
-        }
-      });
-    }
-  }, [tenantId, authenticateWithToken]);
-
-  // Listen for postMessage events - use refs to avoid recreating listener
+  // Use refs to keep callbacks up-to-date without recreating the subscription
   const authenticateWithTokenRef = useRef(authenticateWithToken);
   const checkUserMatchRef = useRef(checkUserMatch);
   const signOutRef = useRef(signOut);
   const userRef = useRef(user);
   const tenantIdRef = useRef(tenantId);
 
-  // Keep refs updated
   useEffect(() => {
     authenticateWithTokenRef.current = authenticateWithToken;
     checkUserMatchRef.current = checkUserMatch;
@@ -195,21 +168,10 @@ export const useIframeAuth = ({
     tenantIdRef.current = tenantId;
   }, [authenticateWithToken, checkUserMatch, signOut, user, tenantId]);
 
-  // Single stable listener
+  // Subscribe to the global message bridge
   useEffect(() => {
-    const handleMessage = async (event: MessageEvent) => {
-      // Log ALL messages for debugging
-      console.log('[useIframeAuth] Raw postMessage received:', {
-        type: event.data?.type,
-        hasData: !!event.data,
-        origin: event.origin,
-      });
-
-      const message = event.data as IframeAuthMessage;
-      
-      if (!message?.type) return;
-
-      console.log('[useIframeAuth] Processing message:', message.type, { 
+    const handleMessage = async (message: IframeAuthMessage) => {
+      console.log('[useIframeAuth] Processing message from bridge:', message.type, { 
         hasPayload: !!message.payload,
         hasIdToken: !!message.payload?.id_token,
         hasSub: !!message.payload?.sub,
@@ -219,9 +181,18 @@ export const useIframeAuth = ({
       switch (message.type) {
         case 'OIDC_TOKEN':
           if (!tenantIdRef.current) {
-            console.log('[useIframeAuth] Tenant not ready, queuing OIDC_TOKEN message');
-            messageQueueRef.current.push(message);
-            setTokenReceived(true);
+            console.log('[useIframeAuth] Tenant not ready yet, will retry when ready');
+            // The bridge will queue the message and replay it when we subscribe again
+            // But we can also store it locally
+            setTimeout(async () => {
+              if (tenantIdRef.current && message.payload) {
+                const success = await authenticateWithTokenRef.current(message.payload);
+                if (success) {
+                  setTokenReceived(true);
+                }
+              }
+            }, 500);
+            setTokenReceived(true); // Mark that we received a token (to suppress auto-SSO)
           } else {
             const success = await authenticateWithTokenRef.current(message.payload);
             if (success) {
@@ -246,14 +217,14 @@ export const useIframeAuth = ({
       }
     };
 
-    window.addEventListener('message', handleMessage);
-    console.log('[useIframeAuth] Message listener attached (stable)');
+    console.log('[useIframeAuth] Subscribing to message bridge');
+    const unsubscribe = iframeMessageBridge.subscribe(handleMessage);
     
     return () => {
-      window.removeEventListener('message', handleMessage);
-      console.log('[useIframeAuth] Message listener removed');
+      console.log('[useIframeAuth] Unsubscribing from message bridge');
+      unsubscribe();
     };
-  }, []); // No dependencies - stable listener
+  }, []); // Empty deps - refs handle updates
 
   // Send ready message to parent when mounted
   useEffect(() => {
