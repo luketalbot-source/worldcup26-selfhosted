@@ -1,7 +1,6 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { User } from '@supabase/supabase-js';
 
 export interface IframeAuthMessage {
   type: 'OIDC_TOKEN' | 'AUTH_LOGOUT' | 'AUTH_USER_CHANGED';
@@ -41,29 +40,11 @@ export const useIframeAuth = ({
 }: UseIframeAuthOptions) => {
   const { user, signOut } = useAuth();
   const processingRef = useRef(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const pendingAuthPayloadRef = useRef<IframeAuthMessage['payload'] | null>(null);
-
-  const getCurrentOidcSubject = useCallback((u: User | null) => {
-    if (!u) return null;
-    const meta = (u.user_metadata || {}) as Record<string, unknown>;
-    const sub = meta.oidc_subject || meta.sub;
-    return typeof sub === 'string' && sub.length > 0 ? sub : null;
-  }, []);
 
   // Handle direct token authentication
   const authenticateWithToken = useCallback(async (payload: IframeAuthMessage['payload']) => {
-    if (!payload || processingRef.current) return;
-
-    // Race fix: the parent can send the token before the tenant is loaded.
-    // Queue the payload and process it as soon as tenantId becomes available.
-    if (!tenantId) {
-      pendingAuthPayloadRef.current = payload;
-      setIsProcessing(true);
-      return;
-    }
+    if (!payload || !tenantId || processingRef.current) return;
     
-    setIsProcessing(true);
     processingRef.current = true;
 
     try {
@@ -119,56 +100,58 @@ export const useIframeAuth = ({
 
         onAuthSuccess?.();
       } else if (payload.sub) {
-        // We cannot safely authenticate with only decoded claims unless the backend provides a dedicated flow.
-        // Avoid invoking non-existent functions; instead show a clear error so the host integration can be fixed.
-        throw new Error('Host did not provide an id_token for SSO. Please pass an id_token in the postMessage payload.');
+        // We only have claims, not a full token - need to use claims-based auth
+        const { data, error } = await supabase.functions.invoke('oidc-claims-auth', {
+          body: {
+            oidc_subject: payload.sub,
+            email: payload.email,
+            name: payload.name || payload.preferred_username,
+            tenant_id: tenantId,
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message || 'Claims authentication failed');
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+
+        if (data?.token) {
+          await supabase.auth.verifyOtp({
+            token_hash: data.token,
+            type: data.tokenType || 'magiclink',
+          });
+        }
+
+        onAuthSuccess?.();
       }
     } catch (err) {
       console.error('Iframe auth error:', err);
       onAuthError?.(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       processingRef.current = false;
-      setIsProcessing(false);
     }
   }, [tenantId, onAuthSuccess, onAuthError]);
 
-  // Process any queued auth payload once tenantId becomes available
-  useEffect(() => {
-    if (!tenantId) return;
-    if (processingRef.current) return;
-    const pending = pendingAuthPayloadRef.current;
-    if (!pending) return;
-    pendingAuthPayloadRef.current = null;
-    authenticateWithToken(pending);
-  }, [tenantId, authenticateWithToken]);
+  // Handle user mismatch detection
+  const checkUserMatch = useCallback(async (payload: IframeAuthMessage['payload']) => {
+    if (!user || !payload?.sub) return;
 
-  // Handle user mismatch + session switch
-  const handleUserChanged = useCallback(async (payload: IframeAuthMessage['payload']) => {
-    // If parent explicitly indicates no user (empty payload), sign out
-    if (!payload || (!payload.sub && !payload.id_token)) {
-      await signOut();
-      return;
-    }
+    // Get the current user's OIDC identity
+    const { data: identity } = await supabase
+      .from('oidc_identities')
+      .select('oidc_subject')
+      .eq('user_id', user.id)
+      .single();
 
-    // If we're not logged in, just authenticate
-    if (!user) {
-      await authenticateWithToken(payload);
-      return;
-    }
-
-    // Only switch if we can definitively confirm a DIFFERENT user
-    // (both have sub claims and they don't match)
-    const currentSub = getCurrentOidcSubject(user);
-    const incomingSub = payload.sub;
-
-    // Only sign out and re-auth if BOTH subs exist and they differ
-    if (currentSub && incomingSub && currentSub !== incomingSub) {
+    if (identity && identity.oidc_subject !== payload.sub) {
+      console.log('User mismatch detected, logging out');
       await signOut();
       onUserMismatch?.();
-      await authenticateWithToken(payload);
     }
-    // Otherwise, keep the current session - don't disrupt a working login
-  }, [authenticateWithToken, getCurrentOidcSubject, onUserMismatch, signOut, user]);
+  }, [user, signOut, onUserMismatch]);
 
   // Listen for postMessage events
   useEffect(() => {
@@ -188,14 +171,19 @@ export const useIframeAuth = ({
           break;
 
         case 'AUTH_USER_CHANGED':
-          await handleUserChanged(message.payload);
+          if (user) {
+            await checkUserMatch(message.payload);
+          } else if (message.payload) {
+            // Not logged in, try to authenticate
+            await authenticateWithToken(message.payload);
+          }
           break;
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [authenticateWithToken, handleUserChanged, signOut]);
+  }, [authenticateWithToken, checkUserMatch, signOut, user]);
 
   // Send ready message to parent when mounted
   useEffect(() => {
@@ -209,7 +197,6 @@ export const useIframeAuth = ({
 
   return {
     isInIframe: window.parent !== window,
-    isProcessing,
     authenticateWithToken,
   };
 };

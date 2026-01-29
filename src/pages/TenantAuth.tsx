@@ -32,7 +32,6 @@ const TenantAuth = () => {
   const [isNewUser, setIsNewUser] = useState(false);
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
   const [autoSSOTriggered, setAutoSSOTriggered] = useState(false);
-  const [showFallbackSSO, setShowFallbackSSO] = useState(false);
   const verifyInFlightRef = useRef(false);
   const autoSSOTimerRef = useRef<number | null>(null);
   const { sendOtp, verifyOtp, user } = useAuth();
@@ -45,7 +44,7 @@ const TenantAuth = () => {
   }, [user]);
   
   // Iframe auth support
-  const { isInIframe, isProcessing } = useIframeAuth({
+  const { isInIframe } = useIframeAuth({
     tenantId: tenant?.id || null,
     tenantUid,
     onAuthSuccess: () => {
@@ -60,12 +59,6 @@ const TenantAuth = () => {
       setError('');
     },
   });
-
-  const isProcessingRef = useRef(isProcessing);
-  // Keep latest iframe-auth processing value for async timers
-  useEffect(() => {
-    isProcessingRef.current = isProcessing;
-  }, [isProcessing]);
 
   const usernameSchema = z.string()
     .min(2, t('auth.validation.minLength'))
@@ -92,11 +85,12 @@ const TenantAuth = () => {
   }, []);
 
   // Auto-trigger SSO for OIDC-only tenants in iframe
-  // If no token arrives within 3 seconds, show a manual SSO button instead of redirecting.
+  // NOTE: We intentionally do NOT return a cleanup from this effect, because a state update
+  // (setAutoSSOTriggered) causes a re-render and React would run the cleanup immediately,
+  // cancelling the timer before it fires.
   useEffect(() => {
     if (autoSSOTriggered) return;
     if (user) return;
-    if (isProcessing) return;
     if (tenantLoading) return;
     if (!isInIframe) return;
     if (tenant?.auth_method !== 'oidc') return;
@@ -104,26 +98,16 @@ const TenantAuth = () => {
 
     setAutoSSOTriggered(true);
 
-    // Clear existing timer
+    // Small delay to ensure parent app can send token via postMessage first
     if (autoSSOTimerRef.current) {
       window.clearTimeout(autoSSOTimerRef.current);
     }
-
-    // After 3s without a token, auto-trigger SSO login
     autoSSOTimerRef.current = window.setTimeout(() => {
-      if (!userRef.current && !isProcessingRef.current) {
+      if (!userRef.current) {
         handleOIDCLogin();
       }
-    }, 3000);
-  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe, isProcessing, tenantUid]);
-
-  // If host-driven auth begins after the timer is armed, cancel the pending redirect.
-  useEffect(() => {
-    if (!isProcessing) return;
-    if (!autoSSOTimerRef.current) return;
-    window.clearTimeout(autoSSOTimerRef.current);
-    autoSSOTimerRef.current = null;
-  }, [isProcessing]);
+    }, 500);
+  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
 
   // Cleanup auto-SSO timer on unmount
   useEffect(() => {
@@ -304,16 +288,14 @@ const TenantAuth = () => {
 
   // If only OIDC is enabled, show simplified view or auto-redirect
   if (tenant.auth_method === 'oidc' && tenant.oidc_config) {
-    // In iframe mode, show loading while waiting for token or SSO redirect.
-    // After timeout, show a manual SSO button so user isn't stuck.
-    if (isInIframe && !error && !showFallbackSSO) {
+    // In iframe mode, show loading while waiting for token or auto-SSO redirect
+    // The auto-SSO useEffect will trigger handleOIDCLogin which redirects to IDP
+    if (isInIframe && !error && !isOIDCLoading) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {isProcessing ? 'Signing in...' : isOIDCLoading ? 'Redirecting...' : 'Signing in...'}
-            </p>
+            <p className="text-muted-foreground">Signing in...</p>
           </div>
         </div>
       );

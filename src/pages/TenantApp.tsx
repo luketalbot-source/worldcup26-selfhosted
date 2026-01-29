@@ -6,7 +6,6 @@ import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
-import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
@@ -18,14 +17,6 @@ const TenantApp = () => {
   const { tenantUid } = useParams();
   const { user, loading: authLoading, signOut } = useAuth();
   const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
-
-  // Iframe auth sync (logout / user change) must run while the user is inside the app
-  useIframeAuth({
-    tenantId: tenantId || null,
-    tenantUid,
-    // No navigation needed here; regular auth guards will redirect as needed
-    onAuthError: (err) => console.error('Iframe auth error:', err),
-  });
 
   // Set document title
   useEffect(() => {
