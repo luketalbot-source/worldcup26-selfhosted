@@ -18,7 +18,7 @@
     "loginPrompt": "para guardar tus predicciones de boost!",
     "bonusPoints": "Puntos Boost",
     "fromCorrectPredictions": "de predicciones correctas",
-    "infoText": "Gana 5 puntos por cada predicción correcta. Los resultados son establecidos por admins al final del torneo.",
+    "infoText": "Gana puntos extra por cada predicción correcta. Los resultados son establecidos por admins al final del torneo.",
     "noExtraBoosts": "¡Sin Boosts Extra todavía!",
     "noExtraBoostsDesc": "¡Pide a tus administradores que sean aventureros y creen algunas predicciones boost personalizadas para tu grupo!",
     "selectTeam": "Selecciona un equipo...",
