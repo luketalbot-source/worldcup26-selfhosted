@@ -79,6 +79,26 @@ const TenantAuth = () => {
 
   // Auto-trigger SSO for OIDC-only tenants
   useEffect(() => {
+    const triggerSSO = async () => {
+      if (!tenant?.oidc_config) return;
+      
+      setIsOIDCLoading(true);
+      try {
+        const authUrl = await buildAuthorizationUrl(
+          tenant.oidc_config.auth_url,
+          tenant.oidc_config.client_id,
+          tenant.oidc_config.redirect_uri,
+          tenant.id
+        );
+        console.log('[TenantAuth] Auto-triggering SSO redirect to:', authUrl);
+        window.location.href = authUrl;
+      } catch (err) {
+        console.error('[TenantAuth] Auto SSO error:', err);
+        setError('Failed to start SSO login');
+        setIsOIDCLoading(false);
+      }
+    };
+
     if (
       !autoSSOTriggered &&
       !user &&
@@ -91,11 +111,11 @@ const TenantAuth = () => {
       // In iframe: wait for potential postMessage token first
       // Otherwise: trigger immediately
       const delay = isInIframe && !tokenReceived ? 2000 : 100;
+      console.log('[TenantAuth] Will auto-trigger SSO in', delay, 'ms');
       
       const timer = setTimeout(() => {
         if (!user && !(isInIframe && tokenReceived)) {
-          console.log('[TenantAuth] Auto-triggering SSO redirect');
-          handleOIDCLogin();
+          triggerSSO();
         }
       }, delay);
       return () => clearTimeout(timer);
