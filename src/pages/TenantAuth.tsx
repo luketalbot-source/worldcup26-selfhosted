@@ -44,7 +44,7 @@ const TenantAuth = () => {
   }, [user]);
   
   // Iframe auth support
-  const { isInIframe } = useIframeAuth({
+  const { isInIframe, isProcessing } = useIframeAuth({
     tenantId: tenant?.id || null,
     tenantUid,
     onAuthSuccess: () => {
@@ -91,6 +91,8 @@ const TenantAuth = () => {
   useEffect(() => {
     if (autoSSOTriggered) return;
     if (user) return;
+    // If the host app is actively signing us in via postMessage, do not redirect to the IdP.
+    if (isProcessing) return;
     if (tenantLoading) return;
     if (!isInIframe) return;
     if (tenant?.auth_method !== 'oidc') return;
@@ -295,7 +297,7 @@ const TenantAuth = () => {
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted-foreground">
-              {isOIDCLoading ? 'Redirecting...' : 'Signing in...'}
+              {isProcessing ? 'Signing in...' : isOIDCLoading ? 'Redirecting...' : 'Signing in...'}
             </p>
           </div>
         </div>
