@@ -74,7 +74,8 @@ const getResult = (homeScore: number, awayScore: number): 'home' | 'away' | 'dra
 export const calculateUserStats = (
   predictions: Array<{ match_id: string; home_score: number; away_score: number }>,
   finishedMatches: Map<string, { home_score: number | null; away_score: number | null }>,
-  boostPoints: number = 0
+  boostPoints: number = 0,
+  totalPredictionCount?: number
 ): UserStats => {
   let matchPoints = 0;
   let exactScores = 0;
@@ -116,6 +117,9 @@ export const calculateUserStats = (
     ? Math.round(((exactScores + correctResults) / scoredPredictions) * 100)
     : 0;
 
+  // Use provided total prediction count if available, otherwise fall back to match predictions only
+  const finalTotalPredictions = totalPredictionCount !== undefined ? totalPredictionCount : predictions.length;
+
   return {
     totalPoints: matchPoints + boostPoints,
     matchPoints,
@@ -123,7 +127,7 @@ export const calculateUserStats = (
     exactScores,
     correctResults,
     wrongResults,
-    totalPredictions: predictions.length,
+    totalPredictions: finalTotalPredictions,
     accuracy,
   };
 };

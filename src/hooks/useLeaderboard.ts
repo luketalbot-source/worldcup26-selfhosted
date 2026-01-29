@@ -172,10 +172,17 @@ export const useLeaderboard = (tenantId: string | null) => {
     });
 
     // Add custom boost predictions to the count and calculate points
+    // Only count predictions for boosts that still exist (not deleted)
     const customAwards = customAwardsRes.data || [];
     const customResults = customResultsRes.data || [];
+    const existingCustomBoostIds = new Set(customAwards.map(a => a.id));
     
     customBoostPredictions?.forEach(p => {
+      // Only count predictions for boosts that still exist
+      if (!existingCustomBoostIds.has(p.custom_boost_id)) {
+        return;
+      }
+      
       if (userStats[p.user_id]) {
         userStats[p.user_id].predictions++;
         
