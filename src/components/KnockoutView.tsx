@@ -62,9 +62,9 @@ export const KnockoutView = () => {
           </button>
         </motion.div>}
 
-      {/* Mobile: horizontal tabs */}
-      <div className="md:hidden sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+      {/* Mobile: horizontal tabs - sticky below parent header */}
+      <div className="md:hidden sticky top-[52px] bg-background z-40 py-2 -mx-4 px-4">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {stages.map(stage => <motion.button key={stage} whileHover={{
           scale: 1.05
         }} whileTap={{
