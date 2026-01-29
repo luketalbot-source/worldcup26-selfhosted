@@ -37,7 +37,7 @@ const TenantAuth = () => {
   const navigate = useNavigate();
   
   // Iframe auth support
-  const { isInIframe } = useIframeAuth({
+  const { isInIframe, tokenReceived } = useIframeAuth({
     tenantId: tenant?.id || null,
     tenantUid,
     onAuthSuccess: () => {
@@ -77,26 +77,28 @@ const TenantAuth = () => {
     }
   }, []);
 
-  // Auto-trigger SSO for OIDC-only tenants in iframe
+  // Auto-trigger SSO for OIDC-only tenants in iframe (only if no token received via postMessage)
   useEffect(() => {
     if (
       !autoSSOTriggered &&
       !user &&
       !tenantLoading &&
+      !tokenReceived && // Skip if we received a token via postMessage
       tenant?.auth_method === 'oidc' &&
       tenant?.oidc_config &&
       isInIframe
     ) {
       setAutoSSOTriggered(true);
-      // Small delay to ensure parent app can send token via postMessage first
+      // Delay to ensure parent app can send token via postMessage first
       const timer = setTimeout(() => {
-        if (!user) {
+        if (!user && !tokenReceived) {
+          console.log('[TenantAuth] Auto-triggering SSO (no postMessage token received)');
           handleOIDCLogin();
         }
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
+  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe, tokenReceived]);
 
   const handleOIDCLogin = async () => {
     if (!tenant?.oidc_config) return;
