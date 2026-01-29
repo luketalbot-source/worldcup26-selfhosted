@@ -60,6 +60,12 @@ const TenantAuth = () => {
     },
   });
 
+  const isProcessingRef = useRef(isProcessing);
+  // Keep latest iframe-auth processing value for async timers
+  useEffect(() => {
+    isProcessingRef.current = isProcessing;
+  }, [isProcessing]);
+
   const usernameSchema = z.string()
     .min(2, t('auth.validation.minLength'))
     .max(20, t('auth.validation.maxLength'))
@@ -105,11 +111,20 @@ const TenantAuth = () => {
       window.clearTimeout(autoSSOTimerRef.current);
     }
     autoSSOTimerRef.current = window.setTimeout(() => {
-      if (!userRef.current) {
+      // If the host starts postMessage auth after we arm the timer, do not redirect.
+      if (!userRef.current && !isProcessingRef.current) {
         handleOIDCLogin();
       }
     }, 500);
-  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
+  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe, isProcessing, tenantUid]);
+
+  // If host-driven auth begins after the timer is armed, cancel the pending redirect.
+  useEffect(() => {
+    if (!isProcessing) return;
+    if (!autoSSOTimerRef.current) return;
+    window.clearTimeout(autoSSOTimerRef.current);
+    autoSSOTimerRef.current = null;
+  }, [isProcessing]);
 
   // Cleanup auto-SSO timer on unmount
   useEffect(() => {
