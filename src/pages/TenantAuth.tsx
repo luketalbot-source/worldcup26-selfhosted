@@ -93,7 +93,7 @@ const TenantAuth = () => {
         if (!user) {
           handleOIDCLogin();
         }
-      }, 500);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
