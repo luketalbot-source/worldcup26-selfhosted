@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.cleanup-unconsented-users]
 verify_jwt = false
+
+[functions.generate-boost-image]
+verify_jwt = false
+
+[functions.translate-boost]
+verify_jwt = false
