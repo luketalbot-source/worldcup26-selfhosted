@@ -55,10 +55,13 @@ export const useUserStats = (userId: string | undefined) => {
     }
 
     // Fetch boost awards, predictions, and results to calculate boost points
-    const [awardsRes, boostPredictionsRes, resultsRes] = await Promise.all([
+    const [awardsRes, boostPredictionsRes, resultsRes, customAwardsRes, customPredictionsRes, customResultsRes] = await Promise.all([
       supabase.from('boost_awards').select('id, prediction_type, points_value'),
       supabase.from('boost_predictions').select('award_id, predicted_team_code, predicted_player_name').eq('user_id', uid),
       supabase.from('boost_results').select('award_id, result_team_code, result_player_name'),
+      supabase.from('tenant_custom_boosts').select('id, prediction_type, points_value'),
+      supabase.from('tenant_custom_boost_predictions').select('custom_boost_id, predicted_team_code, predicted_player_name').eq('user_id', uid),
+      supabase.from('tenant_custom_boost_results').select('custom_boost_id, result_team_code, result_player_name'),
     ]);
 
     // Calculate boost points
@@ -71,6 +74,30 @@ export const useUserStats = (userId: string | undefined) => {
       for (const prediction of boostPredictions) {
         const result = results.find(r => r.award_id === prediction.award_id);
         const award = awards.find(a => a.id === prediction.award_id);
+        
+        if (result && award) {
+          if (award.prediction_type === 'team') {
+            if (prediction.predicted_team_code === result.result_team_code) {
+              boostPoints += award.points_value;
+            }
+          } else {
+            if (prediction.predicted_player_name === result.result_player_name) {
+              boostPoints += award.points_value;
+            }
+          }
+        }
+      }
+    }
+
+    // Calculate custom boost points
+    if (customAwardsRes.data && customPredictionsRes.data && customResultsRes.data) {
+      const customAwards = customAwardsRes.data;
+      const customPredictions = customPredictionsRes.data;
+      const customResults = customResultsRes.data;
+
+      for (const prediction of customPredictions) {
+        const result = customResults.find(r => r.custom_boost_id === prediction.custom_boost_id);
+        const award = customAwards.find(a => a.id === prediction.custom_boost_id);
         
         if (result && award) {
           if (award.prediction_type === 'team') {

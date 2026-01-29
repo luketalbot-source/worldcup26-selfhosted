@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
 import { AdminBoostResults } from '@/components/AdminBoostResults';
+import { TenantCustomBoosts } from '@/components/TenantCustomBoosts';
 import {
   Dialog,
   DialogContent,
@@ -362,6 +363,10 @@ const Admin = () => {
                 <Users className="w-4 h-4" />
                 Users
               </TabsTrigger>
+              <TabsTrigger value="boosts" className="flex items-center gap-2">
+                <Star className="w-4 h-4" />
+                Custom Boosts
+              </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2">
                 <Settings className="w-4 h-4" />
                 Settings
@@ -428,6 +433,13 @@ const Admin = () => {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="boosts">
+              <TenantCustomBoosts 
+                tenantId={selectedTenant.id} 
+                tenantName={selectedTenant.name}
+              />
             </TabsContent>
 
             <TabsContent value="settings">
