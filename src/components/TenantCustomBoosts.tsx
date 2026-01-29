@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Loader2, Trash2, Image, Save, Check, RotateCcw } from 'lucide-react';
+import { Plus, Loader2, Trash2, Image, Save, Check, RotateCcw, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -442,22 +442,36 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                 key={boost.id}
                 className="flex items-start gap-4 p-4 border rounded-lg"
               >
-                {/* Image preview */}
-                <div className="w-20 h-20 flex-shrink-0 bg-muted rounded-lg overflow-hidden">
+                {/* Image preview with regenerate button */}
+                <div className="relative w-20 h-20 flex-shrink-0 bg-muted rounded-lg overflow-hidden group">
                   {isGenerating ? (
                     <div className="w-full h-full flex items-center justify-center">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : boost.image_url ? (
-                    <img 
-                      src={boost.image_url} 
-                      alt={boost.title}
-                      className="w-full h-full object-cover"
-                    />
+                    <>
+                      <img 
+                        src={boost.image_url} 
+                        alt={boost.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        onClick={() => generateImage(boost.id, boost.title, boost.description)}
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        title="Regenerate image"
+                      >
+                        <RefreshCw className="w-5 h-5 text-white" />
+                      </button>
+                    </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Image className="w-6 h-6 text-muted-foreground" />
-                    </div>
+                    <button
+                      onClick={() => generateImage(boost.id, boost.title, boost.description)}
+                      className="w-full h-full flex flex-col items-center justify-center hover:bg-muted/80 transition-colors"
+                      title="Generate image"
+                    >
+                      <Image className="w-5 h-5 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground mt-1">Generate</span>
+                    </button>
                   )}
                 </div>
                 

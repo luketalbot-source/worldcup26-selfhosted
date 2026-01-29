@@ -25,18 +25,24 @@ serve(async (req) => {
     }
 
     // Generate a prompt for the image based on title and description
-    // Be very explicit about wanting an IMAGE generated, not just text
-    const imagePrompt = `Generate an image: A stylized digital illustration representing the concept of "${title}". ${description ? `The context is: ${description}.` : ''} 
-    
-Style requirements:
-- Modern FIFA World Cup 2026 themed award card artwork
-- Vibrant colors with golden trophy elements and blue/navy accents  
-- Clean, professional vector-style graphic design
-- 16:9 aspect ratio suitable for a card header
-- Do NOT include any text in the image
-- Focus on symbolic imagery (trophy, medals, soccer balls, stadium elements)
+    // Style inspired by the standard boost award images (winners, golden-boot, etc.)
+    const imagePrompt = `Create a dramatic, cinematic soccer/football award illustration for: "${title}". ${description ? `Context: ${description}.` : ''}
 
-IMPORTANT: You must generate and return an actual image, not just describe one.`;
+CRITICAL STYLE REQUIREMENTS - Match this exact aesthetic:
+- Hyper-realistic 3D rendered golden trophy or award as the central focus
+- Deep, rich background with dramatic lighting (spotlights, lens flares, bokeh effects)
+- Luxurious feel with metallic gold, bronze, and silver elements
+- Soccer/football elements integrated naturally (balls, nets, stadium silhouettes, grass)
+- Particle effects, sparkles, and light rays emanating from the trophy
+- Professional sports photography style with shallow depth of field
+- Dark navy blue or black gradient background for contrast
+- NO TEXT whatsoever in the image
+- 16:9 landscape aspect ratio
+- Epic, celebratory atmosphere like a major award ceremony
+
+Think of imagery used in FIFA World Cup promotional materials and award presentations.
+
+IMPORTANT: Generate and return an actual high-quality image, not a description.`;
 
     console.log("Generating image with prompt:", imagePrompt);
 
