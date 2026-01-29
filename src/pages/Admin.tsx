@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
+import { AdminBoostResults } from '@/components/AdminBoostResults';
 import {
   Dialog,
   DialogContent,
@@ -488,42 +489,54 @@ const Admin = () => {
             <h1 className="text-3xl font-bold text-foreground">Admin Portal</h1>
             <p className="text-muted-foreground">Manage tenants for the World Cup Predictor</p>
           </div>
-          
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Tenant
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Tenant</DialogTitle>
-                <DialogDescription>
-                  Enter a name for the new tenant. A unique URL will be generated automatically.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <Input
-                  placeholder="Tenant name (e.g., Company Name)"
-                  value={newTenantName}
-                  onChange={(e) => setNewTenantName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateTenant()}
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantName.trim()}>
-                  {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
 
-        <div className="grid gap-4">
+        <Tabs defaultValue="tenants" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="tenants">Tenants</TabsTrigger>
+            <TabsTrigger value="boost" className="flex items-center gap-2">
+              <Trophy className="w-4 h-4" />
+              Boost Results
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="tenants" className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Tenant
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Tenant</DialogTitle>
+                    <DialogDescription>
+                      Enter a name for the new tenant. A unique URL will be generated automatically.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <Input
+                      placeholder="Tenant name (e.g., Company Name)"
+                      value={newTenantName}
+                      onChange={(e) => setNewTenantName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleCreateTenant()}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantName.trim()}>
+                      {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="grid gap-4">
           {tenants.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -587,7 +600,13 @@ const Admin = () => {
               </Card>
             ))
           )}
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="boost">
+            <AdminBoostResults />
+          </TabsContent>
+        </Tabs>
 
         {/* Delete Confirmation Dialog */}
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

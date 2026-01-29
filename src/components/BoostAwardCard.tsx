@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { teams as allTeams } from '@/data/teams';
 import { BoostAward, BoostPrediction, BoostResult } from '@/hooks/useBoostAwards';
+import { boostImages } from '@/assets/boost';
 
 // Get unique teams by code (filter out duplicates from test group)
 const getUniqueTeams = () => {
@@ -103,6 +104,9 @@ export const BoostAwardCard = ({
     return `Locks in ${minutes}m`;
   };
 
+  // Get the image from imports
+  const imageUrl = boostImages[award.slug];
+  
   const lockTimeInfo = getLockTimeInfo();
 
   return (
@@ -119,10 +123,10 @@ export const BoostAwardCard = ({
           : ''
       }`}>
         {/* Award Image */}
-        {award.image_url && (
+        {imageUrl && (
           <div className="relative h-32 bg-gradient-to-br from-primary/20 to-accent/20">
             <img 
-              src={award.image_url} 
+              src={imageUrl} 
               alt={award.name}
               className="w-full h-full object-cover"
             />
