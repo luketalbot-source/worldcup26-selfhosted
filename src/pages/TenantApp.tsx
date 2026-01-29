@@ -6,6 +6,7 @@ import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
@@ -17,6 +18,24 @@ const TenantApp = () => {
   const { tenantUid } = useParams();
   const { user, loading: authLoading, signOut } = useAuth();
   const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
+
+  // Iframe auth support - handle postMessage tokens and user changes
+  useIframeAuth({
+    tenantId: tenantId || null,
+    tenantUid,
+    onAuthSuccess: () => {
+      // User authenticated via postMessage, no action needed - we're already on the app
+      console.log('[TenantApp] Auth success via postMessage');
+    },
+    onAuthError: (err) => {
+      console.error('[TenantApp] Auth error via postMessage:', err);
+    },
+    onUserMismatch: () => {
+      // User changed in parent, will need to re-auth
+      console.log('[TenantApp] User mismatch, redirecting to auth');
+      navigate(`/t/${tenantUid}/auth`, { replace: true });
+    },
+  });
 
   // Set document title
   useEffect(() => {
