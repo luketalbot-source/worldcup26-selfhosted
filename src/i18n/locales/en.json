@@ -4,6 +4,7 @@
   },
   "nav": {
     "matches": "Matches",
+    "boost": "Boost!",
     "standings": "Standings",
     "leagues": "Leagues",
     "leaders": "Leaders",
@@ -165,6 +166,14 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "boost": {
+    "title": "Boost!",
+    "subtitle": "Predict special awards for bonus points",
+    "loginPrompt": "to save your boost predictions!",
+    "bonusPoints": "Boost Points",
+    "fromCorrectPredictions": "from correct predictions",
+    "infoText": "Earn 5 points for each correct prediction. Results are set by admins at the end of the tournament."
   },
   "leagues": {
     "title": "Leagues",
