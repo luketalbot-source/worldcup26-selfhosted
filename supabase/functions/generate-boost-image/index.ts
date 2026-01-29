@@ -25,22 +25,30 @@ serve(async (req) => {
     }
 
     // Generate a prompt for the image based on title and description
-    // Style inspired by the standard boost award images (winners, golden-boot, etc.)
-    const imagePrompt = `Create a dramatic, cinematic soccer/football award illustration for: "${title}". ${description ? `Context: ${description}.` : ''}
+    // The content should drive the imagery, with consistent styling
+    const contentFocus = description 
+      ? `The image MUST visually represent: "${title}" - ${description}`
+      : `The image MUST visually represent: "${title}"`;
 
-CRITICAL STYLE REQUIREMENTS - Match this exact aesthetic:
-- Hyper-realistic 3D rendered golden trophy or award as the central focus
-- Deep, rich background with dramatic lighting (spotlights, lens flares, bokeh effects)
-- Luxurious feel with metallic gold, bronze, and silver elements
-- Soccer/football elements integrated naturally (balls, nets, stadium silhouettes, grass)
-- Particle effects, sparkles, and light rays emanating from the trophy
-- Professional sports photography style with shallow depth of field
+    const imagePrompt = `${contentFocus}
+
+CONTENT IS KEY: The image should clearly illustrate the specific concept described above. For example:
+- If about "Most Goals" → show a net full of balls, a striker celebrating, or a scoreboard
+- If about "Best Defense" → show a goalkeeper making a save, or defenders blocking
+- If about "Fair Play" → show sportsmanship, handshakes, or clean tackles
+- If about a specific team → incorporate their colors or iconic imagery
+
+STYLE REQUIREMENTS (apply to the content above):
+- Dramatic, cinematic soccer/football themed illustration
+- Rich colors with golden/metallic accents for an award feel
+- Deep background with dramatic lighting (spotlights, lens flares, bokeh)
+- Professional sports photography/illustration style
 - Dark navy blue or black gradient background for contrast
 - NO TEXT whatsoever in the image
 - 16:9 landscape aspect ratio
-- Epic, celebratory atmosphere like a major award ceremony
+- Epic, celebratory World Cup atmosphere
 
-Think of imagery used in FIFA World Cup promotional materials and award presentations.
+The subject matter from the title/description should be the HERO of the image, not just a generic trophy.
 
 IMPORTANT: Generate and return an actual high-quality image, not a description.`;
 
