@@ -134,11 +134,11 @@ export const useIframeAuth = ({
     return false;
   }, [tenantId, onAuthSuccess, onAuthError]);
 
-  // Handle user mismatch detection
-  const checkUserMatch = useCallback(async (payload: IframeAuthMessage['payload']) => {
-    if (!user || !payload?.sub) return;
+  // Handle user mismatch detection - returns true if mismatch found
+  const checkUserMatch = useCallback(async (payload: IframeAuthMessage['payload']): Promise<boolean> => {
+    if (!user || !payload?.sub) return false;
 
-    console.log('[useIframeAuth] Checking user match');
+    console.log('[useIframeAuth] Checking user match, current user:', user.id);
     
     const { data: identity } = await supabase
       .from('oidc_identities')
@@ -147,16 +147,28 @@ export const useIframeAuth = ({
       .single();
 
     if (identity && identity.oidc_subject !== payload.sub) {
-      console.log('[useIframeAuth] User mismatch detected, logging out');
+      console.log('[useIframeAuth] User mismatch detected - current:', identity.oidc_subject, 'new:', payload.sub);
       await signOut();
       onUserMismatch?.();
+      return true;
     }
+    
+    // Also check if NO identity found but user exists (edge case)
+    if (!identity && payload.sub) {
+      console.log('[useIframeAuth] No OIDC identity for current user, signing out for new user');
+      await signOut();
+      onUserMismatch?.();
+      return true;
+    }
+    
+    return false;
   }, [user, signOut, onUserMismatch]);
 
   // Use refs to keep callbacks up-to-date without recreating the subscription
   const authenticateWithTokenRef = useRef(authenticateWithToken);
   const checkUserMatchRef = useRef(checkUserMatch);
   const signOutRef = useRef(signOut);
+  const onUserMismatchRef = useRef(onUserMismatch);
   const userRef = useRef(user);
   const tenantIdRef = useRef(tenantId);
 
@@ -164,9 +176,10 @@ export const useIframeAuth = ({
     authenticateWithTokenRef.current = authenticateWithToken;
     checkUserMatchRef.current = checkUserMatch;
     signOutRef.current = signOut;
+    onUserMismatchRef.current = onUserMismatch;
     userRef.current = user;
     tenantIdRef.current = tenantId;
-  }, [authenticateWithToken, checkUserMatch, signOut, user, tenantId]);
+  }, [authenticateWithToken, checkUserMatch, signOut, onUserMismatch, user, tenantId]);
 
   // Subscribe to the global message bridge
   useEffect(() => {
@@ -202,15 +215,31 @@ export const useIframeAuth = ({
           break;
 
         case 'AUTH_LOGOUT':
-          console.log('[useIframeAuth] Logout signal received');
-          await signOutRef.current();
+          console.log('[useIframeAuth] Logout signal received from parent');
+          if (userRef.current) {
+            await signOutRef.current();
+          }
+          // Always trigger the mismatch callback to redirect to auth
+          onUserMismatchRef.current?.();
           break;
 
         case 'AUTH_USER_CHANGED':
-          console.log('[useIframeAuth] User changed signal received');
-          if (userRef.current) {
-            await checkUserMatchRef.current(message.payload);
-          } else if (message.payload) {
+          console.log('[useIframeAuth] User changed signal received', { 
+            hasCurrentUser: !!userRef.current,
+            newSub: message.payload?.sub 
+          });
+          
+          if (userRef.current && message.payload?.sub) {
+            // Check if different user, sign out if needed
+            const wasMismatch = await checkUserMatchRef.current(message.payload);
+            
+            // After signing out the old user, authenticate the new one
+            if (wasMismatch && message.payload?.id_token) {
+              console.log('[useIframeAuth] Re-authenticating with new user token');
+              await authenticateWithTokenRef.current(message.payload);
+            }
+          } else if (!userRef.current && message.payload) {
+            // No current user, just authenticate with the new token
             await authenticateWithTokenRef.current(message.payload);
           }
           break;
