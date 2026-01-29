@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Lock, LogIn, Info } from 'lucide-react';
+import { Trophy, LogIn, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { KnockoutMatchCard } from './KnockoutMatchCard';
 import { usePredictions } from '@/hooks/usePredictions';
@@ -9,18 +8,19 @@ import { useDynamicKnockout } from '@/hooks/useDynamicKnockout';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ReactNode } from 'react';
 
-type KnockoutStage = 'round32' | 'round16' | 'quarter' | 'semi' | 'finals';
-const stages: KnockoutStage[] = ['round32', 'round16', 'quarter', 'semi', 'finals'];
+export type KnockoutStage = 'round32' | 'round16' | 'quarter' | 'semi' | 'finals';
+export const knockoutStages: KnockoutStage[] = ['round32', 'round16', 'quarter', 'semi', 'finals'];
 
 interface KnockoutViewProps {
   syncButton?: ReactNode;
+  activeKnockoutStage: KnockoutStage;
+  onKnockoutStageChange: (stage: KnockoutStage) => void;
 }
 
-export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
+export const KnockoutView = ({ syncButton, activeKnockoutStage, onKnockoutStageChange }: KnockoutViewProps) => {
   const {
     t
   } = useTranslation();
-  const [activeStage, setActiveStage] = useState<KnockoutStage>('round32');
   const {
     addPrediction,
     getPrediction
@@ -36,7 +36,7 @@ export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
   } = useAuth();
   const navigate = useNavigate();
   const getStageMatches = () => {
-    switch (activeStage) {
+    switch (activeKnockoutStage) {
       case 'round32':
         return getKnockoutStageMatches('round32');
       case 'round16':
@@ -53,21 +53,7 @@ export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
   };
   const matches = getStageMatches();
   return <div className="space-y-4">
-      {/* Mobile: horizontal knockout stage tabs - sticky below parent header */}
-      <div className="md:hidden sticky top-[52px] bg-background z-40 py-2 -mx-4 px-4">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {stages.map(stage => <motion.button key={stage} whileHover={{
-          scale: 1.05
-        }} whileTap={{
-          scale: 0.95
-        }} onClick={() => setActiveStage(stage)} className={`relative px-4 py-2 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${activeStage === stage ? 'bg-fifa-coral text-white shadow-md' : 'bg-card text-muted-foreground hover:bg-muted'}`}>
-              {stage === 'finals' && <Trophy className="w-4 h-4 inline mr-1" />}
-              {t(`knockout.${stage}`)}
-            </motion.button>)}
-        </div>
-      </div>
-
-      {/* Non-sticky content: sync button, login prompt, info */}
+      {/* Non-sticky content: sync button, login prompt */}
       <div className="max-w-[700px] mx-auto space-y-4">
         {syncButton}
         
@@ -92,11 +78,11 @@ export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
       <div className="gap-6 flex items-start justify-center max-w-[700px] mx-auto">
         {/* Vertical tabs - hidden on mobile */}
         <div className="hidden md:flex flex-col gap-2 sticky top-[120px] self-start">
-          {stages.map(stage => <motion.button key={stage} whileHover={{
+          {knockoutStages.map(stage => <motion.button key={stage} whileHover={{
           scale: 1.05
         }} whileTap={{
           scale: 0.95
-        }} onClick={() => setActiveStage(stage)} className={`relative px-4 py-2 rounded-xl font-semibold text-sm transition-all whitespace-nowrap text-left ${activeStage === stage ? 'bg-fifa-coral text-white shadow-md' : 'bg-card text-muted-foreground hover:bg-muted'}`}>
+        }} onClick={() => onKnockoutStageChange(stage)} className={`relative px-4 py-2 rounded-xl font-semibold text-sm transition-all whitespace-nowrap text-left ${activeKnockoutStage === stage ? 'bg-fifa-coral text-white shadow-md' : 'bg-card text-muted-foreground hover:bg-muted'}`}>
               {stage === 'finals' && <Trophy className="w-4 h-4 inline mr-1" />}
               {t(`knockout.${stage}`)}
             </motion.button>)}
@@ -127,7 +113,7 @@ export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
           </motion.div>
 
           {/* Matches */}
-          <motion.div key={activeStage} initial={{
+          <motion.div key={activeKnockoutStage} initial={{
           opacity: 0,
           x: 20
         }} animate={{
@@ -136,7 +122,7 @@ export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
         }} transition={{
           duration: 0.3
         }} className="space-y-4">
-            {activeStage === 'finals' && <>
+            {activeKnockoutStage === 'finals' && <>
                 <div className="text-center py-2">
                   <h3 className="text-lg font-bold text-foreground">{t('knockout.theFinal')}</h3>
                   <p className="text-sm text-muted-foreground">July 19, 2026 • New York</p>
@@ -148,7 +134,7 @@ export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
                 <KnockoutMatchCard match={knockoutBracket.thirdPlace} prediction={getPrediction(knockoutBracket.thirdPlace.id)} onPredict={addPrediction} disabled={!user} />
               </>}
 
-            {activeStage !== 'finals' && matches.map(match => <KnockoutMatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
+            {activeKnockoutStage !== 'finals' && matches.map(match => <KnockoutMatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
           </motion.div>
         </div>
       </div>
