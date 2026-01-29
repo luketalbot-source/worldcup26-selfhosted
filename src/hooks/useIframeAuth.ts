@@ -179,29 +179,51 @@ export const useIframeAuth = ({
     }
   }, [tenantId, authenticateWithToken]);
 
-  // Listen for postMessage events
+  // Listen for postMessage events - use refs to avoid recreating listener
+  const authenticateWithTokenRef = useRef(authenticateWithToken);
+  const checkUserMatchRef = useRef(checkUserMatch);
+  const signOutRef = useRef(signOut);
+  const userRef = useRef(user);
+  const tenantIdRef = useRef(tenantId);
+
+  // Keep refs updated
+  useEffect(() => {
+    authenticateWithTokenRef.current = authenticateWithToken;
+    checkUserMatchRef.current = checkUserMatch;
+    signOutRef.current = signOut;
+    userRef.current = user;
+    tenantIdRef.current = tenantId;
+  }, [authenticateWithToken, checkUserMatch, signOut, user, tenantId]);
+
+  // Single stable listener
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
+      // Log ALL messages for debugging
+      console.log('[useIframeAuth] Raw postMessage received:', {
+        type: event.data?.type,
+        hasData: !!event.data,
+        origin: event.origin,
+      });
+
       const message = event.data as IframeAuthMessage;
       
       if (!message?.type) return;
 
-      console.log('[useIframeAuth] Received postMessage:', message.type, { 
+      console.log('[useIframeAuth] Processing message:', message.type, { 
         hasPayload: !!message.payload,
         hasIdToken: !!message.payload?.id_token,
         hasSub: !!message.payload?.sub,
-        tenantId,
+        tenantId: tenantIdRef.current,
       });
 
       switch (message.type) {
         case 'OIDC_TOKEN':
-          if (!tenantId) {
-            // Queue the message for when tenant is ready
+          if (!tenantIdRef.current) {
             console.log('[useIframeAuth] Tenant not ready, queuing OIDC_TOKEN message');
             messageQueueRef.current.push(message);
-            setTokenReceived(true); // Mark that we received a token (to suppress auto-SSO)
+            setTokenReceived(true);
           } else {
-            const success = await authenticateWithToken(message.payload);
+            const success = await authenticateWithTokenRef.current(message.payload);
             if (success) {
               setTokenReceived(true);
             }
@@ -210,29 +232,28 @@ export const useIframeAuth = ({
 
         case 'AUTH_LOGOUT':
           console.log('[useIframeAuth] Logout signal received');
-          await signOut();
+          await signOutRef.current();
           break;
 
         case 'AUTH_USER_CHANGED':
           console.log('[useIframeAuth] User changed signal received');
-          if (user) {
-            await checkUserMatch(message.payload);
+          if (userRef.current) {
+            await checkUserMatchRef.current(message.payload);
           } else if (message.payload) {
-            // Not logged in, try to authenticate
-            await authenticateWithToken(message.payload);
+            await authenticateWithTokenRef.current(message.payload);
           }
           break;
       }
     };
 
     window.addEventListener('message', handleMessage);
-    console.log('[useIframeAuth] Message listener attached');
+    console.log('[useIframeAuth] Message listener attached (stable)');
     
     return () => {
       window.removeEventListener('message', handleMessage);
       console.log('[useIframeAuth] Message listener removed');
     };
-  }, [authenticateWithToken, checkUserMatch, signOut, user, tenantId]);
+  }, []); // No dependencies - stable listener
 
   // Send ready message to parent when mounted
   useEffect(() => {
