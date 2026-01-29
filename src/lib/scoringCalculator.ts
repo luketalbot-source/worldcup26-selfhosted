@@ -19,6 +19,8 @@ export interface PredictionResult {
 
 export interface UserStats {
   totalPoints: number;
+  matchPoints: number;
+  boostPoints: number;
   exactScores: number;
   correctResults: number;
   wrongResults: number;
@@ -71,9 +73,10 @@ const getResult = (homeScore: number, awayScore: number): 'home' | 'away' | 'dra
  */
 export const calculateUserStats = (
   predictions: Array<{ match_id: string; home_score: number; away_score: number }>,
-  finishedMatches: Map<string, { home_score: number | null; away_score: number | null }>
+  finishedMatches: Map<string, { home_score: number | null; away_score: number | null }>,
+  boostPoints: number = 0
 ): UserStats => {
-  let totalPoints = 0;
+  let matchPoints = 0;
   let exactScores = 0;
   let correctResults = 0;
   let wrongResults = 0;
@@ -93,7 +96,7 @@ export const calculateUserStats = (
         match.away_score
       );
 
-      totalPoints += points;
+      matchPoints += points;
 
       switch (resultType) {
         case 'exact':
@@ -114,7 +117,9 @@ export const calculateUserStats = (
     : 0;
 
   return {
-    totalPoints,
+    totalPoints: matchPoints + boostPoints,
+    matchPoints,
+    boostPoints,
     exactScores,
     correctResults,
     wrongResults,

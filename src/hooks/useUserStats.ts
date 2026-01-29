@@ -5,6 +5,8 @@ import { groupStageMatches } from '@/data/matches';
 
 const defaultStats: UserStats = {
   totalPoints: 0,
+  matchPoints: 0,
+  boostPoints: 0,
   exactScores: 0,
   correctResults: 0,
   wrongResults: 0,
@@ -52,6 +54,38 @@ export const useUserStats = (userId: string | undefined) => {
       return;
     }
 
+    // Fetch boost awards, predictions, and results to calculate boost points
+    const [awardsRes, boostPredictionsRes, resultsRes] = await Promise.all([
+      supabase.from('boost_awards').select('id, prediction_type, points_value'),
+      supabase.from('boost_predictions').select('award_id, predicted_team_code, predicted_player_name').eq('user_id', uid),
+      supabase.from('boost_results').select('award_id, result_team_code, result_player_name'),
+    ]);
+
+    // Calculate boost points
+    let boostPoints = 0;
+    if (awardsRes.data && boostPredictionsRes.data && resultsRes.data) {
+      const awards = awardsRes.data;
+      const boostPredictions = boostPredictionsRes.data;
+      const results = resultsRes.data;
+
+      for (const prediction of boostPredictions) {
+        const result = results.find(r => r.award_id === prediction.award_id);
+        const award = awards.find(a => a.id === prediction.award_id);
+        
+        if (result && award) {
+          if (award.prediction_type === 'team') {
+            if (prediction.predicted_team_code === result.result_team_code) {
+              boostPoints += award.points_value;
+            }
+          } else {
+            if (prediction.predicted_player_name === result.result_player_name) {
+              boostPoints += award.points_value;
+            }
+          }
+        }
+      }
+    }
+
     // Create a map of finished matches
     const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
     
@@ -73,8 +107,8 @@ export const useUserStats = (userId: string | undefined) => {
         });
       });
 
-    // Calculate stats
-    const calculatedStats = calculateUserStats(predictions || [], matchResults);
+    // Calculate stats with boost points
+    const calculatedStats = calculateUserStats(predictions || [], matchResults, boostPoints);
     setStats(calculatedStats);
     setLoading(false);
   };
