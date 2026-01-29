@@ -141,17 +141,23 @@ export const MatchesView = () => {
   };
   if (activeStage === 'knockout') {
     return <div className="space-y-4">
-        <div className="max-w-[700px] mx-auto space-y-4">
-          <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-          <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+        <div className="sticky top-0 bg-background z-50 pb-2 -mx-4 px-4 pt-2">
+          <div className="max-w-[700px] mx-auto space-y-4">
+            <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+            <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+          </div>
         </div>
         <KnockoutView />
       </div>;
   }
   if (activeStage === 'today') {
     return <div className="space-y-4 max-w-[700px] mx-auto">
-        <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+        <div className="sticky top-0 bg-background z-50 pb-2 -mx-4 px-4 pt-2">
+          <div className="space-y-4">
+            <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+            <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+          </div>
+        </div>
         
         {renderLoginPrompt()}
         
@@ -174,15 +180,18 @@ export const MatchesView = () => {
   const standings = calculateStandings(activeGroup, matches);
 
   return <div className="space-y-4">
-      <div className="max-w-[700px] mx-auto space-y-4">
-        <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
-        {renderLoginPrompt()}
-      </div>
-      
-      {/* Mobile: horizontal tabs */}
-      <div className="md:hidden sticky top-[72px] bg-background z-40 py-3 -mx-4 px-4">
-        <GroupTabs groups={groups} activeGroup={activeGroup} onGroupChange={setActiveGroup} />
+      {/* Sticky header with stage selector and sync button */}
+      <div className="sticky top-0 bg-background z-50 pb-2 -mx-4 px-4 pt-2">
+        <div className="max-w-[700px] mx-auto space-y-4">
+          <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+          <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+          {renderLoginPrompt()}
+          
+          {/* Mobile: horizontal group tabs inside sticky header */}
+          <div className="md:hidden">
+            <GroupTabs groups={groups} activeGroup={activeGroup} onGroupChange={setActiveGroup} />
+          </div>
+        </div>
       </div>
       
       {/* Desktop: side-by-side layout */}
