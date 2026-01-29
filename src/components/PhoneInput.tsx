@@ -45,6 +45,7 @@ const countryCodes = [
   { code: '+90', country: 'TR', flag: '🇹🇷', name: 'Turkey' },
   { code: '+7', country: 'RU', flag: '🇷🇺', name: 'Russia' },
   { code: '+380', country: 'UA', flag: '🇺🇦', name: 'Ukraine' },
+  { code: '+385', country: 'HR', flag: '🇭🇷', name: 'Croatia' },
 ];
 
 interface PhoneInputProps {
