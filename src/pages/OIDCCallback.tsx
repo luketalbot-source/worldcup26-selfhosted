@@ -76,6 +76,8 @@ const OIDCCallback = () => {
     setError('');
 
     try {
+      console.log('OIDC Callback: Invoking edge function with tenant_id:', tenantId);
+      
       const { data, error: fnError } = await supabase.functions.invoke('oidc-callback', {
         body: { 
           code, 
@@ -85,7 +87,10 @@ const OIDCCallback = () => {
         },
       });
 
+      console.log('OIDC Callback: Edge function response:', { data, error: fnError });
+
       if (fnError) {
+        console.error('OIDC Callback: Edge function error details:', fnError);
         throw new Error(fnError.message || 'Failed to authenticate');
       }
 
