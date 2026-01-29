@@ -31,9 +31,11 @@ const TenantAuth = () => {
   const [error, setError] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
-  const [autoSSOTriggered, setAutoSSOTriggered] = useState(false);
   const verifyInFlightRef = useRef(false);
   const { sendOtp, verifyOtp, user } = useAuth();
+  const autoSSOTriggeredRef = useRef(false);
+  const autoSSOTimerRef = useRef<number | null>(null);
+  const userRef = useRef(user);
   const navigate = useNavigate();
   
   // Iframe auth support
@@ -68,6 +70,11 @@ const TenantAuth = () => {
     }
   }, [user, navigate, tenantUid]);
 
+  // Keep latest user in a ref so delayed callbacks don't use stale values
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   // Load remembered phone on mount
   useEffect(() => {
     const savedPhone = localStorage.getItem(REMEMBERED_PHONE_KEY);
@@ -80,7 +87,7 @@ const TenantAuth = () => {
   // Auto-trigger SSO for OIDC-only tenants in iframe
   useEffect(() => {
     console.log('Auto-SSO check:', {
-      autoSSOTriggered,
+      autoSSOTriggered: autoSSOTriggeredRef.current,
       user: !!user,
       tenantLoading,
       authMethod: tenant?.auth_method,
@@ -89,7 +96,7 @@ const TenantAuth = () => {
     });
     
     if (
-      !autoSSOTriggered &&
+      !autoSSOTriggeredRef.current &&
       !user &&
       !tenantLoading &&
       tenant?.auth_method === 'oidc' &&
@@ -97,17 +104,24 @@ const TenantAuth = () => {
       isInIframe
     ) {
       console.log('Auto-SSO: triggering in 500ms');
-      setAutoSSOTriggered(true);
+      autoSSOTriggeredRef.current = true;
       // Small delay to ensure parent app can send token via postMessage first
-      const timer = setTimeout(() => {
-        console.log('Auto-SSO: timer fired, user:', !!user);
-        if (!user) {
+      autoSSOTimerRef.current = window.setTimeout(() => {
+        const hasUser = !!userRef.current;
+        console.log('Auto-SSO: timer fired, user:', hasUser);
+        if (!hasUser) {
           handleOIDCLogin();
         }
       }, 500);
-      return () => clearTimeout(timer);
+
+      return () => {
+        if (autoSSOTimerRef.current) {
+          window.clearTimeout(autoSSOTimerRef.current);
+          autoSSOTimerRef.current = null;
+        }
+      };
     }
-  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
+  }, [tenant, tenantLoading, user, isInIframe]);
 
   const handleOIDCLogin = async () => {
     console.log('handleOIDCLogin called, oidc_config:', tenant?.oidc_config);
