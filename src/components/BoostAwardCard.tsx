@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Check, Trophy, Loader2 } from 'lucide-react';
+import { Lock, Check, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -50,7 +49,6 @@ export const BoostAwardCard = ({
   const [selectedTeam, setSelectedTeam] = useState(prediction?.predicted_team_code || '');
   const [playerName, setPlayerName] = useState(prediction?.predicted_player_name || '');
   const [saving, setSaving] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
 
   const uniqueTeams = useMemo(() => getUniqueTeams(), []);
 
@@ -69,15 +67,11 @@ export const BoostAwardCard = ({
 
   const handleSave = async () => {
     setSaving(true);
-    const success = await onSave(
+    await onSave(
       award.prediction_type === 'team' ? selectedTeam : null,
       award.prediction_type === 'player' ? playerName : null
     );
     setSaving(false);
-    if (success) {
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 2000);
-    }
   };
 
   const getTeamDisplay = (code: string) => {
@@ -196,28 +190,29 @@ export const BoostAwardCard = ({
 
               {/* Save Button */}
               {!isLocked && !disabled && (
-                <Button
-                  className="w-full"
-                  size="sm"
-                  disabled={saving || !hasChanged || (award.prediction_type === 'team' ? !selectedTeam : !playerName)}
-                  onClick={handleSave}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : justSaved ? (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Saved!
-                    </>
-                  ) : hasPrediction ? (
-                    'Update Prediction'
-                  ) : (
-                    'Save Prediction'
-                  )}
-                </Button>
+                hasPrediction && !hasChanged ? (
+                  <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium w-full">
+                    <Check className="w-3 h-3" />
+                    {award.prediction_type === 'team' 
+                      ? getTeamDisplay(prediction?.predicted_team_code || '')
+                      : prediction?.predicted_player_name
+                    }
+                  </div>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSave}
+                    disabled={saving || (award.prediction_type === 'team' ? !selectedTeam : false)}
+                    className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition-all ${
+                      hasChanged || !hasPrediction
+                        ? 'bg-accent text-accent-foreground shadow-md'
+                        : 'bg-muted text-muted-foreground'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {saving ? t('matchCard.saving') : (hasPrediction ? t('matchCard.update') : t('matchCard.savePrediction'))}
+                  </motion.button>
+                )
               )}
 
               {/* Locked state */}
