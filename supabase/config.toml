@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.oidc-callback]
 verify_jwt = false
+
+[functions.oidc-token-auth]
+verify_jwt = false
