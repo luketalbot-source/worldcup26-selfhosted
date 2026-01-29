@@ -49,8 +49,17 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
       .in('user_id', memberIds);
 
     if (predictionsError) {
-      setLoading(false);
-      return;
+      console.error('Error fetching predictions:', predictionsError);
+    }
+
+    // Get boost predictions for these members
+    const { data: boostPredictions, error: boostError } = await supabase
+      .from('boost_predictions')
+      .select('user_id')
+      .in('user_id', memberIds);
+
+    if (boostError) {
+      console.error('Error fetching boost predictions:', boostError);
     }
 
     // Get all finished matches from live_matches (database)
@@ -109,6 +118,13 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
           match.away_score
         );
         userStats[p.user_id].points += points;
+      }
+    });
+
+    // Add boost predictions to the count
+    boostPredictions?.forEach(p => {
+      if (userStats[p.user_id]) {
+        userStats[p.user_id].predictions++;
       }
     });
 
