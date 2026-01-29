@@ -432,6 +432,145 @@ export type Database = {
           },
         ]
       }
+      tenant_custom_boost_predictions: {
+        Row: {
+          created_at: string
+          custom_boost_id: string
+          id: string
+          predicted_player_name: string | null
+          predicted_team_code: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_boost_id: string
+          id?: string
+          predicted_player_name?: string | null
+          predicted_team_code?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_boost_id?: string
+          id?: string
+          predicted_player_name?: string | null
+          predicted_team_code?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_custom_boost_predictions_custom_boost_id_fkey"
+            columns: ["custom_boost_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_custom_boosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_custom_boost_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_custom_boost_results: {
+        Row: {
+          created_at: string
+          custom_boost_id: string
+          id: string
+          result_player_name: string | null
+          result_team_code: string | null
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_boost_id: string
+          id?: string
+          result_player_name?: string | null
+          result_team_code?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_boost_id?: string
+          id?: string
+          result_player_name?: string | null
+          result_team_code?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_custom_boost_results_custom_boost_id_fkey"
+            columns: ["custom_boost_id"]
+            isOneToOne: true
+            referencedRelation: "tenant_custom_boosts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_custom_boosts: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          image_url: string | null
+          lock_date: string | null
+          original_language: string | null
+          points_value: number
+          prediction_type: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          lock_date?: string | null
+          original_language?: string | null
+          points_value?: number
+          prediction_type: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          lock_date?: string | null
+          original_language?: string | null
+          points_value?: number
+          prediction_type?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_custom_boosts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_oidc_config: {
         Row: {
           auth_url: string

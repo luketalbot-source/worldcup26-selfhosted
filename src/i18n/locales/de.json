@@ -47,7 +47,8 @@
       "shameDesc": "Welches Team scheidet zuerst aus?",
       "woodenSpoon": "Holzlöffel",
       "woodenSpoonDesc": "Team mit der schwächsten Leistung"
-    }
+    },
+    "custom": "Benutzerdefiniert"
   },
   "header": {
     "login": "Anmelden",

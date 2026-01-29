@@ -204,7 +204,8 @@
       "shameDesc": "Which team will be eliminated first?",
       "woodenSpoon": "Wooden Spoon",
       "woodenSpoonDesc": "Team with the worst performance"
-    }
+    },
+    "custom": "Custom"
   },
   "leagues": {
     "title": "Leagues",

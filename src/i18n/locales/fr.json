@@ -47,7 +47,8 @@
       "shameDesc": "Quelle équipe sera éliminée en première ?",
       "woodenSpoon": "Cuillère de Bois",
       "woodenSpoonDesc": "Équipe avec la pire performance"
-    }
+    },
+    "custom": "Personnalisé"
   },
   "header": {
     "login": "Connexion",

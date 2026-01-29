@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { LogIn, Loader2, Trophy } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBoostAwards } from '@/hooks/useBoostAwards';
+import { useCustomBoostAwards } from '@/hooks/useCustomBoostAwards';
 import { BoostAwardCard } from './BoostAwardCard';
+import { CustomBoostAwardCard } from './CustomBoostAwardCard';
 
 export const BoostView = () => {
   const { t } = useTranslation();
@@ -19,6 +21,16 @@ export const BoostView = () => {
     isLocked,
     getTotalPoints,
   } = useBoostAwards();
+
+  const {
+    awards: customAwards,
+    loading: customLoading,
+    savePrediction: saveCustomPrediction,
+    getPrediction: getCustomPrediction,
+    getResult: getCustomResult,
+    isLocked: isCustomLocked,
+    getTotalPoints: getCustomTotalPoints,
+  } = useCustomBoostAwards();
 
   const renderLoginPrompt = () => {
     if (user) return null;
@@ -42,7 +54,7 @@ export const BoostView = () => {
     );
   };
 
-  if (loading) {
+  if (loading || customLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -50,7 +62,7 @@ export const BoostView = () => {
     );
   }
 
-  const totalPoints = getTotalPoints();
+  const totalPoints = getTotalPoints() + getCustomTotalPoints();
 
   return (
     <div className="space-y-4 max-w-[700px] mx-auto">
@@ -83,7 +95,7 @@ export const BoostView = () => {
 
       {renderLoginPrompt()}
 
-      {/* Award Cards Grid */}
+      {/* Award Cards Grid - System Awards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {awards.map((award, index) => (
           <motion.div
@@ -103,6 +115,29 @@ export const BoostView = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* Custom Awards Section */}
+      {customAwards.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {customAwards.map((award, index) => (
+            <motion.div
+              key={award.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: (awards.length + index) * 0.05 }}
+            >
+              <CustomBoostAwardCard
+                award={award}
+                prediction={getCustomPrediction(award.id)}
+                result={getCustomResult(award.id)}
+                isLocked={isCustomLocked(award)}
+                onSave={(teamCode, playerName) => saveCustomPrediction(award.id, teamCode, playerName)}
+                disabled={!user}
+              />
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Info Card */}
       <motion.div

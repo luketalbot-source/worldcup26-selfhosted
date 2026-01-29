@@ -47,7 +47,8 @@
       "shameDesc": "¿Qué equipo será eliminado primero?",
       "woodenSpoon": "Cuchara de Madera",
       "woodenSpoonDesc": "Equipo con el peor rendimiento"
-    }
+    },
+    "custom": "Personalizado"
   },
   "header": {
     "login": "Iniciar Sesión",

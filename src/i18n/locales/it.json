@@ -47,7 +47,8 @@
       "shameDesc": "Quale squadra sarà eliminata per prima?",
       "woodenSpoon": "Cucchiaio di Legno",
       "woodenSpoonDesc": "Squadra con la peggiore prestazione"
-    }
+    },
+    "custom": "Personalizzato"
   },
   "header": {
     "login": "Accedi",

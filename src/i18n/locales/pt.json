@@ -47,7 +47,8 @@
       "shameDesc": "Qual seleção será eliminada primeiro?",
       "woodenSpoon": "Colher de Pau",
       "woodenSpoonDesc": "Seleção com o pior desempenho"
-    }
+    },
+    "custom": "Personalizado"
   },
   "header": {
     "login": "Entrar",

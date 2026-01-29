@@ -52,14 +52,24 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
       console.error('Error fetching predictions:', predictionsError);
     }
 
-    // Get boost predictions for these members
+    // Get boost predictions for these members (with details for scoring)
     const { data: boostPredictions, error: boostError } = await supabase
       .from('boost_predictions')
-      .select('user_id')
+      .select('user_id, award_id, predicted_team_code, predicted_player_name')
       .in('user_id', memberIds);
 
     if (boostError) {
       console.error('Error fetching boost predictions:', boostError);
+    }
+
+    // Get custom boost predictions for these members
+    const { data: customBoostPredictions, error: customBoostError } = await supabase
+      .from('tenant_custom_boost_predictions')
+      .select('user_id, custom_boost_id, predicted_team_code, predicted_player_name')
+      .in('user_id', memberIds);
+
+    if (customBoostError) {
+      console.error('Error fetching custom boost predictions:', customBoostError);
     }
 
     // Get all finished matches from live_matches (database)
@@ -71,6 +81,14 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
     if (matchesError) {
       console.error('Error fetching matches:', matchesError);
     }
+
+    // Get boost awards and results for scoring
+    const [awardsRes, resultsRes, customAwardsRes, customResultsRes] = await Promise.all([
+      supabase.from('boost_awards').select('id, prediction_type, points_value'),
+      supabase.from('boost_results').select('award_id, result_team_code, result_player_name'),
+      supabase.from('tenant_custom_boosts').select('id, prediction_type, points_value'),
+      supabase.from('tenant_custom_boost_results').select('custom_boost_id, result_team_code, result_player_name'),
+    ]);
 
     // Create a map of finished matches for quick lookup
     const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
@@ -121,10 +139,55 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
       }
     });
 
-    // Add boost predictions to the count
+    // Add boost predictions to the count and calculate points
+    const awards = awardsRes.data || [];
+    const results = resultsRes.data || [];
+    
     boostPredictions?.forEach(p => {
       if (userStats[p.user_id]) {
         userStats[p.user_id].predictions++;
+        
+        // Calculate boost points if result exists
+        const result = results.find(r => r.award_id === p.award_id);
+        const award = awards.find(a => a.id === p.award_id);
+        
+        if (result && award) {
+          if (award.prediction_type === 'team') {
+            if (p.predicted_team_code === result.result_team_code) {
+              userStats[p.user_id].points += award.points_value;
+            }
+          } else {
+            if (p.predicted_player_name === result.result_player_name) {
+              userStats[p.user_id].points += award.points_value;
+            }
+          }
+        }
+      }
+    });
+
+    // Add custom boost predictions to the count and calculate points
+    const customAwards = customAwardsRes.data || [];
+    const customResults = customResultsRes.data || [];
+    
+    customBoostPredictions?.forEach(p => {
+      if (userStats[p.user_id]) {
+        userStats[p.user_id].predictions++;
+        
+        // Calculate custom boost points if result exists
+        const result = customResults.find(r => r.custom_boost_id === p.custom_boost_id);
+        const award = customAwards.find(a => a.id === p.custom_boost_id);
+        
+        if (result && award) {
+          if (award.prediction_type === 'team') {
+            if (p.predicted_team_code === result.result_team_code) {
+              userStats[p.user_id].points += award.points_value;
+            }
+          } else {
+            if (p.predicted_player_name === result.result_player_name) {
+              userStats[p.user_id].points += award.points_value;
+            }
+          }
+        }
       }
     });
 
