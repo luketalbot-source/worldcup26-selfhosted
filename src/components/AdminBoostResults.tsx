@@ -326,12 +326,14 @@ export const AdminBoostResults = () => {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input
-                    placeholder="Enter player name..."
-                    value={formValue.playerName}
-                    onChange={(e) => updateFormValue(award.id, 'playerName', e.target.value)}
-                    className="w-[200px]"
-                  />
+                  <Select disabled>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="WC2026 player list not yet finalised" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="placeholder" disabled>No players available</SelectItem>
+                    </SelectContent>
+                  </Select>
                 )}
 
                 <Button
