@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { teams as allTeams } from '@/data/teams';
 import { BoostAward, BoostPrediction, BoostResult } from '@/hooks/useBoostAwards';
 import { boostImages } from '@/assets/boost';
+import { useTeamName } from '@/hooks/useTeamName';
 
 // Get unique teams by code (filter out duplicates from test group)
 const getUniqueTeams = () => {
@@ -26,6 +27,28 @@ const getUniqueTeams = () => {
       return true;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+};
+
+// Map award slugs to translation keys
+const getAwardTranslationKey = (slug: string): { name: string; desc: string } => {
+  const slugToKey: Record<string, string> = {
+    'winners': 'winners',
+    'golden-boot': 'goldenBoot',
+    'golden-ball': 'goldenBall',
+    'golden-glove': 'goldenGlove',
+    'young-player': 'youngPlayer',
+    'fair-play': 'fairPlay',
+    'goal-rush': 'goalRush',
+    'flash': 'flash',
+    'entertaining': 'entertaining',
+    'shame': 'shame',
+    'wooden-spoon': 'woodenSpoon',
+  };
+  const key = slugToKey[slug] || slug;
+  return {
+    name: `boost.awards.${key}`,
+    desc: `boost.awards.${key}Desc`,
+  };
 };
 
 interface BoostAwardCardProps {
@@ -46,6 +69,7 @@ export const BoostAwardCard = ({
   disabled,
 }: BoostAwardCardProps) => {
   const { t } = useTranslation();
+  const { getTeamName } = useTeamName();
   const [selectedTeam, setSelectedTeam] = useState(prediction?.predicted_team_code || '');
   const [playerName, setPlayerName] = useState(prediction?.predicted_player_name || '');
   const [saving, setSaving] = useState(false);
@@ -76,7 +100,7 @@ export const BoostAwardCard = ({
 
   const getTeamDisplay = (code: string) => {
     const team = uniqueTeams.find(t => t.code === code);
-    return team ? `${team.flag} ${team.name}` : code;
+    return team ? `${team.flag} ${getTeamName(team.code, team.name)}` : code;
   };
 
   // Calculate lock time remaining
@@ -89,19 +113,24 @@ export const BoostAwardCard = ({
     if (diff <= 0) return null;
     
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days > 0) return `Locks in ${days} days`;
+    if (days > 0) return t('boost.locksIn', { time: `${days} days` });
     
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return `Locks in ${hours}h`;
+    if (hours > 0) return t('boost.locksIn', { time: `${hours}h` });
     
     const minutes = Math.floor(diff / (1000 * 60));
-    return `Locks in ${minutes}m`;
+    return t('boost.locksIn', { time: `${minutes}m` });
   };
 
   // Get the image from imports
   const imageUrl = boostImages[award.slug];
   
   const lockTimeInfo = getLockTimeInfo();
+  
+  // Get translated award name and description
+  const awardKeys = getAwardTranslationKey(award.slug);
+  const translatedName = t(awardKeys.name, award.name);
+  const translatedDesc = t(awardKeys.desc, award.description || '');
 
   return (
     <motion.div
@@ -142,13 +171,13 @@ export const BoostAwardCard = ({
           {/* Title and Description */}
           <div>
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg">{award.name}</h3>
+              <h3 className="font-bold text-lg">{translatedName}</h3>
               <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                 {award.points_value} pts
               </span>
             </div>
-            {award.description && (
-              <p className="text-sm text-muted-foreground mt-1">{award.description}</p>
+            {translatedDesc && (
+              <p className="text-sm text-muted-foreground mt-1">{translatedDesc}</p>
             )}
           </div>
 
@@ -167,12 +196,12 @@ export const BoostAwardCard = ({
                   disabled={isLocked || disabled}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a team..." />
+                    <SelectValue placeholder={t('boost.selectTeam')} />
                   </SelectTrigger>
                   <SelectContent>
                     {uniqueTeams.map((team) => (
                       <SelectItem key={team.id} value={team.code}>
-                        {team.flag} {team.name}
+                        {team.flag} {getTeamName(team.code, team.name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -180,7 +209,7 @@ export const BoostAwardCard = ({
               ) : (
                 <Select disabled>
                   <SelectTrigger>
-                    <SelectValue placeholder="WC2026 Player List not yet finalised" />
+                    <SelectValue placeholder={t('boost.playerListNotReady')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="placeholder">Placeholder</SelectItem>
@@ -220,13 +249,13 @@ export const BoostAwardCard = ({
                   <Lock className="w-4 h-4 inline mr-1" />
                   {hasPrediction ? (
                     <span>
-                      Locked: {award.prediction_type === 'team' 
+                      {t('boost.locked')}: {award.prediction_type === 'team' 
                         ? getTeamDisplay(prediction?.predicted_team_code || '')
                         : prediction?.predicted_player_name
                       }
                     </span>
                   ) : (
-                    <span>No prediction</span>
+                    <span>{t('boost.noPrediction')}</span>
                   )}
                 </div>
               )}
@@ -234,7 +263,7 @@ export const BoostAwardCard = ({
           ) : (
             /* Result Display */
             <div className="text-center py-2">
-              <div className="text-sm text-muted-foreground mb-1">Result:</div>
+              <div className="text-sm text-muted-foreground mb-1">{t('boost.result')}:</div>
               <div className="font-bold text-lg">
                 {award.prediction_type === 'team' 
                   ? getTeamDisplay(result.result_team_code || '')
@@ -243,7 +272,7 @@ export const BoostAwardCard = ({
               </div>
               {hasPrediction && (
                 <div className={`mt-2 text-sm ${isCorrect ? 'text-green-500 font-bold' : 'text-muted-foreground'}`}>
-                  Your prediction: {award.prediction_type === 'team' 
+                  {t('boost.yourPrediction')}: {award.prediction_type === 'team' 
                     ? getTeamDisplay(prediction?.predicted_team_code || '')
                     : prediction?.predicted_player_name
                   }
