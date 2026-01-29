@@ -79,6 +79,15 @@ const TenantAuth = () => {
 
   // Auto-trigger SSO for OIDC-only tenants in iframe
   useEffect(() => {
+    console.log('Auto-SSO check:', {
+      autoSSOTriggered,
+      user: !!user,
+      tenantLoading,
+      authMethod: tenant?.auth_method,
+      hasOidcConfig: !!tenant?.oidc_config,
+      isInIframe,
+    });
+    
     if (
       !autoSSOTriggered &&
       !user &&
@@ -87,9 +96,11 @@ const TenantAuth = () => {
       tenant?.oidc_config &&
       isInIframe
     ) {
+      console.log('Auto-SSO: triggering in 500ms');
       setAutoSSOTriggered(true);
       // Small delay to ensure parent app can send token via postMessage first
       const timer = setTimeout(() => {
+        console.log('Auto-SSO: timer fired, user:', !!user);
         if (!user) {
           handleOIDCLogin();
         }
@@ -99,12 +110,14 @@ const TenantAuth = () => {
   }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
 
   const handleOIDCLogin = async () => {
+    console.log('handleOIDCLogin called, oidc_config:', tenant?.oidc_config);
     if (!tenant?.oidc_config) return;
     
     setIsOIDCLoading(true);
     setError('');
 
     try {
+      console.log('Building auth URL...');
       const authUrl = await buildAuthorizationUrl(
         tenant.oidc_config.auth_url,
         tenant.oidc_config.client_id,
@@ -112,6 +125,7 @@ const TenantAuth = () => {
         tenant.id
       );
       
+      console.log('Redirecting to:', authUrl);
       // Redirect to IDP
       window.location.href = authUrl;
     } catch (err) {
