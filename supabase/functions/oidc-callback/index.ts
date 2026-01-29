@@ -50,15 +50,19 @@ serve(async (req) => {
     }
 
     // Derive token endpoint from auth_url
-    // Standard OIDC: replace /authorize with /token or use .well-known
+    // Standard OIDC: the auth URL typically ends with /auth or /authorize
+    // and the token URL ends with /token
     const authUrl = new URL(oidcConfig.auth_url);
     const tokenUrl = new URL(oidcConfig.auth_url);
     
-    // Common OIDC pattern: /authorize -> /token
-    if (authUrl.pathname.includes('/authorize')) {
-      tokenUrl.pathname = authUrl.pathname.replace('/authorize', '/token');
-    } else if (authUrl.pathname.includes('/auth')) {
-      tokenUrl.pathname = authUrl.pathname.replace('/auth', '/token');
+    // Replace only the LAST segment of the path
+    // e.g., /auth/realms/show/protocol/openid-connect/auth -> /auth/realms/show/protocol/openid-connect/token
+    const pathParts = authUrl.pathname.split('/');
+    const lastPart = pathParts[pathParts.length - 1];
+    
+    if (lastPart === 'authorize' || lastPart === 'auth') {
+      pathParts[pathParts.length - 1] = 'token';
+      tokenUrl.pathname = pathParts.join('/');
     } else {
       // Fallback: append /token to base
       tokenUrl.pathname = tokenUrl.pathname.replace(/\/?$/, '/token');
