@@ -476,19 +476,17 @@ export const ProfileView = () => {
         </div>
       </motion.div>
 
-      {/* Sign Out - Only show for OTP users */}
-      {!isSSO && (
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          {t('profile.signOut')}
-        </motion.button>
-      )}
+      {/* Sign Out */}
+      <motion.button
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        onClick={handleSignOut}
+        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
+      >
+        <LogOut className="w-5 h-5" />
+        {t('profile.signOut')}
+      </motion.button>
     </div>
   );
 };
