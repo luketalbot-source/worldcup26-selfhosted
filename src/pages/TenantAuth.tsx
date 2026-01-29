@@ -5,6 +5,7 @@ import { User, ArrowLeft, Loader2, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -30,9 +31,27 @@ const TenantAuth = () => {
   const [error, setError] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
+  const [autoSSOTriggered, setAutoSSOTriggered] = useState(false);
   const verifyInFlightRef = useRef(false);
   const { sendOtp, verifyOtp, user } = useAuth();
   const navigate = useNavigate();
+  
+  // Iframe auth support
+  const { isInIframe } = useIframeAuth({
+    tenantId: tenant?.id || null,
+    tenantUid,
+    onAuthSuccess: () => {
+      navigate(`/t/${tenantUid}`);
+    },
+    onAuthError: (err) => {
+      setError(err);
+      setIsOIDCLoading(false);
+    },
+    onUserMismatch: () => {
+      // User changed in parent, will need to re-auth
+      setError('');
+    },
+  });
 
   const usernameSchema = z.string()
     .min(2, t('auth.validation.minLength'))
@@ -57,6 +76,27 @@ const TenantAuth = () => {
       setRememberMe(true);
     }
   }, []);
+
+  // Auto-trigger SSO for OIDC-only tenants in iframe
+  useEffect(() => {
+    if (
+      !autoSSOTriggered &&
+      !user &&
+      !tenantLoading &&
+      tenant?.auth_method === 'oidc' &&
+      tenant?.oidc_config &&
+      isInIframe
+    ) {
+      setAutoSSOTriggered(true);
+      // Small delay to ensure parent app can send token via postMessage first
+      const timer = setTimeout(() => {
+        if (!user) {
+          handleOIDCLogin();
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe]);
 
   const handleOIDCLogin = async () => {
     if (!tenant?.oidc_config) return;
