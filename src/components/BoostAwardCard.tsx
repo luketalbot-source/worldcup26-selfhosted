@@ -188,22 +188,19 @@ export const BoostAwardCard = ({
                 </Select>
               )}
 
-              {/* Save Button */}
-              {!isLocked && !disabled && (
+              {/* Save Button - only show for team type (player type is disabled) */}
+              {!isLocked && !disabled && award.prediction_type === 'team' && (
                 hasPrediction && !hasChanged ? (
                   <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium w-full">
                     <Check className="w-3 h-3" />
-                    {award.prediction_type === 'team' 
-                      ? getTeamDisplay(prediction?.predicted_team_code || '')
-                      : prediction?.predicted_player_name
-                    }
+                    {getTeamDisplay(prediction?.predicted_team_code || '')}
                   </div>
                 ) : (
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleSave}
-                    disabled={saving || (award.prediction_type === 'team' ? !selectedTeam : false)}
+                    disabled={saving || !selectedTeam}
                     className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition-all ${
                       hasChanged || !hasPrediction
                         ? 'bg-accent text-accent-foreground shadow-md'
