@@ -141,19 +141,24 @@ export const MatchesView = () => {
   };
   if (activeStage === 'knockout') {
     return <div className="space-y-4">
-        {/* Sticky header - stage selector + knockout stage tabs on mobile */}
+        {/* Sticky header - stage selector only */}
         <div className="sticky top-0 bg-background z-50 pb-2 -mx-4 px-4 pt-2">
-          <div className="max-w-[700px] mx-auto space-y-3">
+          <div className="max-w-[700px] mx-auto">
             <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
           </div>
         </div>
         
-        {/* Non-sticky sync button */}
-        <div className="max-w-[700px] mx-auto">
-          <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
-        </div>
-        
-        <KnockoutView />
+        <KnockoutView 
+          syncButton={
+            <SyncButton 
+              onSync={() => syncMatches()} 
+              syncing={syncing} 
+              lastSync={lastSync} 
+              canSync={canSync()} 
+              cooldownRemaining={cooldownRemaining} 
+            />
+          }
+        />
       </div>;
   }
   if (activeStage === 'today') {

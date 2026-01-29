@@ -7,9 +7,16 @@ import { KnockoutMatchCard } from './KnockoutMatchCard';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useDynamicKnockout } from '@/hooks/useDynamicKnockout';
 import { useAuth } from '@/contexts/AuthContext';
+import type { ReactNode } from 'react';
+
 type KnockoutStage = 'round32' | 'round16' | 'quarter' | 'semi' | 'finals';
 const stages: KnockoutStage[] = ['round32', 'round16', 'quarter', 'semi', 'finals'];
-export const KnockoutView = () => {
+
+interface KnockoutViewProps {
+  syncButton?: ReactNode;
+}
+
+export const KnockoutView = ({ syncButton }: KnockoutViewProps) => {
   const {
     t
   } = useTranslation();
@@ -46,23 +53,7 @@ export const KnockoutView = () => {
   };
   const matches = getStageMatches();
   return <div className="space-y-4">
-      {!user && <motion.div initial={{
-      opacity: 0,
-      y: -10
-    }} animate={{
-      opacity: 1,
-      y: 0
-    }} className="bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-center justify-between">
-          <p className="text-sm text-foreground" dangerouslySetInnerHTML={{
-        __html: t('knockout.loginPrompt')
-      }} />
-          <button onClick={() => navigate('/auth')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground font-semibold text-sm">
-            <LogIn className="w-4 h-4" />
-            {t('header.login')}
-          </button>
-        </motion.div>}
-
-      {/* Mobile: horizontal tabs - sticky below parent header */}
+      {/* Mobile: horizontal knockout stage tabs - sticky below parent header */}
       <div className="md:hidden sticky top-[52px] bg-background z-40 py-2 -mx-4 px-4">
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {stages.map(stage => <motion.button key={stage} whileHover={{
@@ -74,6 +65,27 @@ export const KnockoutView = () => {
               {t(`knockout.${stage}`)}
             </motion.button>)}
         </div>
+      </div>
+
+      {/* Non-sticky content: sync button, login prompt, info */}
+      <div className="max-w-[700px] mx-auto space-y-4">
+        {syncButton}
+        
+        {!user && <motion.div initial={{
+        opacity: 0,
+        y: -10
+      }} animate={{
+        opacity: 1,
+        y: 0
+      }} className="bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-center justify-between">
+            <p className="text-sm text-foreground" dangerouslySetInnerHTML={{
+          __html: t('knockout.loginPrompt')
+        }} />
+            <button onClick={() => navigate('/auth')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground font-semibold text-sm">
+              <LogIn className="w-4 h-4" />
+              {t('header.login')}
+            </button>
+          </motion.div>}
       </div>
 
       {/* Desktop: side-by-side layout */}
