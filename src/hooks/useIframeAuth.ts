@@ -148,29 +148,30 @@ export const useIframeAuth = ({
 
   // Handle user mismatch + session switch
   const handleUserChanged = useCallback(async (payload: IframeAuthMessage['payload']) => {
-    if (!payload) {
-      // Parent explicitly indicates no user
+    // If parent explicitly indicates no user (empty payload), sign out
+    if (!payload || (!payload.sub && !payload.id_token)) {
       await signOut();
       return;
     }
 
-    // If we're not logged in, just authenticate.
+    // If we're not logged in, just authenticate
     if (!user) {
       await authenticateWithToken(payload);
       return;
     }
 
-    // If we are logged in, switch sessions if the parent user differs (or if we can't reliably compare).
+    // Only switch if we can definitively confirm a DIFFERENT user
+    // (both have sub claims and they don't match)
     const currentSub = getCurrentOidcSubject(user);
     const incomingSub = payload.sub;
 
-    const shouldSwitch = !incomingSub || !currentSub || incomingSub !== currentSub;
-
-    if (shouldSwitch) {
+    // Only sign out and re-auth if BOTH subs exist and they differ
+    if (currentSub && incomingSub && currentSub !== incomingSub) {
       await signOut();
       onUserMismatch?.();
       await authenticateWithToken(payload);
     }
+    // Otherwise, keep the current session - don't disrupt a working login
   }, [authenticateWithToken, getCurrentOidcSubject, onUserMismatch, signOut, user]);
 
   // Listen for postMessage events
