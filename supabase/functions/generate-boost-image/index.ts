@@ -25,41 +25,77 @@ serve(async (req) => {
     }
 
     // Generate a prompt for the image based on title and description
-    const imagePrompt = `A stylized, professional sports award illustration for: "${title}". ${description ? `Context: ${description}` : ''} Style: Modern, vibrant FIFA World Cup 2026 themed trophy or award card illustration. Clean vector-like design with golden and blue accents. Ultra high resolution. Aspect ratio 16:9.`;
+    // Be very explicit about wanting an IMAGE generated, not just text
+    const imagePrompt = `Generate an image: A stylized digital illustration representing the concept of "${title}". ${description ? `The context is: ${description}.` : ''} 
+    
+Style requirements:
+- Modern FIFA World Cup 2026 themed award card artwork
+- Vibrant colors with golden trophy elements and blue/navy accents  
+- Clean, professional vector-style graphic design
+- 16:9 aspect ratio suitable for a card header
+- Do NOT include any text in the image
+- Focus on symbolic imagery (trophy, medals, soccer balls, stadium elements)
+
+IMPORTANT: You must generate and return an actual image, not just describe one.`;
 
     console.log("Generating image with prompt:", imagePrompt);
 
-    // Call Lovable AI Gateway for image generation
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [
-          {
-            role: "user",
-            content: imagePrompt
-          }
-        ],
-        modalities: ["image", "text"]
-      })
-    });
+    // Call Lovable AI Gateway for image generation with retry logic
+    let imageBase64: string | null = null;
+    let attempts = 0;
+    const maxAttempts = 2;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+    while (!imageBase64 && attempts < maxAttempts) {
+      attempts++;
+      console.log(`Image generation attempt ${attempts}/${maxAttempts}`);
+      
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [
+            {
+              role: "user",
+              content: imagePrompt
+            }
+          ],
+          modalities: ["image", "text"]
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("AI Gateway error:", errorText);
+        throw new Error(`AI Gateway error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("AI Gateway response structure:", {
+        hasChoices: !!data.choices,
+        choicesLength: data.choices?.length,
+        hasMessage: !!data.choices?.[0]?.message,
+        hasImages: !!data.choices?.[0]?.message?.images,
+        imagesLength: data.choices?.[0]?.message?.images?.length,
+        textContent: data.choices?.[0]?.message?.content?.substring(0, 100)
+      });
+      
+      imageBase64 = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+      if (!imageBase64 && attempts < maxAttempts) {
+        console.log("No image in response, retrying...");
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
-    const data = await response.json();
-    const imageBase64 = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
+    // If still no image after retries, use a placeholder approach
     if (!imageBase64) {
-      console.error("No image in response:", JSON.stringify(data));
-      throw new Error("No image generated");
+      console.log("Failed to generate image after retries, proceeding without image");
+      // Don't throw - just skip image update and continue with language detection
     }
 
     // Also detect the language of the title/description
@@ -76,7 +112,7 @@ serve(async (req) => {
           messages: [
             {
               role: "user",
-              content: `Detect the language of this text and respond with ONLY the 2-letter ISO 639-1 language code (e.g., "en" for English, "es" for Spanish, "de" for German, "fr" for French, "pt" for Portuguese, "it" for Italian). Text: "${title}${description ? ' - ' + description : ''}"`
+              content: `Detect the language of this text and respond with ONLY the 2-letter ISO 639-1 language code (e.g., "en" for English, "es" for Spanish, "de" for German, "fr" for French, "pt" for Portuguese, "it" for Italian). Just the code, nothing else. Text: "${title}${description ? ' - ' + description : ''}"`
             }
           ]
         })
@@ -84,26 +120,35 @@ serve(async (req) => {
       
       if (langResponse.ok) {
         const langData = await langResponse.json();
-        const langCode = langData.choices?.[0]?.message?.content?.trim().toLowerCase();
-        if (langCode && langCode.length === 2) {
+        const langCode = langData.choices?.[0]?.message?.content?.trim().toLowerCase().slice(0, 2);
+        console.log("Detected language code:", langCode);
+        if (langCode && /^[a-z]{2}$/.test(langCode)) {
           detectedLanguage = langCode;
         }
+      } else {
+        const langError = await langResponse.text();
+        console.error("Language detection failed:", langError);
       }
     } catch (langErr) {
-      console.error("Language detection failed:", langErr);
+      console.error("Language detection error:", langErr);
     }
 
-    // Update the boost record with the image URL and detected language
+    // Update the boost record
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const updateData: Record<string, string | null> = {
+      original_language: detectedLanguage
+    };
+    
+    if (imageBase64) {
+      updateData.image_url = imageBase64;
+    }
+
     const { error: updateError } = await supabase
       .from("tenant_custom_boosts")
-      .update({ 
-        image_url: imageBase64,
-        original_language: detectedLanguage 
-      })
+      .update(updateData)
       .eq("id", boostId);
 
     if (updateError) {
@@ -111,12 +156,12 @@ serve(async (req) => {
       throw updateError;
     }
 
-    console.log("Image generated and saved for boost:", boostId);
+    console.log("Boost updated successfully:", { boostId, hasImage: !!imageBase64, detectedLanguage });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        imageUrl: imageBase64,
+        imageUrl: imageBase64 || null,
         detectedLanguage 
       }),
       {
