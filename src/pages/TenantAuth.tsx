@@ -31,11 +31,11 @@ const TenantAuth = () => {
   const [error, setError] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
+  const [hostAuthTimedOut, setHostAuthTimedOut] = useState(false);
+  const hostAuthRequestedRef = useRef(false);
+  const hostAuthTimerRef = useRef<number | null>(null);
   const verifyInFlightRef = useRef(false);
   const { sendOtp, verifyOtp, user } = useAuth();
-  const autoSSOTriggeredRef = useRef(false);
-  const autoSSOTimerRef = useRef<number | null>(null);
-  const userRef = useRef(user);
   const navigate = useNavigate();
   
   // Iframe auth support
@@ -70,11 +70,6 @@ const TenantAuth = () => {
     }
   }, [user, navigate, tenantUid]);
 
-  // Keep latest user in a ref so delayed callbacks don't use stale values
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
   // Load remembered phone on mount
   useEffect(() => {
     const savedPhone = localStorage.getItem(REMEMBERED_PHONE_KEY);
@@ -84,44 +79,40 @@ const TenantAuth = () => {
     }
   }, []);
 
-  // Auto-trigger SSO for OIDC-only tenants in iframe
+  // In iframe mode, do NOT redirect to the IdP login page.
+  // Instead, request the host app to provide an OIDC token via postMessage (OIDC_TOKEN).
   useEffect(() => {
-    console.log('Auto-SSO check:', {
-      autoSSOTriggered: autoSSOTriggeredRef.current,
-      user: !!user,
-      tenantLoading,
-      authMethod: tenant?.auth_method,
-      hasOidcConfig: !!tenant?.oidc_config,
-      isInIframe,
-    });
-    
-    if (
-      !autoSSOTriggeredRef.current &&
-      !user &&
-      !tenantLoading &&
-      tenant?.auth_method === 'oidc' &&
-      tenant?.oidc_config &&
-      isInIframe
-    ) {
-      console.log('Auto-SSO: triggering in 500ms');
-      autoSSOTriggeredRef.current = true;
-      // Small delay to ensure parent app can send token via postMessage first
-      autoSSOTimerRef.current = window.setTimeout(() => {
-        const hasUser = !!userRef.current;
-        console.log('Auto-SSO: timer fired, user:', hasUser);
-        if (!hasUser) {
-          handleOIDCLogin();
-        }
-      }, 500);
+    if (!isInIframe) return;
+    if (user) return;
+    if (tenantLoading) return;
+    if (tenant?.auth_method !== 'oidc') return;
+    if (!tenant.oidc_config) return;
+    if (hostAuthRequestedRef.current) return;
 
-      return () => {
-        if (autoSSOTimerRef.current) {
-          window.clearTimeout(autoSSOTimerRef.current);
-          autoSSOTimerRef.current = null;
-        }
-      };
+    hostAuthRequestedRef.current = true;
+    setHostAuthTimedOut(false);
+
+    if (window.parent !== window) {
+      window.parent.postMessage(
+        {
+          type: 'IFRAME_AUTH_REQUEST',
+          payload: { tenantUid, tenantId: tenant.id },
+        },
+        '*'
+      );
     }
-  }, [tenant, tenantLoading, user, isInIframe]);
+
+    hostAuthTimerRef.current = window.setTimeout(() => {
+      setHostAuthTimedOut(true);
+    }, 5000);
+
+    return () => {
+      if (hostAuthTimerRef.current) {
+        window.clearTimeout(hostAuthTimerRef.current);
+        hostAuthTimerRef.current = null;
+      }
+    };
+  }, [isInIframe, tenantLoading, tenant, user, tenantUid]);
 
   const handleOIDCLogin = async () => {
     console.log('handleOIDCLogin called, oidc_config:', tenant?.oidc_config);
@@ -296,14 +287,17 @@ const TenantAuth = () => {
 
   // If only OIDC is enabled, show simplified view or auto-redirect
   if (tenant.auth_method === 'oidc' && tenant.oidc_config) {
-    // In iframe mode, show loading while waiting for token or auto-SSO redirect
-    // The auto-SSO useEffect will trigger handleOIDCLogin which redirects to IDP
-    if (isInIframe && !error && !isOIDCLoading) {
+    // In iframe mode, we never redirect to the IdP login page; we wait for host-provided auth.
+    if (isInIframe && !error) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Signing in...</p>
+            <p className="text-muted-foreground">
+              {hostAuthTimedOut
+                ? 'Waiting for host login… Please sign in to the host app.'
+                : 'Signing in via host session…'}
+            </p>
           </div>
         </div>
       );
