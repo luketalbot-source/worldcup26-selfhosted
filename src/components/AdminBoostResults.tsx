@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Trophy, Save, Check } from 'lucide-react';
+import { Loader2, Trophy, Save, Check, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { teams as allTeams } from '@/data/teams';
 
@@ -52,6 +63,7 @@ export const AdminBoostResults = () => {
   
   // Local form state
   const [formValues, setFormValues] = useState<Map<string, { teamCode: string; playerName: string }>>(new Map());
+  const [resetting, setResetting] = useState(false);
 
   const uniqueTeams = useMemo(() => getUniqueTeams(), []);
 
@@ -146,6 +158,29 @@ export const AdminBoostResults = () => {
     }
   };
 
+  const handleResetAll = async () => {
+    setResetting(true);
+    try {
+      const { error } = await supabase
+        .from('boost_results')
+        .delete()
+        .neq('award_id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+
+      if (error) throw error;
+
+      // Clear local state
+      setResults(new Map());
+      setFormValues(new Map());
+      
+      toast.success('All boost results have been reset');
+    } catch (err) {
+      console.error('Error resetting results:', err);
+      toast.error('Failed to reset results');
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const updateFormValue = (awardId: string, field: 'teamCode' | 'playerName', value: string) => {
     const newFormValues = new Map(formValues);
     const current = newFormValues.get(awardId) || { teamCode: '', playerName: '' };
@@ -173,13 +208,45 @@ export const AdminBoostResults = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Trophy className="w-5 h-5" />
-          Boost Results
-        </CardTitle>
-        <CardDescription>
-          Set the final results for each boost award. Players who predicted correctly will earn bonus points.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5" />
+              Boost Results
+            </CardTitle>
+            <CardDescription>
+              Set the final results for each boost award. Players who predicted correctly will earn bonus points.
+            </CardDescription>
+          </div>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" disabled={resetting || results.size === 0}>
+                {resetting ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                )}
+                Reset All
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reset All Boost Results?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will delete all boost results and allow users to see their predictions again without any scoring. 
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleResetAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Reset All
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {awards.map((award) => {
