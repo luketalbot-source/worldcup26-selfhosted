@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Loader2, User, ArrowLeft } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Info, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { EmailOtpType } from '@supabase/supabase-js';
 
-type CallbackStep = 'processing' | 'username' | 'error';
+type CallbackStep = 'processing' | 'consent' | 'username' | 'error';
 
 const OIDCCallback = () => {
   const { t } = useTranslation();
@@ -97,7 +97,8 @@ const OIDCCallback = () => {
       if (data?.error) {
         if (data.needsUsername) {
           setSuggestedName(data.suggestedName || '');
-          setStep('username');
+          // New users go to consent first, then username
+          setStep('consent');
           setIsLoading(false);
           return;
         }
@@ -133,6 +134,10 @@ const OIDCCallback = () => {
     await exchangeCode(authCode, pkceParams.verifier, pkceParams.tenantId, username.trim());
   };
 
+  const handleConsentAgree = () => {
+    setStep('username');
+  };
+
   const handleRetry = () => {
     navigate(`/t/${tenantUid}/auth`);
   };
@@ -164,6 +169,67 @@ const OIDCCallback = () => {
             Try Again
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  // Consent step for new OIDC users
+  if (step === 'consent') {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-sm mx-auto"
+          >
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="space-y-6"
+            >
+              <div className="text-center mb-4">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Before we continue...
+                </h2>
+              </div>
+
+              {/* Info box */}
+              <div className="bg-muted/50 border border-border rounded-xl p-5">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                  <div className="space-y-3">
+                    <p className="text-foreground">
+                      To use this app, you agree for your full name and match predictions to be stored
+                    </p>
+                    <a
+                      href="https://trust.getflip.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-primary hover:underline text-sm font-medium"
+                    >
+                      More info
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Big agree button styled as checkbox */}
+              <button
+                onClick={handleConsentAgree}
+                className="w-full p-5 rounded-xl border-2 border-primary bg-primary/10 hover:bg-primary/20 transition-colors flex items-center justify-center gap-3"
+              >
+                <div className="w-7 h-7 rounded-md border-2 border-primary bg-background flex items-center justify-center">
+                  <svg className="w-5 h-5 text-primary opacity-0 group-hover:opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-lg font-semibold text-foreground">I agree!</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        </main>
       </div>
     );
   }
