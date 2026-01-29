@@ -154,6 +154,41 @@ export type Database = {
         }
         Relationships: []
       }
+      oidc_identities: {
+        Row: {
+          created_at: string
+          id: string
+          oidc_issuer: string | null
+          oidc_subject: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          oidc_issuer?: string | null
+          oidc_subject: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          oidc_issuer?: string | null
+          oidc_subject?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oidc_identities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       otp_codes: {
         Row: {
           code: string
@@ -266,8 +301,50 @@ export type Database = {
           },
         ]
       }
+      tenant_oidc_config: {
+        Row: {
+          auth_url: string
+          client_id: string
+          created_at: string
+          id: string
+          issuer: string | null
+          redirect_uri: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          auth_url: string
+          client_id: string
+          created_at?: string
+          id?: string
+          issuer?: string | null
+          redirect_uri: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          auth_url?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          issuer?: string | null
+          redirect_uri?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_oidc_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
+          auth_method: Database["public"]["Enums"]["auth_method"]
           created_at: string
           id: string
           name: string
@@ -275,6 +352,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auth_method?: Database["public"]["Enums"]["auth_method"]
           created_at?: string
           id?: string
           name: string
@@ -282,6 +360,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auth_method?: Database["public"]["Enums"]["auth_method"]
           created_at?: string
           id?: string
           name?: string
@@ -373,6 +452,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator"
+      auth_method: "otp" | "oidc" | "both"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -501,6 +581,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator"],
+      auth_method: ["otp", "oidc", "both"],
     },
   },
 } as const

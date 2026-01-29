@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLogin } from '@/components/AdminLogin';
+import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
 import {
   Dialog,
   DialogContent,
@@ -353,65 +355,88 @@ const Admin = () => {
             </div>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Users ({tenantUsers.length})
-              </CardTitle>
-              <CardDescription>Manage users in this tenant</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingUsers ? (
-                <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
-                </div>
-              ) : tenantUsers.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  No users in this tenant yet.
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {tenantUsers.map((tenantUser) => (
-                    <div key={tenantUser.id} className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{tenantUser.avatar_emoji || '👤'}</span>
-                        <div>
-                          <p className="font-medium text-foreground">{tenantUser.display_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {tenantUser.phone_number || 'No phone number'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right text-xs text-muted-foreground">
-                          <div>Joined {new Date(tenantUser.created_at).toLocaleDateString()}</div>
-                          <div>
-                            {tenantUser.lastActive 
-                              ? `Active ${new Date(tenantUser.lastActive).toLocaleString()}`
-                              : 'No activity yet'
-                            }
+          <Tabs defaultValue="users" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="users" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Users
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Settings
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="users">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Users ({tenantUsers.length})
+                  </CardTitle>
+                  <CardDescription>Manage users in this tenant</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingUsers ? (
+                    <div className="py-8 text-center">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                    </div>
+                  ) : tenantUsers.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground">
+                      No users in this tenant yet.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {tenantUsers.map((tenantUser) => (
+                        <div key={tenantUser.id} className="flex items-center justify-between py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{tenantUser.avatar_emoji || '👤'}</span>
+                            <div>
+                              <p className="font-medium text-foreground">{tenantUser.display_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {tenantUser.phone_number || 'No phone number'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right text-xs text-muted-foreground">
+                              <div>Joined {new Date(tenantUser.created_at).toLocaleDateString()}</div>
+                              <div>
+                                {tenantUser.lastActive 
+                                  ? `Active ${new Date(tenantUser.lastActive).toLocaleString()}`
+                                  : 'No activity yet'
+                                }
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setUserToDelete(tenantUser);
+                                setDeleteUserConfirmation('');
+                                setDeleteUserDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => {
-                            setUserToDelete(tenantUser);
-                            setDeleteUserConfirmation('');
-                            setDeleteUserDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="settings">
+              <TenantOIDCConfig 
+                tenantId={selectedTenant.id} 
+                tenantName={selectedTenant.name}
+                tenantUid={selectedTenant.uid}
+              />
+            </TabsContent>
+          </Tabs>
 
           {/* Delete User Confirmation Dialog */}
           <AlertDialog open={deleteUserDialogOpen} onOpenChange={setDeleteUserDialogOpen}>
