@@ -4,14 +4,18 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 const countryCodes = [
+  // Priority countries at top
   { code: '+1', country: 'US', flag: '🇺🇸', name: 'United States' },
-  { code: '+1', country: 'CA', flag: '🇨🇦', name: 'Canada' },
   { code: '+44', country: 'GB', flag: '🇬🇧', name: 'United Kingdom' },
   { code: '+49', country: 'DE', flag: '🇩🇪', name: 'Germany' },
-  { code: '+33', country: 'FR', flag: '🇫🇷', name: 'France' },
   { code: '+34', country: 'ES', flag: '🇪🇸', name: 'Spain' },
-  { code: '+39', country: 'IT', flag: '🇮🇹', name: 'Italy' },
   { code: '+351', country: 'PT', flag: '🇵🇹', name: 'Portugal' },
+  { code: '+385', country: 'HR', flag: '🇭🇷', name: 'Croatia' },
+  { code: '+48', country: 'PL', flag: '🇵🇱', name: 'Poland' },
+  { code: '+33', country: 'FR', flag: '🇫🇷', name: 'France' },
+  { code: '+1', country: 'CA', flag: '🇨🇦', name: 'Canada' },
+  // Other countries
+  { code: '+39', country: 'IT', flag: '🇮🇹', name: 'Italy' },
   { code: '+55', country: 'BR', flag: '🇧🇷', name: 'Brazil' },
   { code: '+52', country: 'MX', flag: '🇲🇽', name: 'Mexico' },
   { code: '+54', country: 'AR', flag: '🇦🇷', name: 'Argentina' },
@@ -25,7 +29,6 @@ const countryCodes = [
   { code: '+47', country: 'NO', flag: '🇳🇴', name: 'Norway' },
   { code: '+45', country: 'DK', flag: '🇩🇰', name: 'Denmark' },
   { code: '+358', country: 'FI', flag: '🇫🇮', name: 'Finland' },
-  { code: '+48', country: 'PL', flag: '🇵🇱', name: 'Poland' },
   { code: '+420', country: 'CZ', flag: '🇨🇿', name: 'Czech Republic' },
   { code: '+36', country: 'HU', flag: '🇭🇺', name: 'Hungary' },
   { code: '+30', country: 'GR', flag: '🇬🇷', name: 'Greece' },
@@ -45,7 +48,6 @@ const countryCodes = [
   { code: '+90', country: 'TR', flag: '🇹🇷', name: 'Turkey' },
   { code: '+7', country: 'RU', flag: '🇷🇺', name: 'Russia' },
   { code: '+380', country: 'UA', flag: '🇺🇦', name: 'Ukraine' },
-  { code: '+385', country: 'HR', flag: '🇭🇷', name: 'Croatia' },
 ];
 
 interface PhoneInputProps {
