@@ -188,23 +188,25 @@ export const BoostAwardCard = ({
                 </Select>
               )}
 
-              {/* Save Button - only show for team type (player type is disabled) */}
-              {!isLocked && !disabled && award.prediction_type === 'team' && (
-                hasPrediction && !hasChanged ? (
+              {/* Save Button - visible but disabled for player type */}
+              {!isLocked && !disabled && (
+                hasPrediction && !hasChanged && award.prediction_type === 'team' ? (
                   <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium w-full">
                     <Check className="w-3 h-3" />
                     {getTeamDisplay(prediction?.predicted_team_code || '')}
                   </div>
                 ) : (
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: award.prediction_type === 'player' ? 1 : 1.02 }}
+                    whileTap={{ scale: award.prediction_type === 'player' ? 1 : 0.98 }}
                     onClick={handleSave}
-                    disabled={saving || !selectedTeam}
+                    disabled={saving || !selectedTeam || award.prediction_type === 'player'}
                     className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition-all ${
-                      hasChanged || !hasPrediction
-                        ? 'bg-accent text-accent-foreground shadow-md'
-                        : 'bg-muted text-muted-foreground'
+                      award.prediction_type === 'player'
+                        ? 'bg-muted text-muted-foreground'
+                        : hasChanged || !hasPrediction
+                          ? 'bg-accent text-accent-foreground shadow-md'
+                          : 'bg-muted text-muted-foreground'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {saving ? t('matchCard.saving') : (hasPrediction ? t('matchCard.update') : t('matchCard.savePrediction'))}
