@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateUserStats, UserStats } from '@/lib/scoringCalculator';
 import { groupStageMatches } from '@/data/matches';
+import { useTenant } from '@/contexts/TenantContext';
 
 const defaultStats: UserStats = {
   totalPoints: 0,
@@ -14,7 +15,7 @@ const defaultStats: UserStats = {
   accuracy: 0,
 };
 
-export const useUserStats = (userId: string | undefined) => {
+export const useUserStats = (userId: string | undefined, tenantId?: string | null) => {
   const [stats, setStats] = useState<UserStats>(defaultStats);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +26,7 @@ export const useUserStats = (userId: string | undefined) => {
       setStats(defaultStats);
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, tenantId]);
 
   const fetchStats = async (uid: string) => {
     setLoading(true);
@@ -55,16 +56,22 @@ export const useUserStats = (userId: string | undefined) => {
     }
 
     // Fetch boost awards, predictions, and results to calculate boost points
+    // For custom boosts, only count those that still exist in the tenant
+    const customBoostsQuery = tenantId 
+      ? supabase.from('tenant_custom_boosts').select('id, prediction_type, points_value').eq('tenant_id', tenantId)
+      : supabase.from('tenant_custom_boosts').select('id, prediction_type, points_value');
+    
     const [awardsRes, boostPredictionsRes, resultsRes, customAwardsRes, customPredictionsRes, customResultsRes] = await Promise.all([
       supabase.from('boost_awards').select('id, prediction_type, points_value'),
       supabase.from('boost_predictions').select('award_id, predicted_team_code, predicted_player_name').eq('user_id', uid),
       supabase.from('boost_results').select('award_id, result_team_code, result_player_name'),
-      supabase.from('tenant_custom_boosts').select('id, prediction_type, points_value'),
+      customBoostsQuery,
       supabase.from('tenant_custom_boost_predictions').select('custom_boost_id, predicted_team_code, predicted_player_name').eq('user_id', uid),
       supabase.from('tenant_custom_boost_results').select('custom_boost_id, result_team_code, result_player_name'),
     ]);
 
-    // Calculate boost points
+    // Calculate boost points and prediction counts
+    let boostPredictionCount = boostPredictionsRes.data?.length || 0;
     let boostPoints = 0;
     if (awardsRes.data && boostPredictionsRes.data && resultsRes.data) {
       const awards = awardsRes.data;
@@ -89,13 +96,24 @@ export const useUserStats = (userId: string | undefined) => {
       }
     }
 
-    // Calculate custom boost points
+    // Calculate custom boost points - only count predictions for boosts that still exist
+    let customBoostPredictionCount = 0;
     if (customAwardsRes.data && customPredictionsRes.data && customResultsRes.data) {
       const customAwards = customAwardsRes.data;
       const customPredictions = customPredictionsRes.data;
       const customResults = customResultsRes.data;
 
+      // Create a set of existing custom boost IDs
+      const existingBoostIds = new Set(customAwards.map(a => a.id));
+
       for (const prediction of customPredictions) {
+        // Only count predictions for boosts that still exist (not deleted)
+        if (!existingBoostIds.has(prediction.custom_boost_id)) {
+          continue;
+        }
+        
+        customBoostPredictionCount++;
+        
         const result = customResults.find(r => r.custom_boost_id === prediction.custom_boost_id);
         const award = customAwards.find(a => a.id === prediction.custom_boost_id);
         
@@ -112,6 +130,9 @@ export const useUserStats = (userId: string | undefined) => {
         }
       }
     }
+
+    // Calculate total predictions count (match + boost + custom boost)
+    const totalPredictionCount = (predictions?.length || 0) + boostPredictionCount + customBoostPredictionCount;
 
     // Create a map of finished matches
     const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
@@ -134,8 +155,8 @@ export const useUserStats = (userId: string | undefined) => {
         });
       });
 
-    // Calculate stats with boost points
-    const calculatedStats = calculateUserStats(predictions || [], matchResults, boostPoints);
+    // Calculate stats with boost points and total predictions
+    const calculatedStats = calculateUserStats(predictions || [], matchResults, boostPoints, totalPredictionCount);
     setStats(calculatedStats);
     setLoading(false);
   };

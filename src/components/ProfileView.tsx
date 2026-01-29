@@ -6,7 +6,6 @@ import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useProfile } from '@/hooks/useProfile';
-import { usePredictions } from '@/hooks/usePredictions';
 import { useUserStats } from '@/hooks/useUserStats';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -28,11 +27,10 @@ export const ProfileView = () => {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { user, signOut, sendOtp, verifyOtp } = useAuth();
-  const { tenant } = useTenant();
+  const { tenant, tenantId } = useTenant();
   const isSSO = tenant?.auth_method === 'oidc';
   const { profile, updateProfile, updatePhoneNumber } = useProfile(user?.id);
-  const { predictions } = usePredictions();
-  const { stats } = useUserStats(user?.id);
+  const { stats } = useUserStats(user?.id, tenantId);
   const navigate = useNavigate();
   const { tenantUid } = useParams();
   
@@ -239,7 +237,7 @@ export const ProfileView = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-muted rounded-xl p-4 text-center">
               <Target className="w-6 h-6 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold text-foreground">{predictions.length}</div>
+              <div className="text-2xl font-bold text-foreground">{stats.totalPredictions}</div>
               <div className="text-xs text-muted-foreground">{t('profile.predictions')}</div>
             </div>
             <div className="bg-muted rounded-xl p-4 text-center">
