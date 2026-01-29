@@ -7,6 +7,7 @@ import { TenantProvider } from "@/contexts/TenantContext";
 import Landing from "./pages/Landing";
 import TenantApp from "./pages/TenantApp";
 import TenantAuth from "./pages/TenantAuth";
+import OIDCCallback from "./pages/OIDCCallback";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,7 @@ const App = () => (
               {/* Tenant routes */}
               <Route path="/t/:tenantUid" element={<TenantRouteWrapper><TenantApp /></TenantRouteWrapper>} />
               <Route path="/t/:tenantUid/auth" element={<TenantRouteWrapper><TenantAuth /></TenantRouteWrapper>} />
+              <Route path="/t/:tenantUid/auth/callback" element={<TenantRouteWrapper><OIDCCallback /></TenantRouteWrapper>} />
               
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
