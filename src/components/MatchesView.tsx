@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { MatchCard } from './MatchCard';
 import { GroupTabs } from './GroupTabs';
 import { StageSelector } from './StageSelector';
-import { KnockoutView } from './KnockoutView';
+import { KnockoutView, knockoutStages, type KnockoutStage } from './KnockoutView';
 import { SyncButton } from './SyncButton';
 import { GroupStandings } from './GroupStandings';
 import { usePredictions, Prediction } from '@/hooks/usePredictions';
@@ -13,7 +13,7 @@ import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTeamsByGroup } from '@/data/teams';
 import { GroupStanding, Match } from '@/types/match';
-import { LogIn } from 'lucide-react';
+import { LogIn, Trophy } from 'lucide-react';
 import mascotsWaiting from '@/assets/mascots-waiting.png';
 
 
@@ -93,6 +93,7 @@ export const MatchesView = () => {
   } = useTranslation();
   const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('groups');
   const [activeGroup, setActiveGroup] = useState('A');
+  const [activeKnockoutStage, setActiveKnockoutStage] = useState<KnockoutStage>('round32');
   const {
     addPrediction,
     getPrediction,
@@ -141,14 +142,30 @@ export const MatchesView = () => {
   };
   if (activeStage === 'knockout') {
     return <div className="space-y-4">
-        {/* Sticky header - stage selector only */}
+        {/* Sticky header - stage selector + knockout stage tabs on mobile */}
         <div className="sticky top-0 bg-background z-50 pb-2 -mx-4 px-4 pt-2">
-          <div className="max-w-[700px] mx-auto">
+          <div className="max-w-[700px] mx-auto space-y-3">
             <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+            
+            {/* Mobile: horizontal knockout stage tabs inside sticky header */}
+            <div className="md:hidden">
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                {knockoutStages.map(stage => <motion.button key={stage} whileHover={{
+                scale: 1.05
+              }} whileTap={{
+                scale: 0.95
+              }} onClick={() => setActiveKnockoutStage(stage)} className={`relative px-4 py-2 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${activeKnockoutStage === stage ? 'bg-fifa-coral text-white shadow-md' : 'bg-card text-muted-foreground hover:bg-muted'}`}>
+                    {stage === 'finals' && <Trophy className="w-4 h-4 inline mr-1" />}
+                    {t(`knockout.${stage}`)}
+                  </motion.button>)}
+              </div>
+            </div>
           </div>
         </div>
         
         <KnockoutView 
+          activeKnockoutStage={activeKnockoutStage}
+          onKnockoutStageChange={setActiveKnockoutStage}
           syncButton={
             <SyncButton 
               onSync={() => syncMatches()} 
