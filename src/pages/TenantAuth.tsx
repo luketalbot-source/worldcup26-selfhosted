@@ -109,10 +109,10 @@ const TenantAuth = () => {
       window.clearTimeout(autoSSOTimerRef.current);
     }
 
-    // After 3s without a token, show the manual SSO button instead of auto-redirecting
+    // After 3s without a token, auto-trigger SSO login
     autoSSOTimerRef.current = window.setTimeout(() => {
       if (!userRef.current && !isProcessingRef.current) {
-        setShowFallbackSSO(true);
+        handleOIDCLogin();
       }
     }, 3000);
   }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe, isProcessing, tenantUid]);
