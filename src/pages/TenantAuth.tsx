@@ -118,7 +118,7 @@ const TenantAuth = () => {
     };
   }, []);
 
-  const handleOIDCLogin = async () => {
+  const handleOIDCLogin = async (openInPopup = false) => {
     if (!tenant?.oidc_config) return;
     
     setIsOIDCLoading(true);
@@ -132,8 +132,37 @@ const TenantAuth = () => {
         tenant.id
       );
       
-      // Redirect to IDP
-      window.location.href = authUrl;
+      if (openInPopup || isInIframe) {
+        // In iframe context, open SSO in a popup to avoid IDP frame-busting issues
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.innerWidth - width) / 2;
+        const top = window.screenY + (window.innerHeight - height) / 2;
+        
+        const popup = window.open(
+          authUrl,
+          'sso_login',
+          `width=${width},height=${height},left=${left},top=${top},popup=yes`
+        );
+        
+        if (!popup) {
+          // Popup blocked - fall back to redirect
+          setError('Popup blocked. Please allow popups for SSO login.');
+          setIsOIDCLoading(false);
+          return;
+        }
+        
+        // Poll to check if popup closed (callback will navigate this window)
+        const pollTimer = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(pollTimer);
+            setIsOIDCLoading(false);
+          }
+        }, 500);
+      } else {
+        // Outside iframe, redirect normally
+        window.location.href = authUrl;
+      }
     } catch (err) {
       console.error('OIDC login error:', err);
       setError('Failed to start SSO login');
@@ -332,7 +361,7 @@ const TenantAuth = () => {
               )}
 
               <Button
-                onClick={handleOIDCLogin}
+                onClick={() => handleOIDCLogin()}
                 disabled={isOIDCLoading}
                 className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-base"
               >
@@ -404,7 +433,7 @@ const TenantAuth = () => {
                   {showOIDC && (
                     <>
                       <Button
-                        onClick={handleOIDCLogin}
+                        onClick={() => handleOIDCLogin()}
                         disabled={isOIDCLoading}
                         variant="outline"
                         className="w-full h-12 rounded-xl font-semibold text-base"
