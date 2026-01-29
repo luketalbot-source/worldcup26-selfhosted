@@ -32,6 +32,7 @@ const TenantAuth = () => {
   const [isNewUser, setIsNewUser] = useState(false);
   const [isOIDCLoading, setIsOIDCLoading] = useState(false);
   const [autoSSOTriggered, setAutoSSOTriggered] = useState(false);
+  const [showFallbackSSO, setShowFallbackSSO] = useState(false);
   const verifyInFlightRef = useRef(false);
   const autoSSOTimerRef = useRef<number | null>(null);
   const { sendOtp, verifyOtp, user } = useAuth();
@@ -91,13 +92,10 @@ const TenantAuth = () => {
   }, []);
 
   // Auto-trigger SSO for OIDC-only tenants in iframe
-  // NOTE: We intentionally do NOT return a cleanup from this effect, because a state update
-  // (setAutoSSOTriggered) causes a re-render and React would run the cleanup immediately,
-  // cancelling the timer before it fires.
+  // If no token arrives within 3 seconds, show a manual SSO button instead of redirecting.
   useEffect(() => {
     if (autoSSOTriggered) return;
     if (user) return;
-    // If the host app is actively signing us in via postMessage, do not redirect to the IdP.
     if (isProcessing) return;
     if (tenantLoading) return;
     if (!isInIframe) return;
@@ -106,16 +104,17 @@ const TenantAuth = () => {
 
     setAutoSSOTriggered(true);
 
-    // Small delay to ensure parent app can send token via postMessage first
+    // Clear existing timer
     if (autoSSOTimerRef.current) {
       window.clearTimeout(autoSSOTimerRef.current);
     }
+
+    // After 3s without a token, show the manual SSO button instead of auto-redirecting
     autoSSOTimerRef.current = window.setTimeout(() => {
-      // If the host starts postMessage auth after we arm the timer, do not redirect.
       if (!userRef.current && !isProcessingRef.current) {
-        handleOIDCLogin();
+        setShowFallbackSSO(true);
       }
-    }, 500);
+    }, 3000);
   }, [tenant, tenantLoading, user, autoSSOTriggered, isInIframe, isProcessing, tenantUid]);
 
   // If host-driven auth begins after the timer is armed, cancel the pending redirect.
@@ -305,8 +304,9 @@ const TenantAuth = () => {
 
   // If only OIDC is enabled, show simplified view or auto-redirect
   if (tenant.auth_method === 'oidc' && tenant.oidc_config) {
-    // In iframe mode, show loading while waiting for token or during SSO redirect
-    if (isInIframe && !error) {
+    // In iframe mode, show loading while waiting for token or SSO redirect.
+    // After timeout, show a manual SSO button so user isn't stuck.
+    if (isInIframe && !error && !showFallbackSSO) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center">
