@@ -455,23 +455,36 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                         alt={boost.title}
                         className="w-full h-full object-cover"
                       />
-                      <button
-                        onClick={() => generateImage(boost.id, boost.title, boost.description)}
-                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          generateImage(boost.id, boost.title, boost.description);
+                        }}
+                        className="absolute inset-0 w-full h-full rounded-none bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-black/70"
                         title="Regenerate image"
                       >
                         <RefreshCw className="w-5 h-5 text-white" />
-                      </button>
+                      </Button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => generateImage(boost.id, boost.title, boost.description)}
-                      className="w-full h-full flex flex-col items-center justify-center hover:bg-muted/80 transition-colors"
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        generateImage(boost.id, boost.title, boost.description);
+                      }}
+                      className="w-full h-full flex flex-col items-center justify-center rounded-lg hover:bg-muted/80"
                       title="Generate image"
                     >
                       <Image className="w-5 h-5 text-muted-foreground" />
                       <span className="text-[10px] text-muted-foreground mt-1">Generate</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
                 
