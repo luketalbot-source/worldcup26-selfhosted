@@ -112,9 +112,9 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
       }
     });
 
-    // Get profiles for league members
+    // Get profiles for league members using secure view (excludes phone numbers)
     const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
+      .from('profiles_public')
       .select('*')
       .in('user_id', memberIds);
 
