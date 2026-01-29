@@ -1,17 +1,23 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LogIn, Loader2, Trophy } from 'lucide-react';
+import { LogIn, Loader2, Trophy, Star, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBoostAwards } from '@/hooks/useBoostAwards';
 import { useCustomBoostAwards } from '@/hooks/useCustomBoostAwards';
 import { BoostAwardCard } from './BoostAwardCard';
 import { CustomBoostAwardCard } from './CustomBoostAwardCard';
+import mascotImage from '@/assets/mascots-waiting.png';
+
+type BoostTab = 'standard' | 'extra';
 
 export const BoostView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<BoostTab>('standard');
+  
   const {
     awards,
     loading,
@@ -54,6 +60,60 @@ export const BoostView = () => {
     );
   };
 
+  const renderTabSelector = () => (
+    <div className="flex gap-2 p-1 bg-muted rounded-xl">
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setActiveTab('standard')}
+        className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
+          activeTab === 'standard'
+            ? 'bg-primary text-primary-foreground shadow-md'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <Trophy className="w-4 h-4" />
+        {t('boost.standard')}
+      </motion.button>
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setActiveTab('extra')}
+        className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
+          activeTab === 'extra'
+            ? 'bg-accent text-accent-foreground shadow-md'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <Sparkles className="w-4 h-4" />
+        {t('boost.extra')}
+        {customAwards.length > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-background/50">
+            {customAwards.length}
+          </span>
+        )}
+      </motion.button>
+    </div>
+  );
+
+  const renderEmptyExtraState = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center justify-center py-8 text-center"
+    >
+      <img 
+        src={mascotImage} 
+        alt="Mascots waiting" 
+        className="w-full max-w-[300px] mb-6 opacity-80"
+      />
+      <h3 className="text-lg font-semibold text-foreground mb-2">
+        {t('boost.noExtraBoosts')}
+      </h3>
+      <p className="text-sm text-muted-foreground max-w-sm">
+        {t('boost.noExtraBoostsDesc')}
+      </p>
+    </motion.div>
+  );
+
   if (loading || customLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -95,48 +155,70 @@ export const BoostView = () => {
 
       {renderLoginPrompt()}
 
-      {/* Award Cards Grid - System Awards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {awards.map((award, index) => (
-          <motion.div
-            key={award.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-          >
-            <BoostAwardCard
-              award={award}
-              prediction={getPrediction(award.id)}
-              result={getResult(award.id)}
-              isLocked={isLocked(award)}
-              onSave={(teamCode, playerName) => savePrediction(award.id, teamCode, playerName)}
-              disabled={!user}
-            />
-          </motion.div>
-        ))}
-      </div>
+      {/* Tab Selector */}
+      {renderTabSelector()}
 
-      {/* Custom Awards Section */}
-      {customAwards.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {customAwards.map((award, index) => (
+      {/* Standard Awards */}
+      {activeTab === 'standard' && (
+        <motion.div
+          key="standard"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+        >
+          {awards.map((award, index) => (
             <motion.div
               key={award.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: (awards.length + index) * 0.05 }}
+              transition={{ delay: index * 0.05 }}
             >
-              <CustomBoostAwardCard
+              <BoostAwardCard
                 award={award}
-                prediction={getCustomPrediction(award.id)}
-                result={getCustomResult(award.id)}
-                isLocked={isCustomLocked(award)}
-                onSave={(teamCode, playerName) => saveCustomPrediction(award.id, teamCode, playerName)}
+                prediction={getPrediction(award.id)}
+                result={getResult(award.id)}
+                isLocked={isLocked(award)}
+                onSave={(teamCode, playerName) => savePrediction(award.id, teamCode, playerName)}
                 disabled={!user}
               />
             </motion.div>
           ))}
-        </div>
+        </motion.div>
+      )}
+
+      {/* Extra Awards */}
+      {activeTab === 'extra' && (
+        <motion.div
+          key="extra"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+        >
+          {customAwards.length === 0 ? (
+            renderEmptyExtraState()
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {customAwards.map((award, index) => (
+                <motion.div
+                  key={award.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <CustomBoostAwardCard
+                    award={award}
+                    prediction={getCustomPrediction(award.id)}
+                    result={getCustomResult(award.id)}
+                    isLocked={isCustomLocked(award)}
+                    onSave={(teamCode, playerName) => saveCustomPrediction(award.id, teamCode, playerName)}
+                    disabled={!user}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       )}
 
       {/* Info Card */}
