@@ -278,7 +278,7 @@ const ExpandableLeagueCard = ({
                   <p className="text-muted-foreground">{t('leaderboard.noPredictions')}</p>
                 </div>
               ) : (
-                <ScrollArea className="max-h-[440px] rounded-xl border border-border overflow-hidden">
+                <ScrollArea className="h-[440px] rounded-xl border border-border">
                   <div className="divide-y divide-border">
                     {activeLeaderboard.map((entry, index) => (
                       <div
