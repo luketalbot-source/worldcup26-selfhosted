@@ -770,6 +770,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_tenant_user_count: { Args: { _tenant_id: string }; Returns: number }
       get_user_league_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
