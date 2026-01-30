@@ -93,16 +93,25 @@ const Admin = () => {
       }
 
       try {
-        // Check for any admin role
-        const { data: roles, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .in('role', ['admin', 'site_admin', 'tenant_admin']);
-        
-        if (error) throw error;
+        // IMPORTANT: Do NOT select directly from `user_roles` here.
+        // In most secure setups, RLS prevents clients from reading role rows.
+        // Instead, use SECURITY DEFINER RPCs that safely answer role questions.
 
-        if (!roles || roles.length === 0) {
+        const [{ data: isSiteAdminData, error: isSiteAdminError }, { data: isLegacyAdminData, error: isLegacyAdminError }, { data: isTenantAdminData, error: isTenantAdminError }] = await Promise.all([
+          supabase.rpc('has_role', { _user_id: user.id, _role: 'site_admin' }),
+          supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' }),
+          supabase.rpc('has_role', { _user_id: user.id, _role: 'tenant_admin' }),
+        ]);
+
+        if (isSiteAdminError) throw isSiteAdminError;
+        if (isLegacyAdminError) throw isLegacyAdminError;
+        if (isTenantAdminError) throw isTenantAdminError;
+
+        const isSiteAdminRole = Boolean(isSiteAdminData);
+        const isLegacyAdminRole = Boolean(isLegacyAdminData);
+        const isTenantAdminRole = Boolean(isTenantAdminData);
+
+        if (!isSiteAdminRole && !isLegacyAdminRole && !isTenantAdminRole) {
           setIsAdmin(false);
           setIsSiteAdmin(false);
           setAdminRole(null);
@@ -110,10 +119,15 @@ const Admin = () => {
           return;
         }
 
-        const role = roles[0].role as AdminRole;
+        const role: AdminRole = isSiteAdminRole
+          ? 'site_admin'
+          : isLegacyAdminRole
+            ? 'admin'
+            : 'tenant_admin';
+
         setAdminRole(role);
         setIsAdmin(true);
-        
+
         // Site admins and legacy 'admin' have full access
         const hasSiteAccess = role === 'site_admin' || role === 'admin';
         setIsSiteAdmin(hasSiteAccess);
