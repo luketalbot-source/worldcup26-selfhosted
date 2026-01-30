@@ -35,6 +35,11 @@ export const useOIDCSessionValidation = ({
   const { signOut } = useAuth();
 
   useEffect(() => {
+    // In iframes, silent re-auth checks are commonly blocked by third-party cookie policies
+    // or IdP frame restrictions, which can incorrectly appear as "session invalid" and
+    // trigger sign-out loops. In embedded mode we rely on the host to manage auth.
+    if (window.parent !== window) return;
+
     if (!tenantId || !userId || validationAttemptedRef.current) return;
 
     // Check if we've already validated this session recently
