@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -14,17 +14,22 @@ interface UseOIDCSessionValidationProps {
   onSessionInvalid: () => void;
 }
 
+const VALIDATION_CACHE_KEY = 'oidc_session_validated';
+const VALIDATION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Hook to validate OIDC sessions on app load.
  * For users who authenticated via SSO, this performs a silent re-auth check
  * using prompt=none to verify the user is still logged in at the IdP.
+ * 
+ * This runs in the background and doesn't block the UI.
+ * Validation is cached per session to avoid repeated checks.
  */
 export const useOIDCSessionValidation = ({
   tenantId,
   userId,
   onSessionInvalid,
 }: UseOIDCSessionValidationProps) => {
-  const [isValidating, setIsValidating] = useState(false);
   const validationAttemptedRef = useRef(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const { signOut } = useAuth();
@@ -32,7 +37,23 @@ export const useOIDCSessionValidation = ({
   useEffect(() => {
     if (!tenantId || !userId || validationAttemptedRef.current) return;
 
+    // Check if we've already validated this session recently
+    const cached = sessionStorage.getItem(VALIDATION_CACHE_KEY);
+    if (cached) {
+      try {
+        const { userId: cachedUserId, timestamp } = JSON.parse(cached);
+        if (cachedUserId === userId && Date.now() - timestamp < VALIDATION_CACHE_DURATION) {
+          console.log('[OIDCValidation] Using cached validation result');
+          return;
+        }
+      } catch {
+        // Invalid cache, continue with validation
+      }
+    }
+
     const validateOIDCSession = async () => {
+      validationAttemptedRef.current = true;
+
       try {
         // Check if user has an OIDC identity for this tenant
         const { data: oidcIdentity } = await supabase
@@ -48,7 +69,7 @@ export const useOIDCSessionValidation = ({
           return;
         }
 
-        console.log('[OIDCValidation] User has OIDC identity, checking IdP session');
+        console.log('[OIDCValidation] User has OIDC identity, checking IdP session in background');
 
         // Get tenant's OIDC config
         const { data: tenant } = await supabase
@@ -73,27 +94,29 @@ export const useOIDCSessionValidation = ({
           return;
         }
 
-        setIsValidating(true);
-        validationAttemptedRef.current = true;
-
         // Perform silent re-auth check using a hidden iframe
         const isValid = await performSilentAuthCheck(oidcConfig);
 
         if (!isValid) {
           console.log('[OIDCValidation] IdP session invalid, signing out user');
+          sessionStorage.removeItem(VALIDATION_CACHE_KEY);
           await signOut();
           onSessionInvalid();
         } else {
-          console.log('[OIDCValidation] IdP session is valid');
+          console.log('[OIDCValidation] IdP session is valid, caching result');
+          // Cache the successful validation
+          sessionStorage.setItem(VALIDATION_CACHE_KEY, JSON.stringify({
+            userId,
+            timestamp: Date.now(),
+          }));
         }
       } catch (err) {
         console.error('[OIDCValidation] Error validating OIDC session:', err);
         // On error, don't sign out - let user continue
-      } finally {
-        setIsValidating(false);
       }
     };
 
+    // Run validation in background without blocking
     validateOIDCSession();
   }, [tenantId, userId, onSessionInvalid, signOut]);
 
@@ -121,13 +144,13 @@ export const useOIDCSessionValidation = ({
       iframe.src = silentAuthUrl.toString();
       iframeRef.current = iframe;
 
-      // Set timeout for response
+      // Set timeout for response (shorter timeout since we're not blocking UI)
       const timeout = setTimeout(() => {
         console.log('[OIDCValidation] Silent auth check timed out');
         cleanup();
         // Timeout - assume session is valid to avoid disrupting user
         resolve(true);
-      }, 10000);
+      }, 5000);
 
       const handleMessage = (event: MessageEvent) => {
         // Only accept messages from our silent callback
@@ -173,6 +196,4 @@ export const useOIDCSessionValidation = ({
       }
     };
   }, []);
-
-  return { isValidating };
 };

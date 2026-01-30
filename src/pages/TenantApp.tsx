@@ -45,7 +45,8 @@ const TenantApp = () => {
     navigate(`/t/${tenantUid}/auth`, { replace: true });
   }, [navigate, tenantUid]);
 
-  const { isValidating: isValidatingOIDC } = useOIDCSessionValidation({
+  // OIDC session validation - runs in background, doesn't block UI
+  useOIDCSessionValidation({
     tenantId: tenantId || null,
     userId: user?.id || null,
     onSessionInvalid: handleOIDCSessionInvalid,
@@ -100,8 +101,8 @@ const TenantApp = () => {
     }
   }, [location.state]);
 
-  // Show loading while checking tenant, auth, tenant match, or OIDC validation
-  if (tenantLoading || authLoading || checkingTenantMatch || isValidatingOIDC) {
+  // Show loading while checking tenant, auth, or tenant match
+  if (tenantLoading || authLoading || checkingTenantMatch) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
