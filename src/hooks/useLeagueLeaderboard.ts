@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { groupStageMatches } from '@/data/matches';
@@ -13,19 +13,40 @@ interface LeagueLeaderboardEntry {
   isCreator: boolean;
 }
 
+interface CacheEntry {
+  data: LeagueLeaderboardEntry[];
+  timestamp: number;
+}
+
+// Client-side TTL cache for league leaderboards (30 seconds)
+const leaderboardCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 30 * 1000;
+
 export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string | null) => {
   const [leaderboard, setLeaderboard] = useState<LeagueLeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
     if (leagueId) {
+      // Check cache first
+      const cached = leaderboardCache.get(leagueId);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        setLeaderboard(cached.data);
+        setLoading(false);
+        return;
+      }
       fetchLeaderboard();
+    } else {
+      setLeaderboard([]);
+      setLoading(false);
     }
   }, [leagueId]);
 
   const fetchLeaderboard = async () => {
-    if (!leagueId) return;
+    if (!leagueId || fetchingRef.current) return;
     
+    fetchingRef.current = true;
     setLoading(true);
 
     // Get league members
@@ -206,6 +227,7 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
 
     if (profilesError) {
       setLoading(false);
+      fetchingRef.current = false;
       return;
     }
 
@@ -230,9 +252,24 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
       entry.rank = index + 1;
     });
 
+    // Store in cache
+    leaderboardCache.set(leagueId, {
+      data: entries,
+      timestamp: Date.now(),
+    });
+
     setLeaderboard(entries);
     setLoading(false);
+    fetchingRef.current = false;
   };
 
-  return { leaderboard, loading, refetch: fetchLeaderboard };
+  const refetch = () => {
+    // Clear cache for this league before refetching
+    if (leagueId) {
+      leaderboardCache.delete(leagueId);
+    }
+    return fetchLeaderboard();
+  };
+
+  return { leaderboard, loading, refetch };
 };
