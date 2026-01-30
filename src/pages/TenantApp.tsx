@@ -10,11 +10,13 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { useOIDCSessionValidation } from '@/hooks/useOIDCSessionValidation';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ExternalLink, Loader2, RotateCw } from 'lucide-react';
 
 const TenantApp = () => {
   const [activeTab, setActiveTab] = useState('matches');
   const [checkingTenantMatch, setCheckingTenantMatch] = useState(true);
+  const [showIframeFallback, setShowIframeFallback] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { tenantUid } = useParams();
@@ -54,6 +56,18 @@ const TenantApp = () => {
   useEffect(() => {
     document.title = 'WC2026 Predictor';
   }, []);
+
+  // If we're embedded and the host doesn't send an auth token, don't leave users stuck forever.
+  // Show a fallback CTA after a short grace period.
+  useEffect(() => {
+    if (!isInIframe || user) {
+      setShowIframeFallback(false);
+      return;
+    }
+
+    const t = window.setTimeout(() => setShowIframeFallback(true), 2500);
+    return () => window.clearTimeout(t);
+  }, [isInIframe, user]);
 
   // Check if user belongs to this tenant, if not sign them out
   useEffect(() => {
@@ -139,6 +153,35 @@ const TenantApp = () => {
             <p className="text-sm text-muted-foreground">
               Waiting for sign-in from the host application…
             </p>
+
+            {showIframeFallback && tenantUid && (
+              <div className="pt-2 space-y-2">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    // Open sign-in outside the iframe (SSO providers often block being framed).
+                    const url = `${window.location.origin}/t/${tenantUid}/auth`;
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open sign-in in new tab
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.location.reload()}
+                >
+                  <RotateCw className="w-4 h-4 mr-2" />
+                  Reload
+                </Button>
+
+                <p className="text-xs text-muted-foreground">
+                  If your organization supports seamless sign-in, keep this tab open.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       );
