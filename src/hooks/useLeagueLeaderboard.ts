@@ -22,7 +22,7 @@ interface CacheEntry {
 const leaderboardCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 30 * 1000;
 
-export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string | null) => {
+export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string | null, tenantId?: string | null) => {
   const [leaderboard, setLeaderboard] = useState<LeagueLeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const fetchingRef = useRef(false);
@@ -63,31 +63,49 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
 
     const memberIds = members.map(m => m.user_id);
 
-    // Get predictions for these members
-    const { data: predictions, error: predictionsError } = await supabase
+    // Get predictions for these members - filter by tenant if provided
+    let predictionsQuery = supabase
       .from('predictions')
       .select('user_id, match_id, home_score, away_score')
       .in('user_id', memberIds);
+    
+    if (tenantId) {
+      predictionsQuery = predictionsQuery.eq('tenant_id', tenantId);
+    }
+    
+    const { data: predictions, error: predictionsError } = await predictionsQuery;
 
     if (predictionsError) {
       console.error('Error fetching predictions:', predictionsError);
     }
 
-    // Get boost predictions for these members (with details for scoring)
-    const { data: boostPredictions, error: boostError } = await supabase
+    // Get boost predictions for these members - filter by tenant if provided
+    let boostPredictionsQuery = supabase
       .from('boost_predictions')
       .select('user_id, award_id, predicted_team_code, predicted_player_name')
       .in('user_id', memberIds);
+    
+    if (tenantId) {
+      boostPredictionsQuery = boostPredictionsQuery.eq('tenant_id', tenantId);
+    }
+    
+    const { data: boostPredictions, error: boostError } = await boostPredictionsQuery;
 
     if (boostError) {
       console.error('Error fetching boost predictions:', boostError);
     }
 
-    // Get custom boost predictions for these members
-    const { data: customBoostPredictions, error: customBoostError } = await supabase
+    // Get custom boost predictions for these members - filter by tenant if provided
+    let customBoostPredictionsQuery = supabase
       .from('tenant_custom_boost_predictions')
       .select('user_id, custom_boost_id, predicted_team_code, predicted_player_name')
       .in('user_id', memberIds);
+    
+    if (tenantId) {
+      customBoostPredictionsQuery = customBoostPredictionsQuery.eq('tenant_id', tenantId);
+    }
+    
+    const { data: customBoostPredictions, error: customBoostError } = await customBoostPredictionsQuery;
 
     if (customBoostError) {
       console.error('Error fetching custom boost predictions:', customBoostError);
