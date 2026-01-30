@@ -22,7 +22,7 @@ const TenantApp = () => {
   const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
 
   // Iframe auth support - handle postMessage tokens and user changes
-  useIframeAuth({
+  const { isInIframe, tokenReceived } = useIframeAuth({
     tenantId: tenantId || null,
     tenantUid,
     onAuthSuccess: () => {
@@ -93,10 +93,12 @@ const TenantApp = () => {
 
   // Redirect to auth page if not logged in
   useEffect(() => {
-    if (!authLoading && !checkingTenantMatch && !user && tenantUid) {
+    // In an iframe, we expect the host to provide auth via postMessage; don't hard-redirect
+    // to /auth (which can trigger SSO redirects and create loops).
+    if (!authLoading && !checkingTenantMatch && !user && tenantUid && !isInIframe && !tokenReceived) {
       navigate(`/t/${tenantUid}/auth`, { replace: true });
     }
-  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid]);
+  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid, isInIframe, tokenReceived]);
 
   // Handle navigation state (e.g., from header profile click)
   useEffect(() => {
@@ -129,6 +131,19 @@ const TenantApp = () => {
 
   // Show nothing while redirecting
   if (!user) {
+    if (isInIframe) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center space-y-3 px-6">
+            <Loader2 className="w-7 h-7 animate-spin text-primary mx-auto" />
+            <p className="text-sm text-muted-foreground">
+              Waiting for sign-in from the host application…
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   }
 

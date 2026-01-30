@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -31,11 +32,11 @@ const TenantAuth = () => {
   const [error, setError] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
   const verifyInFlightRef = useRef(false);
-  const { sendOtp, verifyOtp, user } = useAuth();
+  const { sendOtp, verifyOtp, user, signOut } = useAuth();
   const navigate = useNavigate();
   
   // Iframe auth support - handles postMessage tokens from parent
-  useIframeAuth({
+  const { isInIframe, tokenReceived } = useIframeAuth({
     tenantId: tenant?.id || null,
     tenantUid,
     onAuthSuccess: () => {
@@ -58,12 +59,34 @@ const TenantAuth = () => {
   const phoneSchema = z.string()
     .regex(/^\+[1-9]\d{6,14}$/, t('auth.validation.phoneFormat', 'Invalid phone format. Use +1234567890'));
 
-  // Redirect if already logged in
+  // Redirect if already logged in (but only if the logged-in user belongs to this tenant)
   useEffect(() => {
-    if (user && tenantUid) {
-      navigate(`/t/${tenantUid}`);
-    }
-  }, [user, navigate, tenantUid]);
+    const run = async () => {
+      if (!user || !tenant?.id || !tenantUid) return;
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // If user is signed in for a different tenant, sign them out and keep them on this auth page.
+        if (profile?.tenant_id && profile.tenant_id !== tenant.id) {
+          await signOut();
+          setError(t('auth.wrongTenant', 'You are signed in for a different organization. Please sign in again.'));
+          return;
+        }
+
+        navigate(`/t/${tenantUid}`);
+      } catch {
+        // If profile lookup fails, fall back to navigating to the app.
+        navigate(`/t/${tenantUid}`);
+      }
+    };
+
+    run();
+  }, [user, tenant?.id, tenantUid, navigate, signOut, t]);
 
   // Load remembered phone on mount
   useEffect(() => {
@@ -74,7 +97,9 @@ const TenantAuth = () => {
     }
   }, []);
 
-  // For OIDC tenants: immediately redirect to SSO (clickless flow)
+  // For OIDC tenants: immediately redirect to SSO (clickless flow) ONLY outside iframes.
+  // In iframes we rely on host-provided tokens (postMessage). Many IdPs block being framed,
+  // which can cause infinite redirect/blank loops.
   useEffect(() => {
     const triggerSSO = async () => {
       if (!tenant?.oidc_config) return;
@@ -99,12 +124,14 @@ const TenantAuth = () => {
       !user &&
       !tenantLoading &&
       tenant?.auth_method === 'oidc' &&
-      tenant?.oidc_config
+      tenant?.oidc_config &&
+      !isInIframe &&
+      !tokenReceived
     ) {
       console.log('[TenantAuth] OIDC tenant detected, triggering immediate SSO redirect');
       triggerSSO();
     }
-  }, [tenant, tenantLoading, user]);
+  }, [tenant, tenantLoading, user, isInIframe, tokenReceived]);
 
 
   const handleSendOtp = async () => {
@@ -274,6 +301,37 @@ const TenantAuth = () => {
 
   // OIDC-only: show redirecting state (auto-redirect happens via useEffect)
   if (tenant.auth_method === 'oidc') {
+    if (isInIframe) {
+      return (
+        <div className="min-h-screen bg-background">
+          <main className="container py-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-sm mx-auto text-center space-y-4"
+            >
+              <div className="text-center">
+                <span className="inline-block px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                  {tenant.name}
+                </span>
+              </div>
+
+              {error ? (
+                <p className="text-sm text-destructive">{error}</p>
+              ) : (
+                <>
+                  <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+                  <p className="text-muted-foreground">
+                    Waiting for your organization to sign you in…
+                  </p>
+                </>
+              )}
+            </motion.div>
+          </main>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <main className="container py-8">
