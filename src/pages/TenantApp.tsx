@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
@@ -8,6 +8,7 @@ import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
+import { useOIDCSessionValidation } from '@/hooks/useOIDCSessionValidation';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
@@ -38,7 +39,17 @@ const TenantApp = () => {
     },
   });
 
-  // Set document title
+  // OIDC session validation - re-check IdP session for SSO users
+  const handleOIDCSessionInvalid = useCallback(() => {
+    console.log('[TenantApp] OIDC session invalid, redirecting to auth');
+    navigate(`/t/${tenantUid}/auth`, { replace: true });
+  }, [navigate, tenantUid]);
+
+  const { isValidating: isValidatingOIDC } = useOIDCSessionValidation({
+    tenantId: tenantId || null,
+    userId: user?.id || null,
+    onSessionInvalid: handleOIDCSessionInvalid,
+  });
   useEffect(() => {
     document.title = 'WC2026 Predictor';
   }, []);
@@ -89,8 +100,8 @@ const TenantApp = () => {
     }
   }, [location.state]);
 
-  // Show loading while checking tenant, auth, or tenant match
-  if (tenantLoading || authLoading || checkingTenantMatch) {
+  // Show loading while checking tenant, auth, tenant match, or OIDC validation
+  if (tenantLoading || authLoading || checkingTenantMatch || isValidatingOIDC) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
