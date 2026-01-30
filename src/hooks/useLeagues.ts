@@ -67,25 +67,13 @@ export const useLeagues = (tenantId?: string | null) => {
 
       if (leaguesError) throw leaguesError;
 
-      // Get member counts for each league (only count members with valid profiles)
+      // Get member counts for each league
       const leaguesWithCounts = await Promise.all(
         (leaguesData || []).map(async (league) => {
-          // Get member user IDs
-          const { data: members } = await supabase
-            .from('league_members')
-            .select('user_id')
-            .eq('league_id', league.id);
-          
-          if (!members || members.length === 0) {
-            return { ...league, member_count: 0 };
-          }
-
-          // Count only members who have profiles (not deleted users)
           const { count } = await supabase
-            .from('profiles')
+            .from('league_members')
             .select('*', { count: 'exact', head: true })
-            .in('user_id', members.map(m => m.user_id));
-          
+            .eq('league_id', league.id);
           return { ...league, member_count: count || 0 };
         })
       );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
@@ -8,7 +8,6 @@ import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
-import { useOIDCSessionValidation } from '@/hooks/useOIDCSessionValidation';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
@@ -22,7 +21,7 @@ const TenantApp = () => {
   const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
 
   // Iframe auth support - handle postMessage tokens and user changes
-  const { isInIframe, tokenReceived } = useIframeAuth({
+  useIframeAuth({
     tenantId: tenantId || null,
     tenantUid,
     onAuthSuccess: () => {
@@ -39,18 +38,7 @@ const TenantApp = () => {
     },
   });
 
-  // OIDC session validation - re-check IdP session for SSO users
-  const handleOIDCSessionInvalid = useCallback(() => {
-    console.log('[TenantApp] OIDC session invalid, redirecting to auth');
-    navigate(`/t/${tenantUid}/auth`, { replace: true });
-  }, [navigate, tenantUid]);
-
-  // OIDC session validation - runs in background, doesn't block UI
-  useOIDCSessionValidation({
-    tenantId: tenantId || null,
-    userId: user?.id || null,
-    onSessionInvalid: handleOIDCSessionInvalid,
-  });
+  // Set document title
   useEffect(() => {
     document.title = 'WC2026 Predictor';
   }, []);
@@ -71,35 +59,27 @@ const TenantApp = () => {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        // If user has a profile but it's for a different tenant, sign them out and redirect
+        // If user has a profile but it's for a different tenant, sign them out
         if (profile && profile.tenant_id && profile.tenant_id !== tenantId) {
-          console.log('User belongs to different tenant, signing out and redirecting');
+          console.log('User belongs to different tenant, signing out');
           await signOut();
-          // Navigate immediately to prevent loop
-          navigate(`/t/${tenantUid}/auth`, { replace: true });
-          return;
         }
-        
-        // User has no profile yet (new user) or belongs to this tenant - they can stay
-        setCheckingTenantMatch(false);
       } catch (err) {
         console.error('Error checking user tenant:', err);
+      } finally {
         setCheckingTenantMatch(false);
       }
     };
 
     checkUserTenant();
-  }, [user, tenantId, authLoading, tenantLoading, signOut, navigate, tenantUid]);
+  }, [user, tenantId, authLoading, tenantLoading, signOut]);
 
   // Redirect to auth page if not logged in
   useEffect(() => {
     if (!authLoading && !checkingTenantMatch && !user && tenantUid) {
-      // Always route to the tenant auth page when unauthenticated.
-      // The auth page itself decides whether to do a full SSO redirect (normal browser)
-      // or wait for host-provided tokens (third-party iframe).
       navigate(`/t/${tenantUid}/auth`, { replace: true });
     }
-  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid, isInIframe]);
+  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid]);
 
   // Handle navigation state (e.g., from header profile click)
   useEffect(() => {
@@ -132,14 +112,7 @@ const TenantApp = () => {
 
   // Show nothing while redirecting
   if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Redirecting to sign in…</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const renderContent = () => {

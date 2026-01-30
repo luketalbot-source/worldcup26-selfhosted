@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone_number, tenant_id, check_only } = await req.json();
+    const { phone_number, tenant_id } = await req.json();
     
     if (!phone_number) {
       return new Response(
@@ -31,34 +31,6 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // If check_only mode, just check if user exists and return user_id
-    if (check_only) {
-      // Look for any profile with this phone number
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('phone_number', phone_number)
-        .limit(1)
-        .maybeSingle();
-
-      if (profile) {
-        return new Response(
-          JSON.stringify({ user_id: profile.user_id }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ user_id: null }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Get Twilio credentials
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
@@ -71,6 +43,11 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Initialize Supabase client with service role
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if user exists with this phone number AND tenant_id
     let existingProfile = null;
