@@ -35,10 +35,21 @@ export const useOIDCSessionValidation = ({
   const { signOut } = useAuth();
 
   useEffect(() => {
-    // In iframes, silent re-auth checks are commonly blocked by third-party cookie policies
-    // or IdP frame restrictions, which can incorrectly appear as "session invalid" and
-    // trigger sign-out loops. In embedded mode we rely on the host to manage auth.
-    if (window.parent !== window) return;
+    // In third-party iframes, silent re-auth checks are commonly blocked by third-party
+    // cookie policies or IdP frame restrictions. We detect third-party iframes by checking
+    // cross-origin access (same-origin = Lovable preview = OK to validate).
+    const isThirdPartyIframe = (): boolean => {
+      if (window.parent === window) return false;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _parentHref = window.parent.location.href;
+        return false; // same-origin
+      } catch {
+        return true; // cross-origin
+      }
+    };
+
+    if (isThirdPartyIframe()) return;
 
     if (!tenantId || !userId || validationAttemptedRef.current) return;
 
