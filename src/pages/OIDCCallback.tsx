@@ -100,6 +100,10 @@ const OIDCCallback = () => {
         if (data.needsUsername) {
           setSuggestedName(data.suggestedName || '');
           setIsNewUser(true);
+          // Store the id_token for use with oidc-token-auth after username is provided
+          if (data.id_token) {
+            setPendingIdToken(data.id_token);
+          }
           // New users go to consent first, then username
           setStep('consent');
           setIsLoading(false);
@@ -152,9 +156,73 @@ const OIDCCallback = () => {
     }
   };
 
+  // Store id_token from first exchange for use when username is provided
+  const [pendingIdToken, setPendingIdToken] = useState<string | null>(null);
+
   const handleUsernameSubmit = async () => {
-    if (!username.trim() || !authCode || !pkceParams) return;
-    await exchangeCode(authCode, pkceParams.verifier, pkceParams.tenantId, username.trim());
+    if (!username.trim() || !pkceParams) return;
+    
+    // Use the stored id_token with oidc-token-auth instead of re-exchanging the code
+    if (pendingIdToken) {
+      setIsLoading(true);
+      setError('');
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('oidc-token-auth', {
+          body: { 
+            id_token: pendingIdToken,
+            tenant_id: pkceParams.tenantId,
+            username: username.trim(),
+          },
+        });
+
+        if (fnError) {
+          throw new Error(fnError.message || 'Failed to authenticate');
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+
+        if (data?.token) {
+          await completeSignIn(data.token, data.tokenType || 'magiclink');
+        }
+      } catch (err) {
+        console.error('Username submit error:', err);
+        setError(err instanceof Error ? err.message : 'Authentication failed');
+        setStep('error');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    // Fallback to exchangeCode if no pending token (shouldn't happen)
+    if (authCode) {
+      await exchangeCode(authCode, pkceParams.verifier, pkceParams.tenantId, username.trim());
+    }
+  };
+
+  const completeSignIn = async (token: string, tokenType: string) => {
+    setIsLoading(true);
+    try {
+      const type = (tokenType || 'magiclink') as EmailOtpType;
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type,
+      });
+
+      if (verifyError) {
+        throw new Error(verifyError.message);
+      }
+
+      navigate(`/t/${tenantUid}`);
+    } catch (err) {
+      console.error('Sign in error:', err);
+      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setStep('error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleConsentAgree = async () => {
