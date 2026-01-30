@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_tenant_access: {
+        Row: {
+          admin_user_id: string
+          created_at: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_tenant_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boost_awards: {
         Row: {
           created_at: string
@@ -696,7 +725,26 @@ export type Database = {
       }
     }
     Functions: {
+      admin_can_access_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       cleanup_expired_otps: { Args: never; Returns: undefined }
+      get_admin_accessible_tenants: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
+      get_admin_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          id: string
+          phone_number: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
       get_league_by_code: {
         Args: { code: string }
         Returns: {
@@ -722,6 +770,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_tenant_user_count: { Args: { _tenant_id: string }; Returns: number }
       get_user_league_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
@@ -731,6 +780,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_any_admin: { Args: { _user_id: string }; Returns: boolean }
       is_league_creator: {
         Args: { _league_id: string; _user_id: string }
         Returns: boolean
@@ -741,7 +791,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "moderator"
+      app_role: "admin" | "moderator" | "site_admin" | "tenant_admin"
       auth_method: "otp" | "oidc" | "both"
     }
     CompositeTypes: {
@@ -870,7 +920,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator"],
+      app_role: ["admin", "moderator", "site_admin", "tenant_admin"],
       auth_method: ["otp", "oidc", "both"],
     },
   },
