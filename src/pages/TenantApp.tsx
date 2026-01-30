@@ -93,19 +93,16 @@ const TenantApp = () => {
 
   // Redirect to auth page if not logged in
   useEffect(() => {
-    // Only skip redirect in true third-party iframes where host provides auth via postMessage.
-    // For same-origin iframes (like Lovable preview), proceed with normal SSO redirect.
     if (!authLoading && !checkingTenantMatch && !user && tenantUid) {
-      // If in a third-party iframe, we wait for postMessage auth and don't redirect
-      if (isInIframe && !tokenReceived) {
-        console.log('[TenantApp] In third-party iframe without token, waiting for host auth');
+      // In third-party iframes, wait for postMessage auth instead of redirecting
+      if (isInIframe) {
+        console.log('[TenantApp] In third-party iframe, waiting for host auth via postMessage');
         return;
       }
-      // Otherwise redirect to auth (normal flow for same-origin iframes or direct browser access)
-      console.log('[TenantApp] Redirecting to auth, isInIframe:', isInIframe, 'tokenReceived:', tokenReceived);
+      // Normal flow: redirect to auth page
       navigate(`/t/${tenantUid}/auth`, { replace: true });
     }
-  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid, isInIframe, tokenReceived]);
+  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid, isInIframe]);
 
   // Handle navigation state (e.g., from header profile click)
   useEffect(() => {
