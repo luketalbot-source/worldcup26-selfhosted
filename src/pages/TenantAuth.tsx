@@ -97,9 +97,8 @@ const TenantAuth = () => {
     }
   }, []);
 
-  // For OIDC tenants: immediately redirect to SSO (clickless flow) ONLY outside iframes.
-  // In iframes we rely on host-provided tokens (postMessage). Many IdPs block being framed,
-  // which can cause infinite redirect/blank loops.
+  // For OIDC tenants: immediately redirect to SSO (clickless flow) ONLY outside third-party iframes.
+  // In third-party iframes we rely on host-provided tokens (postMessage). Many IdPs block being framed.
   useEffect(() => {
     const triggerSSO = async () => {
       if (!tenant?.oidc_config) return;
@@ -120,18 +119,18 @@ const TenantAuth = () => {
     };
 
     // Only trigger for OIDC-only tenants when not logged in and tenant is loaded
+    // isInIframe is only true for third-party cross-origin iframes, not same-origin (Lovable preview)
     if (
       !user &&
       !tenantLoading &&
       tenant?.auth_method === 'oidc' &&
       tenant?.oidc_config &&
-      !isInIframe &&
-      !tokenReceived
+      !isInIframe
     ) {
       console.log('[TenantAuth] OIDC tenant detected, triggering immediate SSO redirect');
       triggerSSO();
     }
-  }, [tenant, tenantLoading, user, isInIframe, tokenReceived]);
+  }, [tenant, tenantLoading, user, isInIframe]);
 
 
   const handleSendOtp = async () => {
