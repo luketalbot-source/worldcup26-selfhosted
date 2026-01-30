@@ -150,70 +150,114 @@ serve(async (req) => {
       userId = existingIdentity.user_id;
       console.log(`Existing OIDC user found: ${userId}`);
     } else {
-      // New user - username is required
-      const displayName = username || oidcName;
-      if (!displayName) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Username is required for new users',
-            needsUsername: true,
-            suggestedName: oidcName || oidcEmail?.split('@')[0],
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // Check if a user with this email already exists (from a different OIDC provider or tenant)
+      let existingUserByEmail = null;
+      if (oidcEmail) {
+        const { data: usersByEmail } = await supabase.auth.admin.listUsers();
+        existingUserByEmail = usersByEmail?.users?.find(u => u.email === oidcEmail);
       }
 
-      // Create new user with email based on OIDC subject
-      // Use a shorter, valid email format - hash the subject to keep it short
-      const shortSubject = oidcSubject.replace(/-/g, '').substring(0, 16);
-      const shortTenant = tenant_id.replace(/-/g, '').substring(0, 8);
-      const email = oidcEmail || `${shortSubject}@oidc-${shortTenant}.local`;
-      const password = crypto.randomUUID(); // Use a random UUID as password
-      
-      console.log('Creating user with email:', email);
+      if (existingUserByEmail) {
+        // User exists with this email - link the new OIDC identity to them
+        userId = existingUserByEmail.id;
+        console.log(`Linking OIDC identity to existing user by email: ${userId}`);
 
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          display_name: displayName,
-          oidc_subject: oidcSubject,
-          tenant_id,
-        },
-      });
+        // Store OIDC identity mapping for this tenant
+        const { error: linkError } = await supabase
+          .from('oidc_identities')
+          .insert({
+            user_id: userId,
+            tenant_id,
+            oidc_subject: oidcSubject,
+            oidc_issuer: oidcIssuer,
+          });
 
-      if (authError) {
-        console.error('Error creating user:', authError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create account' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+        if (linkError) {
+          console.error('Error linking OIDC identity:', linkError);
+        }
 
-      userId = authData.user.id;
-      isNewUser = true;
+        // Update profile with tenant_id if not set
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', userId)
+          .single();
 
-      // Update profile with tenant_id and consent timestamp
-      await supabase
-        .from('profiles')
-        .update({ 
-          tenant_id,
-          privacy_consent_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
+        if (!existingProfile?.tenant_id) {
+          await supabase
+            .from('profiles')
+            .update({ 
+              tenant_id,
+              privacy_consent_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId);
+        }
+      } else {
+        // New user - username is required
+        const displayName = username || oidcName;
+        if (!displayName) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Username is required for new users',
+              needsUsername: true,
+              suggestedName: oidcName || oidcEmail?.split('@')[0],
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
-      // Store OIDC identity mapping
-      await supabase
-        .from('oidc_identities')
-        .insert({
-          user_id: userId,
-          tenant_id,
-          oidc_subject: oidcSubject,
-          oidc_issuer: oidcIssuer,
+        // Create new user with email based on OIDC subject
+        // Use a shorter, valid email format - hash the subject to keep it short
+        const shortSubject = oidcSubject.replace(/-/g, '').substring(0, 16);
+        const shortTenant = tenant_id.replace(/-/g, '').substring(0, 8);
+        const email = oidcEmail || `${shortSubject}@oidc-${shortTenant}.local`;
+        const password = crypto.randomUUID(); // Use a random UUID as password
+        
+        console.log('Creating user with email:', email);
+
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            display_name: displayName,
+            oidc_subject: oidcSubject,
+            tenant_id,
+          },
         });
 
-      console.log(`New OIDC user created: ${userId}`);
+        if (authError) {
+          console.error('Error creating user:', authError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to create account' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        userId = authData.user.id;
+        isNewUser = true;
+
+        // Update profile with tenant_id and consent timestamp
+        await supabase
+          .from('profiles')
+          .update({ 
+            tenant_id,
+            privacy_consent_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId);
+
+        // Store OIDC identity mapping
+        await supabase
+          .from('oidc_identities')
+          .insert({
+            user_id: userId,
+            tenant_id,
+            oidc_subject: oidcSubject,
+            oidc_issuer: oidcIssuer,
+          });
+
+        console.log(`New OIDC user created: ${userId}`);
+      }
     }
 
     // Get the user's email for signing in
