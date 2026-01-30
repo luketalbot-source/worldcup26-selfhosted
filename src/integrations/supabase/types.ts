@@ -798,6 +798,10 @@ export type Database = {
         Args: { _league_id: string; _user_id: string }
         Returns: boolean
       }
+      user_can_access_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "site_admin" | "tenant_admin"
