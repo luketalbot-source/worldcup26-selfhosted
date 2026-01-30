@@ -94,12 +94,9 @@ const TenantApp = () => {
   // Redirect to auth page if not logged in
   useEffect(() => {
     if (!authLoading && !checkingTenantMatch && !user && tenantUid) {
-      // In third-party iframes, wait for postMessage auth instead of redirecting
-      if (isInIframe) {
-        console.log('[TenantApp] In third-party iframe, waiting for host auth via postMessage');
-        return;
-      }
-      // Normal flow: redirect to auth page
+      // Always route to the tenant auth page when unauthenticated.
+      // The auth page itself decides whether to do a full SSO redirect (normal browser)
+      // or wait for host-provided tokens (third-party iframe).
       navigate(`/t/${tenantUid}/auth`, { replace: true });
     }
   }, [user, authLoading, checkingTenantMatch, navigate, tenantUid, isInIframe]);
@@ -135,7 +132,14 @@ const TenantApp = () => {
 
   // Show nothing while redirecting
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to sign in…</p>
+        </div>
+      </div>
+    );
   }
 
   const renderContent = () => {
