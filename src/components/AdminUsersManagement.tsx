@@ -86,32 +86,19 @@ export const AdminUsersManagement = ({ isSiteAdmin }: AdminUsersManagementProps)
 
   const fetchAdminUsers = async () => {
     try {
-      // Fetch all admin users with their roles
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*')
-        .in('role', ['site_admin', 'tenant_admin', 'admin']);
+      // Use secure RPC to fetch admin users (bypasses RLS on user_roles)
+      const { data: adminData, error: adminError } = await supabase.rpc('get_admin_users');
 
-      if (rolesError) throw rolesError;
+      if (adminError) throw adminError;
 
-      if (!roles || roles.length === 0) {
+      if (!adminData || adminData.length === 0) {
         setAdminUsers([]);
         setLoading(false);
         return;
       }
 
-      // Fetch profiles for these users (they might not have profiles if they're admin-only)
-      const userIds = roles.map(r => r.user_id);
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, phone_number, display_name')
-        .in('user_id', userIds);
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-      }
-
       // Fetch tenant access for tenant admins
+      const userIds = adminData.map((a: { user_id: string }) => a.user_id);
       const { data: tenantAccess, error: accessError } = await supabase
         .from('admin_tenant_access')
         .select('admin_user_id, tenant_id')
@@ -131,18 +118,24 @@ export const AdminUsersManagement = ({ isSiteAdmin }: AdminUsersManagementProps)
       });
 
       // Combine data
-      const admins: AdminUser[] = roles.map(role => {
-        const profile = profiles?.find(p => p.user_id === role.user_id);
+      const admins: AdminUser[] = adminData.map((admin: {
+        id: string;
+        user_id: string;
+        role: string;
+        created_at: string;
+        phone_number: string | null;
+        display_name: string | null;
+      }) => {
         // Normalize 'admin' to 'site_admin' for display
-        const normalizedRole = role.role === 'admin' ? 'site_admin' : role.role as AdminRole;
+        const normalizedRole = admin.role === 'admin' ? 'site_admin' : admin.role as AdminRole;
         return {
-          id: role.id,
-          user_id: role.user_id,
+          id: admin.id,
+          user_id: admin.user_id,
           role: normalizedRole,
-          phone_number: profile?.phone_number || null,
-          display_name: profile?.display_name || null,
-          created_at: role.created_at,
-          accessible_tenants: accessMap[role.user_id] || [],
+          phone_number: admin.phone_number || null,
+          display_name: admin.display_name || null,
+          created_at: admin.created_at,
+          accessible_tenants: accessMap[admin.user_id] || [],
         };
       });
 
