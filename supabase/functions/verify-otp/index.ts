@@ -113,12 +113,12 @@ serve(async (req) => {
             .from('user_roles')
             .select('role')
             .eq('user_id', profile.user_id)
-            .eq('role', 'admin')
+            .in('role', ['admin', 'site_admin', 'tenant_admin'])
             .maybeSingle();
           
           if (roleData) {
             existingProfile = profile;
-            console.log(`Admin user found: ${profile.user_id}`);
+            console.log(`Admin user found: ${profile.user_id}, role: ${roleData.role}`);
             break;
           }
         }
@@ -126,6 +126,31 @@ serve(async (req) => {
         // If no admin found but profiles exist, use first one (for backwards compatibility)
         if (!existingProfile && profiles.length === 1) {
           existingProfile = profiles[0];
+        }
+      } else {
+        // No profiles found - check if there's an admin user with this phone in auth.users metadata
+        // This handles the case where an admin has no profile but was granted admin access
+        const { data: authUsers, error: listError } = await supabase.auth.admin.listUsers();
+        
+        if (!listError && authUsers?.users) {
+          for (const authUser of authUsers.users) {
+            const metadata = authUser.user_metadata || {};
+            if (metadata.phone_number === phone_number) {
+              // Check if this user has an admin role
+              const { data: roleData } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', authUser.id)
+                .in('role', ['admin', 'site_admin', 'tenant_admin'])
+                .maybeSingle();
+              
+              if (roleData) {
+                existingProfile = { user_id: authUser.id, display_name: metadata.display_name || 'Admin' };
+                console.log(`Admin user found via auth metadata: ${authUser.id}, role: ${roleData.role}`);
+                break;
+              }
+            }
+          }
         }
       }
     }
