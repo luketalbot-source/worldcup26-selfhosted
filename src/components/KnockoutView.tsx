@@ -6,6 +6,7 @@ import { KnockoutMatchCard } from './KnockoutMatchCard';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useDynamicKnockout } from '@/hooks/useDynamicKnockout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import type { ReactNode } from 'react';
 
 export type KnockoutStage = 'round32' | 'round16' | 'quarter' | 'semi' | 'finals';
@@ -21,10 +22,11 @@ export const KnockoutView = ({ syncButton, activeKnockoutStage, onKnockoutStageC
   const {
     t
   } = useTranslation();
+  const { tenantId } = useTenant();
   const {
     addPrediction,
     getPrediction
-  } = usePredictions();
+  } = usePredictions(tenantId);
   const {
     getKnockoutStageMatches,
     areGroupStagesComplete,

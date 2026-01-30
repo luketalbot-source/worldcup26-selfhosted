@@ -60,10 +60,17 @@ export const useLeagues = (tenantId?: string | null) => {
         return;
       }
 
-      const { data: leaguesData, error: leaguesError } = await supabase
+      // Build query - filter by tenant if provided
+      let leaguesQuery = supabase
         .from('leagues')
         .select('*')
         .in('id', leagueIds);
+      
+      if (tenantId) {
+        leaguesQuery = leaguesQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: leaguesData, error: leaguesError } = await leaguesQuery;
 
       if (leaguesError) throw leaguesError;
 
@@ -101,7 +108,7 @@ export const useLeagues = (tenantId?: string | null) => {
 
   useEffect(() => {
     fetchLeagues();
-  }, [user]);
+  }, [user, tenantId]);
 
   const createLeague = async (name: string, avatarEmoji: string): Promise<League | null> => {
     if (!user) return null;

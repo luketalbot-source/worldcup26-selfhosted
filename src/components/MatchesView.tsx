@@ -11,6 +11,7 @@ import { GroupStandings } from './GroupStandings';
 import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { getTeamsByGroup } from '@/data/teams';
 import { GroupStanding, Match } from '@/types/match';
 import { LogIn, Trophy } from 'lucide-react';
@@ -91,6 +92,7 @@ export const MatchesView = () => {
   const {
     t
   } = useTranslation();
+  const { tenantId } = useTenant();
   const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('groups');
   const [activeGroup, setActiveGroup] = useState('A');
   const [activeKnockoutStage, setActiveKnockoutStage] = useState<KnockoutStage>('round32');
@@ -98,7 +100,7 @@ export const MatchesView = () => {
     addPrediction,
     getPrediction,
     predictions
-  } = usePredictions();
+  } = usePredictions(tenantId);
   const {
     getGroupMatches,
     getTodayMatches,
