@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Shield, ShieldCheck, UserCog } from 'lucide-react';
+import { Plus, Trash2, Loader2, Shield, ShieldCheck, UserCog, Edit2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -77,7 +77,9 @@ export const AdminUsersManagement = ({ isSiteAdmin }: AdminUsersManagementProps)
   // Edit state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [adminToEdit, setAdminToEdit] = useState<AdminUser | null>(null);
+  const [editRole, setEditRole] = useState<AdminRole>('tenant_admin');
   const [editTenants, setEditTenants] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     fetchAdminUsers();
@@ -278,18 +280,38 @@ export const AdminUsersManagement = ({ isSiteAdmin }: AdminUsersManagementProps)
     }
   };
 
-  const handleEditTenantAccess = async () => {
+  const handleEditAdmin = async () => {
     if (!adminToEdit) return;
-
+    
+    setIsSaving(true);
     try {
+      // Update role if changed
+      if (editRole !== adminToEdit.role) {
+        // Delete old role
+        const { error: deleteRoleError } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('id', adminToEdit.id);
+        
+        if (deleteRoleError) throw deleteRoleError;
+        
+        // Insert new role
+        const { error: insertRoleError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: adminToEdit.user_id, role: editRole });
+        
+        if (insertRoleError) throw insertRoleError;
+      }
+
+      // Update tenant access
       // Delete all existing access
       await supabase
         .from('admin_tenant_access')
         .delete()
         .eq('admin_user_id', adminToEdit.user_id);
 
-      // Insert new access records
-      if (editTenants.length > 0) {
+      // Insert new access records if tenant admin
+      if (editRole === 'tenant_admin' && editTenants.length > 0) {
         const accessRecords = editTenants.map(tenantId => ({
           admin_user_id: adminToEdit.user_id,
           tenant_id: tenantId,
@@ -302,13 +324,15 @@ export const AdminUsersManagement = ({ isSiteAdmin }: AdminUsersManagementProps)
         if (accessError) throw accessError;
       }
 
-      toast.success('Tenant access updated');
+      toast.success('Admin updated successfully');
       setEditDialogOpen(false);
       setAdminToEdit(null);
       fetchAdminUsers();
     } catch (err) {
-      console.error('Error updating tenant access:', err);
-      toast.error('Failed to update tenant access');
+      console.error('Error updating admin:', err);
+      toast.error('Failed to update admin');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -482,19 +506,18 @@ export const AdminUsersManagement = ({ isSiteAdmin }: AdminUsersManagementProps)
                   
                   {isSiteAdmin && adminUser.user_id !== user?.id && (
                     <div className="flex items-center gap-2">
-                      {adminUser.role === 'tenant_admin' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setAdminToEdit(adminUser);
-                            setEditTenants(adminUser.accessible_tenants);
-                            setEditDialogOpen(true);
-                          }}
-                        >
-                          Edit Access
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setAdminToEdit(adminUser);
+                          setEditRole(adminUser.role);
+                          setEditTenants(adminUser.accessible_tenants);
+                          setEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="icon"
@@ -515,46 +538,82 @@ export const AdminUsersManagement = ({ isSiteAdmin }: AdminUsersManagementProps)
         </CardContent>
       </Card>
 
-      {/* Edit Tenant Access Dialog */}
+      {/* Edit Admin Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Tenant Access</DialogTitle>
+            <DialogTitle>Edit Admin</DialogTitle>
             <DialogDescription>
-              Select which tenants this admin can access.
+              Update role and tenant access for {adminToEdit?.display_name || adminToEdit?.phone_number}.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="border rounded-md p-3 max-h-64 overflow-y-auto space-y-2">
-              {tenants.map(tenant => (
-                <div key={tenant.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`edit-tenant-${tenant.id}`}
-                    checked={editTenants.includes(tenant.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setEditTenants([...editTenants, tenant.id]);
-                      } else {
-                        setEditTenants(editTenants.filter(id => id !== tenant.id));
-                      }
-                    }}
-                  />
-                  <label
-                    htmlFor={`edit-tenant-${tenant.id}`}
-                    className="text-sm cursor-pointer"
-                  >
-                    {tenant.name}
-                  </label>
-                </div>
-              ))}
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select
+                value={editRole}
+                onValueChange={(value: AdminRole) => setEditRole(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="site_admin">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" />
+                      Site Admin
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="tenant_admin">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Tenant Admin
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {editRole === 'site_admin'
+                  ? 'Can access all tenants and manage admin users'
+                  : 'Can only access selected tenants'}
+              </p>
             </div>
+
+            {editRole === 'tenant_admin' && (
+              <div className="space-y-2">
+                <Label>Tenant Access</Label>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+                  {tenants.map(tenant => (
+                    <div key={tenant.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`edit-tenant-${tenant.id}`}
+                        checked={editTenants.includes(tenant.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setEditTenants([...editTenants, tenant.id]);
+                          } else {
+                            setEditTenants(editTenants.filter(id => id !== tenant.id));
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor={`edit-tenant-${tenant.id}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {tenant.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditTenantAccess}>
-              Save Changes
+            <Button onClick={handleEditAdmin} disabled={isSaving}>
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
