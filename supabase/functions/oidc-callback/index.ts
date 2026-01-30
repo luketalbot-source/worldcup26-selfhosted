@@ -193,14 +193,16 @@ serve(async (req) => {
             .eq('user_id', userId);
         }
       } else {
-        // New user - username is required
+      // New user - username is required
         const displayName = username || oidcName;
         if (!displayName) {
+          // Return the id_token so the frontend can retry with username without re-exchanging the code
           return new Response(
             JSON.stringify({ 
               error: 'Username is required for new users',
               needsUsername: true,
               suggestedName: oidcName || oidcEmail?.split('@')[0],
+              id_token: idToken, // Include token for second attempt
             }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
