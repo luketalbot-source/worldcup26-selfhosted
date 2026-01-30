@@ -71,20 +71,25 @@ const TenantApp = () => {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        // If user has a profile but it's for a different tenant, sign them out
+        // If user has a profile but it's for a different tenant, sign them out and redirect
         if (profile && profile.tenant_id && profile.tenant_id !== tenantId) {
-          console.log('User belongs to different tenant, signing out');
+          console.log('User belongs to different tenant, signing out and redirecting');
           await signOut();
+          // Navigate immediately to prevent loop
+          navigate(`/t/${tenantUid}/auth`, { replace: true });
+          return;
         }
+        
+        // User has no profile yet (new user) or belongs to this tenant - they can stay
+        setCheckingTenantMatch(false);
       } catch (err) {
         console.error('Error checking user tenant:', err);
-      } finally {
         setCheckingTenantMatch(false);
       }
     };
 
     checkUserTenant();
-  }, [user, tenantId, authLoading, tenantLoading, signOut]);
+  }, [user, tenantId, authLoading, tenantLoading, signOut, navigate, tenantUid]);
 
   // Redirect to auth page if not logged in
   useEffect(() => {
