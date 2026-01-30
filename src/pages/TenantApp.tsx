@@ -46,20 +46,41 @@ const TenantApp = () => {
   // Check if user belongs to this tenant, if not sign them out
   useEffect(() => {
     const checkUserTenant = async () => {
-      if (authLoading || tenantLoading || !user || !tenantId) {
+      if (authLoading || tenantLoading || !user || !tenantId || !tenant) {
         setCheckingTenantMatch(false);
         return;
       }
 
       try {
-        // Check if user's profile belongs to this tenant
+        // For OIDC tenants, tenant membership is determined by an OIDC identity row,
+        // NOT by profiles.tenant_id (profiles are currently global/shared).
+        if (tenant.auth_method === 'oidc') {
+          const { data: identity, error } = await supabase
+            .from('oidc_identities')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Error checking OIDC identity:', error);
+          }
+
+          if (!identity) {
+            console.log('User has no OIDC identity for this tenant, signing out');
+            await signOut();
+          }
+
+          return;
+        }
+
+        // For OTP tenants, keep the existing profile-based check.
         const { data: profile } = await supabase
           .from('profiles')
           .select('tenant_id')
           .eq('user_id', user.id)
           .maybeSingle();
 
-        // If user has a profile but it's for a different tenant, sign them out
         if (profile && profile.tenant_id && profile.tenant_id !== tenantId) {
           console.log('User belongs to different tenant, signing out');
           await signOut();
@@ -72,7 +93,7 @@ const TenantApp = () => {
     };
 
     checkUserTenant();
-  }, [user, tenantId, authLoading, tenantLoading, signOut]);
+  }, [user, tenantId, tenant, authLoading, tenantLoading, signOut]);
 
   // Redirect to auth page if not logged in
   useEffect(() => {
