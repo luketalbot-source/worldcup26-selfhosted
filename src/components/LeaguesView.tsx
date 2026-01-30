@@ -71,16 +71,17 @@ const ExpandableLeagueCard = ({
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { tenantId } = useTenant();
+  const { tenantId, tenant } = useTenant();
   const { leaveLeague, removeMember, deleteLeague, updateLeague, refetch } = useLeagues();
   
   const { leaderboard: leagueLeaderboard, loading: leaderboardLoading, refetch: refetchLeaderboard } = useLeagueLeaderboard(
     isEveryone ? null : (isExpanded ? league.id : null),
-    league.creator_id || null
+    league.creator_id || null,
+    tenantId
   );
   
   const { leaderboard: globalLeaderboard, loading: globalLeaderboardLoading } = useLeaderboard(
-    isEveryone && isExpanded ? tenantId : null
+    isEveryone && isExpanded ? { tenantId, authMethod: tenant?.auth_method } : null
   );
   
   const activeLeaderboard = isEveryone ? globalLeaderboard : leagueLeaderboard;

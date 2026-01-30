@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { groupStageMatches } from '@/data/matches';
+import type { AuthMethod } from '@/contexts/TenantContext';
 
 interface LeaderboardEntry {
   rank: number;
@@ -12,7 +13,21 @@ interface LeaderboardEntry {
   points: number;
 }
 
-export const useLeaderboard = (tenantId: string | null) => {
+interface UseLeaderboardOptions {
+  tenantId: string | null;
+  authMethod?: AuthMethod;
+}
+
+export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string | null) => {
+  // Support both old (tenantId string) and new (options object) signatures
+  const isOptionsObject = optionsOrTenantId !== null && typeof optionsOrTenantId === 'object';
+  const tenantId: string | null = isOptionsObject 
+    ? (optionsOrTenantId as UseLeaderboardOptions).tenantId 
+    : (optionsOrTenantId as string | null);
+  const authMethod: AuthMethod | undefined = isOptionsObject 
+    ? (optionsOrTenantId as UseLeaderboardOptions).authMethod 
+    : undefined;
+  
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +35,7 @@ export const useLeaderboard = (tenantId: string | null) => {
     if (tenantId) {
       fetchLeaderboard();
     }
-  }, [tenantId]);
+  }, [tenantId, authMethod]);
 
   const fetchLeaderboard = async () => {
     if (!tenantId) {
@@ -31,9 +46,20 @@ export const useLeaderboard = (tenantId: string | null) => {
 
     setLoading(true);
     
-    // Get ALL profiles in the current tenant only using secure function (excludes phone numbers)
-    const { data: profiles, error: profilesError } = await supabase
-      .rpc('get_tenant_profiles', { _tenant_id: tenantId });
+    // For OIDC tenants, use the oidc-specific function that queries via oidc_identities
+    // For OTP tenants, use the standard profile-based function
+    let profiles: { id: string; user_id: string; display_name: string; avatar_emoji: string }[] | null = null;
+    let profilesError: Error | null = null;
+    
+    if (authMethod === 'oidc') {
+      const result = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenantId });
+      profiles = result.data;
+      profilesError = result.error;
+    } else {
+      const result = await supabase.rpc('get_tenant_profiles', { _tenant_id: tenantId });
+      profiles = result.data;
+      profilesError = result.error;
+    }
 
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);
@@ -49,31 +75,34 @@ export const useLeaderboard = (tenantId: string | null) => {
 
     const userIds = profiles.map(p => p.user_id);
 
-    // Get all predictions with scores for these users
+    // Get all predictions with scores for these users IN THIS TENANT
     const { data: predictions, error: predictionsError } = await supabase
       .from('predictions')
       .select('user_id, match_id, home_score, away_score')
-      .in('user_id', userIds);
+      .in('user_id', userIds)
+      .eq('tenant_id', tenantId);
 
     if (predictionsError) {
       console.error('Error fetching predictions:', predictionsError);
     }
 
-    // Get boost predictions for these users
+    // Get boost predictions for these users IN THIS TENANT
     const { data: boostPredictions, error: boostError } = await supabase
       .from('boost_predictions')
       .select('user_id, award_id, predicted_team_code, predicted_player_name')
-      .in('user_id', userIds);
+      .in('user_id', userIds)
+      .eq('tenant_id', tenantId);
 
     if (boostError) {
       console.error('Error fetching boost predictions:', boostError);
     }
 
-    // Get custom boost predictions for these users
+    // Get custom boost predictions for these users IN THIS TENANT
     const { data: customBoostPredictions, error: customBoostError } = await supabase
       .from('tenant_custom_boost_predictions')
       .select('user_id, custom_boost_id, predicted_team_code, predicted_player_name')
-      .in('user_id', userIds);
+      .in('user_id', userIds)
+      .eq('tenant_id', tenantId);
 
     if (customBoostError) {
       console.error('Error fetching custom boost predictions:', customBoostError);

@@ -753,6 +753,15 @@ export type Database = {
           name: string
         }[]
       }
+      get_oidc_tenant_profiles: {
+        Args: { _tenant_id: string }
+        Returns: {
+          avatar_emoji: string
+          display_name: string
+          id: string
+          user_id: string
+        }[]
+      }
       get_tenant_by_uid: {
         Args: { _uid: string }
         Returns: {

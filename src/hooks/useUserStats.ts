@@ -31,11 +31,17 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
   const fetchStats = async (uid: string) => {
     setLoading(true);
 
-    // Get user's predictions
-    const { data: predictions, error: predictionsError } = await supabase
+    // Get user's predictions for this tenant
+    let predictionsQuery = supabase
       .from('predictions')
       .select('match_id, home_score, away_score')
       .eq('user_id', uid);
+    
+    if (tenantId) {
+      predictionsQuery = predictionsQuery.eq('tenant_id', tenantId);
+    }
+    
+    const { data: predictions, error: predictionsError } = await predictionsQuery;
 
     if (predictionsError) {
       console.error('Error fetching predictions:', predictionsError);
@@ -61,12 +67,24 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
       ? supabase.from('tenant_custom_boosts').select('id, prediction_type, points_value').eq('tenant_id', tenantId)
       : supabase.from('tenant_custom_boosts').select('id, prediction_type, points_value');
     
+    // Build boost predictions query with optional tenant filter
+    let boostPredictionsQuery = supabase.from('boost_predictions').select('award_id, predicted_team_code, predicted_player_name').eq('user_id', uid);
+    if (tenantId) {
+      boostPredictionsQuery = boostPredictionsQuery.eq('tenant_id', tenantId);
+    }
+    
+    // Build custom boost predictions query with optional tenant filter
+    let customPredictionsQuery = supabase.from('tenant_custom_boost_predictions').select('custom_boost_id, predicted_team_code, predicted_player_name').eq('user_id', uid);
+    if (tenantId) {
+      customPredictionsQuery = customPredictionsQuery.eq('tenant_id', tenantId);
+    }
+    
     const [awardsRes, boostPredictionsRes, resultsRes, customAwardsRes, customPredictionsRes, customResultsRes] = await Promise.all([
       supabase.from('boost_awards').select('id, prediction_type, points_value'),
-      supabase.from('boost_predictions').select('award_id, predicted_team_code, predicted_player_name').eq('user_id', uid),
+      boostPredictionsQuery,
       supabase.from('boost_results').select('award_id, result_team_code, result_player_name'),
       customBoostsQuery,
-      supabase.from('tenant_custom_boost_predictions').select('custom_boost_id, predicted_team_code, predicted_player_name').eq('user_id', uid),
+      customPredictionsQuery,
       supabase.from('tenant_custom_boost_results').select('custom_boost_id, result_team_code, result_player_name'),
     ]);
 

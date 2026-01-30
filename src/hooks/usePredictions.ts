@@ -22,10 +22,18 @@ export const usePredictions = (tenantId?: string | null) => {
     }
     
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // Build query - filter by tenant_id if provided
+    let query = supabase
       .from('predictions')
       .select('*')
       .eq('user_id', user.id);
+    
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+    
+    const { data, error } = await query;
 
     if (!error && data) {
       setPredictions(data.map(p => ({
@@ -40,7 +48,7 @@ export const usePredictions = (tenantId?: string | null) => {
 
   useEffect(() => {
     fetchPredictions();
-  }, [user]);
+  }, [user, tenantId]);
 
   const addPrediction = async (matchId: string, homeScore: number, awayScore: number) => {
     if (!user) return;

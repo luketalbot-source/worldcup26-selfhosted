@@ -22,8 +22,8 @@ const getRankDisplay = (rank: number) => {
 export const LeaderboardView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { tenantId } = useTenant();
-  const { leaderboard, loading } = useLeaderboard(tenantId);
+  const { tenantId, tenant } = useTenant();
+  const { leaderboard, loading } = useLeaderboard({ tenantId, authMethod: tenant?.auth_method });
   const navigate = useNavigate();
 
   if (!user) {
