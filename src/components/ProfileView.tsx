@@ -206,6 +206,7 @@ export const ProfileView = () => {
           
           {isEditing ? (
             <div className="space-y-4">
+              <p className="text-white/80 text-sm">{t('profile.edit.updateInGameName')}</p>
               <EmojiPicker value={editAvatar} onChange={setEditAvatar} />
               
               <Input
