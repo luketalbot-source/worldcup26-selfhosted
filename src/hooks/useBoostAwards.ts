@@ -48,12 +48,18 @@ export const useBoostAwards = () => {
       if (awardsError) throw awardsError;
       setAwards((awardsData || []) as BoostAward[]);
 
-      // Fetch user predictions if logged in
+      // Fetch user predictions if logged in - filter by tenant
       if (user) {
-        const { data: predictionsData, error: predictionsError } = await supabase
+        let predictionsQuery = supabase
           .from('boost_predictions')
           .select('*')
           .eq('user_id', user.id);
+        
+        if (tenantId) {
+          predictionsQuery = predictionsQuery.eq('tenant_id', tenantId);
+        }
+        
+        const { data: predictionsData, error: predictionsError } = await predictionsQuery;
 
         if (predictionsError) throw predictionsError;
         setPredictions(predictionsData || []);
@@ -75,7 +81,7 @@ export const useBoostAwards = () => {
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, [user, tenantId]);
 
   const savePrediction = async (awardId: string, teamCode: string | null, playerName: string | null) => {
     if (!user || !tenantId) return false;

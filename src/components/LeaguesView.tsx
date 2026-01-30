@@ -72,7 +72,7 @@ const ExpandableLeagueCard = ({
   const { t } = useTranslation();
   const { user } = useAuth();
   const { tenantId, tenant } = useTenant();
-  const { leaveLeague, removeMember, deleteLeague, updateLeague, refetch } = useLeagues();
+  const { leaveLeague, removeMember, deleteLeague, updateLeague, refetch } = useLeagues(tenantId);
   
   const { leaderboard: leagueLeaderboard, loading: leaderboardLoading, refetch: refetchLeaderboard } = useLeagueLeaderboard(
     isEveryone ? null : (isExpanded ? league.id : null),
@@ -498,8 +498,9 @@ const ExpandableLeagueCard = ({
 export const LeaguesView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { tenantId } = useTenant();
   const navigate = useNavigate();
-  const { leagues, loading, createLeague, refetch } = useLeagues();
+  const { leagues, loading, createLeague, joinLeague, refetch } = useLeagues(tenantId);
   
   const [expandedLeagueId, setExpandedLeagueId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -514,7 +515,6 @@ export const LeaguesView = () => {
   // Join form state
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
-  const { joinLeague } = useLeagues();
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
