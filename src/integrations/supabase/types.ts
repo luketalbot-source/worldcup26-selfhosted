@@ -734,6 +734,17 @@ export type Database = {
         Args: { _user_id: string }
         Returns: string[]
       }
+      get_admin_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          id: string
+          phone_number: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
       get_league_by_code: {
         Args: { code: string }
         Returns: {
