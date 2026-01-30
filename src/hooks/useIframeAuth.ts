@@ -30,6 +30,25 @@ interface UseIframeAuthOptions {
  * Uses a global message bridge to ensure no messages are lost during
  * React component mount/unmount cycles (including StrictMode double-mount)
  */
+/**
+ * Check if we're in a third-party iframe (i.e., NOT the Lovable preview).
+ * Lovable preview iframes should behave like normal browsers and do SSO redirects.
+ * Third-party iframes should wait for postMessage tokens from the host.
+ */
+const isThirdPartyIframe = (): boolean => {
+  if (window.parent === window) return false; // Not in any iframe
+
+  try {
+    // If we can access parent.location.href, we're same-origin (Lovable preview)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _parentHref = window.parent.location.href;
+    return false; // Same-origin iframe = Lovable preview
+  } catch {
+    // Cross-origin iframe = third-party embedding
+    return true;
+  }
+};
+
 export const useIframeAuth = ({
   tenantId,
   tenantUid,
@@ -40,6 +59,9 @@ export const useIframeAuth = ({
   const { user, signOut } = useAuth();
   const processingRef = useRef(false);
   const [tokenReceived, setTokenReceived] = useState(false);
+  
+  // Detect if we're embedded in a third-party app (not Lovable preview)
+  const isEmbedded = isThirdPartyIframe();
 
   // Handle direct token authentication
   const authenticateWithToken = useCallback(async (payload: IframeAuthMessage['payload']) => {
@@ -268,7 +290,7 @@ export const useIframeAuth = ({
   }, [tenantUid, user]);
 
   return {
-    isInIframe: window.parent !== window,
+    isInIframe: isEmbedded, // Only true for third-party iframes, not Lovable preview
     tokenReceived,
     authenticateWithToken,
   };
