@@ -36,6 +36,7 @@ interface Tenant {
   uid: string;
   name: string;
   created_at: string;
+  auth_method: 'otp' | 'oidc' | 'both';
   profiles: { count: number }[];
 }
 
@@ -111,11 +112,23 @@ const Admin = () => {
       try {
         const { data, error } = await supabase
           .from('tenants')
-          .select('*, profiles(count)')
+          .select('*, auth_method, profiles(count)')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setTenants(data || []);
+        
+        // For each tenant, get accurate user count using RPC
+        const tenantsWithCounts = await Promise.all(
+          (data || []).map(async (tenant) => {
+            const { data: count } = await supabase.rpc('get_tenant_user_count', { _tenant_id: tenant.id });
+            return {
+              ...tenant,
+              profiles: [{ count: count || 0 }],
+            };
+          })
+        );
+        
+        setTenants(tenantsWithCounts);
       } catch (err) {
         console.error('Error fetching tenants:', err);
       }
@@ -169,16 +182,38 @@ const Admin = () => {
   const fetchTenantUsers = async (tenant: Tenant) => {
     setLoadingUsers(true);
     try {
-      // Fetch profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('tenant_id', tenant.id)
-        .order('created_at', { ascending: false });
+      // For OIDC tenants, first get user IDs via oidc_identities, then fetch their profiles
+      // For OTP tenants, query profiles directly by tenant_id
+      let profiles: { id: string; user_id: string; display_name: string; avatar_emoji: string | null; phone_number: string | null; created_at: string }[] = [];
+      
+      if (tenant.auth_method === 'oidc') {
+        // Get user IDs from oidc_identities for this tenant
+        const { data: oidcData, error: oidcError } = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenant.id });
+        if (oidcError) throw oidcError;
+        
+        if (oidcData && oidcData.length > 0) {
+          // Fetch full profile data for these users (as admin, we can see all profiles)
+          const userIds = oidcData.map((u: { user_id: string }) => u.user_id);
+          const { data: fullProfiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, user_id, display_name, avatar_emoji, phone_number, created_at')
+            .in('user_id', userIds)
+            .order('created_at', { ascending: false });
+          
+          if (profilesError) throw profilesError;
+          profiles = fullProfiles || [];
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, user_id, display_name, avatar_emoji, phone_number, created_at')
+          .eq('tenant_id', tenant.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        profiles = data || [];
+      }
 
-      if (profilesError) throw profilesError;
-
-      if (!profiles || profiles.length === 0) {
+      if (profiles.length === 0) {
         setTenantUsers([]);
         setLoadingUsers(false);
         return;
