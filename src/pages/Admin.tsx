@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, UserCog } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
 import { AdminBoostResults } from '@/components/AdminBoostResults';
 import { TenantCustomBoosts } from '@/components/TenantCustomBoosts';
+import { AdminUsersManagement } from '@/components/AdminUsersManagement';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+
+type AdminRole = 'site_admin' | 'tenant_admin' | 'admin';
 
 interface Tenant {
   id: string;
@@ -55,6 +58,9 @@ const Admin = () => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSiteAdmin, setIsSiteAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
+  const [accessibleTenantIds, setAccessibleTenantIds] = useState<string[]>([]);
   const [newTenantName, setNewTenantName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -75,24 +81,57 @@ const Admin = () => {
     document.title = 'WC2026 Admin';
   }, []);
 
-  // Check admin status
+  // Check admin status and role
   useEffect(() => {
     const checkAdmin = async () => {
       if (!user) {
         setIsAdmin(false);
+        setIsSiteAdmin(false);
+        setAdminRole(null);
         setLoading(false);
         return;
       }
 
       try {
-        const { data, error } = await supabase
-          .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+        // Check for any admin role
+        const { data: roles, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .in('role', ['admin', 'site_admin', 'tenant_admin']);
         
         if (error) throw error;
-        setIsAdmin(data === true);
+
+        if (!roles || roles.length === 0) {
+          setIsAdmin(false);
+          setIsSiteAdmin(false);
+          setAdminRole(null);
+          setLoading(false);
+          return;
+        }
+
+        const role = roles[0].role as AdminRole;
+        setAdminRole(role);
+        setIsAdmin(true);
+        
+        // Site admins and legacy 'admin' have full access
+        const hasSiteAccess = role === 'site_admin' || role === 'admin';
+        setIsSiteAdmin(hasSiteAccess);
+
+        // If tenant admin, fetch accessible tenant IDs
+        if (role === 'tenant_admin') {
+          const { data: access, error: accessError } = await supabase
+            .from('admin_tenant_access')
+            .select('tenant_id')
+            .eq('admin_user_id', user.id);
+
+          if (accessError) throw accessError;
+          setAccessibleTenantIds(access?.map(a => a.tenant_id) || []);
+        }
       } catch (err) {
         console.error('Error checking admin status:', err);
         setIsAdmin(false);
+        setIsSiteAdmin(false);
       } finally {
         setLoading(false);
       }
@@ -103,16 +142,27 @@ const Admin = () => {
     }
   }, [user, authLoading]);
 
-  // Fetch tenants
+  // Fetch tenants (filtered by access for tenant admins)
   useEffect(() => {
     const fetchTenants = async () => {
       if (!isAdmin) return;
 
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('tenants')
           .select('*, profiles(count)')
           .order('created_at', { ascending: false });
+
+        // Tenant admins can only see their assigned tenants
+        if (adminRole === 'tenant_admin' && accessibleTenantIds.length > 0) {
+          query = query.in('id', accessibleTenantIds);
+        } else if (adminRole === 'tenant_admin' && accessibleTenantIds.length === 0) {
+          // No access to any tenant
+          setTenants([]);
+          return;
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         setTenants(data || []);
@@ -122,7 +172,7 @@ const Admin = () => {
     };
 
     fetchTenants();
-  }, [isAdmin]);
+  }, [isAdmin, adminRole, accessibleTenantIds]);
 
   const handleCreateTenant = async () => {
     if (!newTenantName.trim()) return;
@@ -506,53 +556,67 @@ const Admin = () => {
         <Tabs defaultValue="tenants" className="space-y-4">
           <TabsList>
             <TabsTrigger value="tenants">Tenants</TabsTrigger>
-            <TabsTrigger value="boost" className="flex items-center gap-2">
-              <Trophy className="w-4 h-4" />
-              Boost Results
-            </TabsTrigger>
+            {isSiteAdmin && (
+              <TabsTrigger value="admins" className="flex items-center gap-2">
+                <UserCog className="w-4 h-4" />
+                Admins
+              </TabsTrigger>
+            )}
+            {isSiteAdmin && (
+              <TabsTrigger value="boost" className="flex items-center gap-2">
+                <Trophy className="w-4 h-4" />
+                Boost Results
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="tenants" className="space-y-4">
-            <div className="flex justify-end">
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Tenant
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Tenant</DialogTitle>
-                    <DialogDescription>
-                      Enter a name for the new tenant. A unique URL will be generated automatically.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-4">
-                    <Input
-                      placeholder="Tenant name (e.g., Company Name)"
-                      value={newTenantName}
-                      onChange={(e) => setNewTenantName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleCreateTenant()}
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                      Cancel
+            {isSiteAdmin && (
+              <div className="flex justify-end">
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Tenant
                     </Button>
-                    <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantName.trim()}>
-                      {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Tenant</DialogTitle>
+                      <DialogDescription>
+                        Enter a name for the new tenant. A unique URL will be generated automatically.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <Input
+                        placeholder="Tenant name (e.g., Company Name)"
+                        value={newTenantName}
+                        onChange={(e) => setNewTenantName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCreateTenant()}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantName.trim()}>
+                        {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
 
             <div className="grid gap-4">
           {tenants.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No tenants yet. Create your first tenant to get started.</p>
+                <p className="text-muted-foreground">
+                  {isSiteAdmin 
+                    ? 'No tenants yet. Create your first tenant to get started.'
+                    : 'No tenants assigned to you. Contact a site admin for access.'}
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -593,19 +657,21 @@ const Admin = () => {
                         <ExternalLink className="w-4 h-4" />
                       </Button>
                       
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        title="Delete Tenant"
-                        onClick={() => {
-                          setTenantToDelete(tenant);
-                          setDeleteConfirmation('');
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {isSiteAdmin && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          title="Delete Tenant"
+                          onClick={() => {
+                            setTenantToDelete(tenant);
+                            setDeleteConfirmation('');
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -615,9 +681,17 @@ const Admin = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="boost">
-            <AdminBoostResults />
-          </TabsContent>
+          {isSiteAdmin && (
+            <TabsContent value="admins">
+              <AdminUsersManagement isSiteAdmin={isSiteAdmin} />
+            </TabsContent>
+          )}
+
+          {isSiteAdmin && (
+            <TabsContent value="boost">
+              <AdminBoostResults />
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Delete Confirmation Dialog */}
