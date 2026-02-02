@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Copy, Check, LogIn, Crown, Edit2, Trash2, LogOut, X, Globe, ChevronDown, ChevronUp, FlaskConical } from 'lucide-react';
+import { Plus, Users, Copy, Check, LogIn, Crown, Edit2, Trash2, LogOut, X, Globe, ChevronDown, ChevronUp, FlaskConical, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
@@ -296,7 +296,7 @@ const ExpandableLeagueCard = ({
                 </div>
               )}
               
-              {/* League Leaderboard - Scrollable, max 10 visible */}
+              {/* League Leaderboard - Scrollable with infinite scroll for dev mode */}
               {activeLeaderboardLoading ? (
                 <div className="p-6 text-center text-muted-foreground">{t('leaderboard.loading')}</div>
               ) : activeLeaderboard.length === 0 ? (
@@ -304,7 +304,18 @@ const ExpandableLeagueCard = ({
                   <p className="text-muted-foreground">{t('leaderboard.noPredictions')}</p>
                 </div>
               ) : (
-                <ScrollArea className="h-[220px] md:h-[440px] rounded-xl border border-border">
+                <ScrollArea 
+                  className="h-[220px] md:h-[440px] rounded-xl border border-border"
+                  onScrollCapture={(e) => {
+                    if (!isDevMode || !isEveryone) return;
+                    const target = e.target as HTMLDivElement;
+                    const { scrollTop, scrollHeight, clientHeight } = target;
+                    // Load more when user is within 200px of bottom
+                    if (scrollHeight - scrollTop - clientHeight < 200 && loadTestData.hasMore && !loadTestData.loadingMore) {
+                      loadTestData.loadMore();
+                    }
+                  }}
+                >
                   <div className="divide-y divide-border">
                     {activeLeaderboard.map((entry, index) => {
                       // In dev mode for Everyone, match by simulated user ID; otherwise match by real user ID
@@ -359,8 +370,47 @@ const ExpandableLeagueCard = ({
                         </div>
                       );
                     })}
+                    
+                    {/* Loading more indicator for dev mode */}
+                    {isDevMode && isEveryone && loadTestData.loadingMore && (
+                      <div className="p-3 flex justify-center">
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                    
+                    {/* End of list indicator */}
+                    {isDevMode && isEveryone && !loadTestData.hasMore && activeLeaderboard.length > 50 && (
+                      <div className="p-3 text-center text-xs text-muted-foreground">
+                        {t('leaderboard.endOfList', { count: activeLeaderboard.length })}
+                      </div>
+                    )}
                   </div>
                 </ScrollArea>
+              )}
+              
+              {/* Pinned "Your Position" card for dev mode when user not visible */}
+              {isDevMode && isEveryone && devModeCurrentUser && !activeLeaderboard.some(e => e.userId === devModeCurrentUser.userId) && (
+                <div className="bg-card/95 backdrop-blur-sm rounded-xl border border-primary/20 overflow-hidden">
+                  <div className="flex items-center gap-3 p-3">
+                    <div className="flex-shrink-0 w-8 flex justify-center">
+                      {getRankDisplay(devModeCurrentUser.rank)}
+                    </div>
+                    <div className="text-2xl">{devModeCurrentUser.avatarEmoji}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground truncate text-sm">
+                        {devModeCurrentUser.displayName}
+                        <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {devModeCurrentUser.totalPredictions} {devModeCurrentUser.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base font-bold text-foreground">{devModeCurrentUser.points}</p>
+                      <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
+                    </div>
+                  </div>
+                </div>
               )}
               
               {/* Scoring system explanation */}
