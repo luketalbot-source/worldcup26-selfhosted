@@ -1,11 +1,12 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Trophy, LogIn, Loader2 } from 'lucide-react';
+import { Trophy, LogIn, Loader2, FlaskConical } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { usePaginatedLeaderboard, LeaderboardEntry } from '@/hooks/usePaginatedLeaderboard';
-import { useNavigate } from 'react-router-dom';
+import { useLoadTestLeaderboard } from '@/hooks/useLoadTestLeaderboard';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const getRankDisplay = (rank: number) => {
@@ -66,7 +67,23 @@ export const LeaderboardView = () => {
   const { user } = useAuth();
   const { tenantId, tenant } = useTenant();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
+  // Check for dev load test mode
+  const isLoadTestMode = searchParams.get('devLoadTest') === 'true';
+  
+  // Use load test hook when in dev mode
+  const loadTestData = useLoadTestLeaderboard({ pageSize: 50 });
+  
+  // Use real data hook for normal mode
+  const realData = usePaginatedLeaderboard({ 
+    tenantId, 
+    authMethod: tenant?.auth_method,
+    pageSize: 50,
+    currentUserId: user?.id,
+  });
+  
+  // Select which data source to use
   const { 
     entries, 
     currentUserEntry, 
@@ -74,12 +91,7 @@ export const LeaderboardView = () => {
     loadingMore, 
     hasMore, 
     loadMore 
-  } = usePaginatedLeaderboard({ 
-    tenantId, 
-    authMethod: tenant?.auth_method,
-    pageSize: 50,
-    currentUserId: user?.id,
-  });
+  } = isLoadTestMode ? loadTestData : realData;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const userRowRef = useRef<HTMLDivElement>(null);
@@ -133,7 +145,8 @@ export const LeaderboardView = () => {
     }
   }, [hasMore, loadingMore, loadMore]);
 
-  if (!user) {
+  // In load test mode, skip the login requirement
+  if (!user && !isLoadTestMode) {
     return (
       <div className="space-y-4 max-w-[700px] mx-auto">
         <motion.div
@@ -171,10 +184,18 @@ export const LeaderboardView = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
       >
-        <div className="gradient-hero px-4 py-6 text-center">
+        <div className="gradient-hero px-4 py-6 text-center relative">
+          {isLoadTestMode && (
+            <div className="absolute top-2 right-2 flex items-center gap-1 bg-yellow-500/20 text-yellow-200 text-xs px-2 py-1 rounded-full">
+              <FlaskConical className="w-3 h-3" />
+              <span>Dev Mode</span>
+            </div>
+          )}
           <Trophy className="w-12 h-12 text-white mx-auto mb-2" />
           <h2 className="text-xl font-bold text-white">{t('leaderboard.title')}</h2>
-          <p className="text-white/80 text-sm mt-1">{t('leaderboard.subtitle')}</p>
+          <p className="text-white/80 text-sm mt-1">
+            {isLoadTestMode ? `Testing with ${entries.length > 0 ? '1,000' : '0'} synthetic users` : t('leaderboard.subtitle')}
+          </p>
         </div>
         
         {loading ? (
@@ -193,7 +214,10 @@ export const LeaderboardView = () => {
           >
             <div className="divide-y divide-border">
               {entries.map((entry, index) => {
-                const isCurrentUser = entry.userId === user.id;
+                // In load test mode, match by simulated user ID; otherwise match by real user ID
+                const isCurrentUser = isLoadTestMode 
+                  ? currentUserEntry?.userId === entry.userId
+                  : entry.userId === user.id;
                 return (
                   <div 
                     key={entry.userId} 
