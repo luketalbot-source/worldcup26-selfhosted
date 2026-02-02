@@ -104,6 +104,34 @@ const ExpandableLeagueCard = ({
   // Get simulated current user for dev mode
   const devModeCurrentUser = isDevMode ? loadTestData.currentUserEntry : null;
   
+  // Track if user's row is visible in scroll area
+  const userRowRef = useRef<HTMLDivElement>(null);
+  const [userRowVisible, setUserRowVisible] = useState(false);
+  
+  // Check if user's row is in the current entries
+  const userInEntries = devModeCurrentUser && activeLeaderboard.some(e => e.userId === devModeCurrentUser.userId);
+  
+  // Intersection observer to detect when user's row becomes visible
+  useEffect(() => {
+    if (!isDevMode || !isEveryone || !userRowRef.current || !userInEntries) {
+      setUserRowVisible(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setUserRowVisible(entry.isIntersecting);
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(userRowRef.current);
+    return () => observer.disconnect();
+  }, [isDevMode, isEveryone, userInEntries, activeLeaderboard]);
+  
+  // Show pinned card when: dev mode + user exists + user row not visible
+  const showPinnedCard = isDevMode && isEveryone && devModeCurrentUser && !userRowVisible;
+  
   const [copied, setCopied] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
@@ -326,6 +354,7 @@ const ExpandableLeagueCard = ({
                       return (
                         <div
                           key={entry.userId}
+                          ref={isCurrentUser && isDevMode && isEveryone ? userRowRef : undefined}
                           className={`flex items-center gap-3 p-3 ${
                             isCurrentUser ? 'bg-primary/5' : ''
                           }`}
@@ -388,8 +417,8 @@ const ExpandableLeagueCard = ({
                 </ScrollArea>
               )}
               
-              {/* Pinned "Your Position" card for dev mode when user not visible */}
-              {isDevMode && isEveryone && devModeCurrentUser && !activeLeaderboard.some(e => e.userId === devModeCurrentUser.userId) && (
+              {/* Pinned "Your Position" card - shows when user row not visible */}
+              {showPinnedCard && devModeCurrentUser && (
                 <div className="bg-card/95 backdrop-blur-sm rounded-xl border border-primary/20 overflow-hidden">
                   <div className="flex items-center gap-3 p-3">
                     <div className="flex-shrink-0 w-8 flex justify-center">
