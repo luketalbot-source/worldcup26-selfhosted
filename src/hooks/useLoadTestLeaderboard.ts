@@ -9,6 +9,7 @@ const SIMULATED_USER_RANK = 500; // Simulate being ranked 500th
 
 interface UseLoadTestLeaderboardOptions {
   pageSize?: number;
+  enabled?: boolean;
 }
 
 interface UseLoadTestLeaderboardResult {
@@ -24,6 +25,7 @@ interface UseLoadTestLeaderboardResult {
 
 export const useLoadTestLeaderboard = ({
   pageSize = 50,
+  enabled = true,
 }: UseLoadTestLeaderboardOptions = {}): UseLoadTestLeaderboardResult => {
   const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -144,10 +146,10 @@ export const useLoadTestLeaderboard = ({
   }, [pageSize]);
 
   useEffect(() => {
-    if (!fetchedRef.current) {
+    if (!fetchedRef.current && enabled) {
       fetchLeaderboard();
     }
-  }, [fetchLeaderboard]);
+  }, [fetchLeaderboard, enabled]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || displayedCount >= allEntries.length) return;
