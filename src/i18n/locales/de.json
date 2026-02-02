@@ -120,7 +120,8 @@
     "exactScore": "Exaktes Ergebnis",
     "correctWinner": "Richtiger Sieger",
     "wrong": "Falsch",
-    "pointsPerType": "Punkte pro Tipp-Typ"
+    "pointsPerType": "Punkte pro Tipp-Typ",
+    "endOfList": "Alle {{count}} Spieler angezeigt"
   },
   "auth": {
     "title": "Gib deinen Benutzernamen ein",

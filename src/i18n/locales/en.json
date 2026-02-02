@@ -76,7 +76,8 @@
     "exactScore": "Exact Score",
     "correctWinner": "Correct Winner",
     "wrong": "Wrong",
-    "pointsPerType": "Points per prediction type"
+    "pointsPerType": "Points per prediction type",
+    "endOfList": "All {{count}} players shown"
   },
   "auth": {
     "title": "Welcome",

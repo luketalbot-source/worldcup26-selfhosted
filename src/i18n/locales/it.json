@@ -120,7 +120,8 @@
     "exactScore": "Punteggio Esatto",
     "correctWinner": "Vincitore Corretto",
     "wrong": "Sbagliato",
-    "pointsPerType": "Punti per tipo di pronostico"
+    "pointsPerType": "Punti per tipo di pronostico",
+    "endOfList": "Tutti i {{count}} giocatori mostrati"
   },
   "auth": {
     "title": "Inserisci il tuo Nome Utente",

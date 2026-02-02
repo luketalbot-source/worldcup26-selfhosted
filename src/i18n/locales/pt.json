@@ -120,7 +120,8 @@
     "exactScore": "Placar Exato",
     "correctWinner": "Vencedor Correto",
     "wrong": "Errado",
-    "pointsPerType": "Pontos por tipo de palpite"
+    "pointsPerType": "Pontos por tipo de palpite",
+    "endOfList": "Todos os {{count}} jogadores exibidos"
   },
   "auth": {
     "title": "Digite seu Nome de Usuário",
