@@ -311,6 +311,79 @@ export type Database = {
         }
         Relationships: []
       }
+      load_test_predictions: {
+        Row: {
+          away_score: number | null
+          created_at: string | null
+          home_score: number | null
+          id: string
+          match_id: string
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          away_score?: number | null
+          created_at?: string | null
+          home_score?: number | null
+          id?: string
+          match_id: string
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          away_score?: number | null
+          created_at?: string | null
+          home_score?: number | null
+          id?: string
+          match_id?: string
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_test_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_test_profiles: {
+        Row: {
+          avatar_emoji: string | null
+          created_at: string | null
+          display_name: string
+          id: string
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_emoji?: string | null
+          created_at?: string | null
+          display_name: string
+          id?: string
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_emoji?: string | null
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_test_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oidc_identities: {
         Row: {
           created_at: string
