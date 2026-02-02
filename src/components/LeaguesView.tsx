@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Copy, Check, LogIn, Crown, Edit2, Trash2, LogOut, X, Globe, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Users, Copy, Check, LogIn, Crown, Edit2, Trash2, LogOut, X, Globe, ChevronDown, ChevronUp, FlaskConical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useLeagues, League } from '@/hooks/useLeagues';
 import { useLeagueLeaderboard } from '@/hooks/useLeagueLeaderboard';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
-import { useNavigate } from 'react-router-dom';
+import { useLoadTestLeaderboard } from '@/hooks/useLoadTestLeaderboard';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -63,11 +64,13 @@ const ExpandableLeagueCard = ({
   isExpanded, 
   onToggle,
   isEveryone = false,
+  isDevMode = false,
 }: { 
   league: League; 
   isExpanded: boolean; 
   onToggle: () => void;
   isEveryone?: boolean;
+  isDevMode?: boolean;
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -80,12 +83,26 @@ const ExpandableLeagueCard = ({
     tenantId
   );
   
+  // Use load test data for Everyone league in dev mode
+  const loadTestData = useLoadTestLeaderboard({ 
+    pageSize: 50,
+    enabled: isDevMode && isEveryone && isExpanded,
+  });
+  
   const { leaderboard: globalLeaderboard, loading: globalLeaderboardLoading } = useLeaderboard(
-    isEveryone && isExpanded ? { tenantId, authMethod: tenant?.auth_method } : null
+    isEveryone && isExpanded && !isDevMode ? { tenantId, authMethod: tenant?.auth_method } : null
   );
   
-  const activeLeaderboard = isEveryone ? globalLeaderboard : leagueLeaderboard;
-  const activeLeaderboardLoading = isEveryone ? globalLeaderboardLoading : leaderboardLoading;
+  // Select data source based on dev mode
+  const activeLeaderboard = isEveryone 
+    ? (isDevMode ? loadTestData.entries : globalLeaderboard) 
+    : leagueLeaderboard;
+  const activeLeaderboardLoading = isEveryone 
+    ? (isDevMode ? loadTestData.loading : globalLeaderboardLoading) 
+    : leaderboardLoading;
+  
+  // Get simulated current user for dev mode
+  const devModeCurrentUser = isDevMode ? loadTestData.currentUserEntry : null;
   
   const [copied, setCopied] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -208,12 +225,20 @@ const ExpandableLeagueCard = ({
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold truncate">
-              {isEveryone ? t('leagues.everyone') : league.name}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold truncate">
+                {isEveryone ? t('leagues.everyone') : league.name}
+              </h3>
+              {isEveryone && isDevMode && (
+                <span className="flex items-center gap-1 bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 text-xs px-2 py-0.5 rounded-full">
+                  <FlaskConical className="w-3 h-3" />
+                  Dev
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {isEveryone 
-                ? t('leagues.everyoneSubtitle')
+                ? (isDevMode ? 'Testing with 1,000 synthetic users' : t('leagues.everyoneSubtitle'))
                 : `${league.member_count || 0} ${(league.member_count || 0) === 1 ? t('leagues.member') : t('leagues.members')}`
               }
             </p>
@@ -281,52 +306,59 @@ const ExpandableLeagueCard = ({
               ) : (
                 <ScrollArea className="h-[220px] md:h-[440px] rounded-xl border border-border">
                   <div className="divide-y divide-border">
-                    {activeLeaderboard.map((entry, index) => (
-                      <div
-                        key={entry.userId}
-                        className={`flex items-center gap-3 p-3 ${
-                          entry.userId === user?.id ? 'bg-primary/5' : ''
-                        }`}
-                      >
-                        <div className="flex-shrink-0 w-8 flex justify-center">
-                          {getRankDisplay(entry.rank)}
-                        </div>
-                        <div className="text-2xl">{entry.avatarEmoji}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-foreground truncate text-sm">
-                            {entry.displayName}
-                            {entry.userId === user?.id && (
-                              <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {entry.totalPredictions} {entry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {'isCreator' in entry && entry.isCreator && (
-                            <Crown className="w-4 h-4 text-fifa-gold" />
-                          )}
-                          <div className="text-right">
-                            <p className="text-base font-bold text-foreground">{entry.points}</p>
-                            <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
+                    {activeLeaderboard.map((entry, index) => {
+                      // In dev mode for Everyone, match by simulated user ID; otherwise match by real user ID
+                      const isCurrentUser = isDevMode && isEveryone && devModeCurrentUser
+                        ? devModeCurrentUser.userId === entry.userId
+                        : entry.userId === user?.id;
+                      
+                      return (
+                        <div
+                          key={entry.userId}
+                          className={`flex items-center gap-3 p-3 ${
+                            isCurrentUser ? 'bg-primary/5' : ''
+                          }`}
+                        >
+                          <div className="flex-shrink-0 w-8 flex justify-center">
+                            {getRankDisplay(entry.rank)}
                           </div>
-                          {/* Remove button - only for creator, not for self */}
-                          {!isEveryone && isCreator && entry.userId !== user?.id && !('isCreator' in entry && entry.isCreator) && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openRemoveMemberDialog(entry.userId, entry.displayName);
-                              }}
-                              className="ml-1 p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
-                              title={t('leagues.removeMember')}
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
+                          <div className="text-2xl">{entry.avatarEmoji}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-foreground truncate text-sm">
+                              {entry.displayName}
+                              {isCurrentUser && (
+                                <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {entry.totalPredictions} {entry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {'isCreator' in entry && entry.isCreator && (
+                              <Crown className="w-4 h-4 text-fifa-gold" />
+                            )}
+                            <div className="text-right">
+                              <p className="text-base font-bold text-foreground">{entry.points}</p>
+                              <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
+                            </div>
+                            {/* Remove button - only for creator, not for self */}
+                            {!isEveryone && isCreator && entry.userId !== user?.id && !('isCreator' in entry && entry.isCreator) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openRemoveMemberDialog(entry.userId, entry.displayName);
+                                }}
+                                className="ml-1 p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                                title={t('leagues.removeMember')}
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               )}
@@ -500,7 +532,11 @@ export const LeaguesView = () => {
   const { user } = useAuth();
   const { tenantId } = useTenant();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { leagues, loading, createLeague, joinLeague, refetch } = useLeagues(tenantId);
+  
+  // Check for dev load test mode
+  const isDevMode = searchParams.get('devLoadTest') === 'true';
   
   const [expandedLeagueId, setExpandedLeagueId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -657,6 +693,7 @@ export const LeaguesView = () => {
             isExpanded={expandedLeagueId === EVERYONE_LEAGUE_ID}
             onToggle={() => toggleLeague(EVERYONE_LEAGUE_ID)}
             isEveryone
+            isDevMode={isDevMode}
           />
           
           {/* User's leagues */}
