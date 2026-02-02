@@ -1,10 +1,12 @@
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Trophy, LogIn } from 'lucide-react';
+import { Trophy, LogIn, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
-import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { usePaginatedLeaderboard, LeaderboardEntry } from '@/hooks/usePaginatedLeaderboard';
 import { useNavigate } from 'react-router-dom';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const getRankDisplay = (rank: number) => {
   switch (rank) {
@@ -19,12 +21,117 @@ const getRankDisplay = (rank: number) => {
   }
 };
 
+interface LeaderboardRowProps {
+  entry: LeaderboardEntry;
+  isCurrentUser: boolean;
+  index: number;
+  skipAnimation?: boolean;
+}
+
+const LeaderboardRow = ({ entry, isCurrentUser, index, skipAnimation }: LeaderboardRowProps) => {
+  const { t } = useTranslation();
+  
+  return (
+    <motion.div
+      initial={skipAnimation ? false : { opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: skipAnimation ? 0 : Math.min(index * 0.02, 0.5) }}
+      className={`flex items-center gap-4 p-4 ${isCurrentUser ? 'bg-primary/5' : ''}`}
+    >
+      <div className="flex-shrink-0 w-8 flex justify-center">
+        {getRankDisplay(entry.rank)}
+      </div>
+      <div className="text-2xl">{entry.avatarEmoji}</div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-foreground truncate">
+          {entry.displayName}
+          {isCurrentUser && (
+            <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
+          )}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {entry.totalPredictions} {entry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="text-lg font-bold text-foreground">{entry.points}</p>
+        <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
+      </div>
+    </motion.div>
+  );
+};
+
 export const LeaderboardView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { tenantId, tenant } = useTenant();
-  const { leaderboard, loading } = useLeaderboard({ tenantId, authMethod: tenant?.auth_method });
   const navigate = useNavigate();
+  
+  const { 
+    entries, 
+    currentUserEntry, 
+    loading, 
+    loadingMore, 
+    hasMore, 
+    loadMore 
+  } = usePaginatedLeaderboard({ 
+    tenantId, 
+    authMethod: tenant?.auth_method,
+    pageSize: 50,
+    currentUserId: user?.id,
+  });
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const userRowRef = useRef<HTMLDivElement>(null);
+  const [showPinnedPosition, setShowPinnedPosition] = useState(false);
+  const [userIsVisible, setUserIsVisible] = useState(false);
+
+  // Check if user's actual row is in the displayed entries
+  const userInDisplayedEntries = currentUserEntry && entries.some(e => e.userId === currentUserEntry.userId);
+  
+  // Determine if pinned card should show
+  useEffect(() => {
+    if (!currentUserEntry) {
+      setShowPinnedPosition(false);
+      return;
+    }
+    
+    // Show pinned if user exists but isn't visible yet
+    if (!userIsVisible && currentUserEntry.rank > 0) {
+      setShowPinnedPosition(true);
+    } else {
+      setShowPinnedPosition(false);
+    }
+  }, [currentUserEntry, userIsVisible]);
+
+  // Intersection observer to detect when user's row becomes visible
+  useEffect(() => {
+    if (!userRowRef.current || !userInDisplayedEntries) {
+      setUserIsVisible(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setUserIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(userRowRef.current);
+    return () => observer.disconnect();
+  }, [userInDisplayedEntries, entries]);
+
+  // Infinite scroll handler
+  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLDivElement;
+    const { scrollTop, scrollHeight, clientHeight } = target;
+    
+    // Load more when user is within 200px of bottom
+    if (scrollHeight - scrollTop - clientHeight < 200 && hasMore && !loadingMore) {
+      loadMore();
+    }
+  }, [hasMore, loadingMore, loadMore]);
 
   if (!user) {
     return (
@@ -58,7 +165,7 @@ export const LeaderboardView = () => {
   }
 
   return (
-    <div className="space-y-4 max-w-[700px] mx-auto">
+    <div className="space-y-4 max-w-[700px] mx-auto relative">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -72,46 +179,51 @@ export const LeaderboardView = () => {
         
         {loading ? (
           <div className="p-6 text-center text-muted-foreground">{t('leaderboard.loading')}</div>
-        ) : leaderboard.length === 0 ? (
+        ) : entries.length === 0 ? (
           <div className="p-6 text-center">
             <p className="text-muted-foreground">
               {t('leaderboard.noPredictions')}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {leaderboard.map((entry, index) => (
-              <motion.div
-                key={entry.userId}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className={`flex items-center gap-4 p-4 ${
-                  entry.userId === user.id ? 'bg-primary/5' : ''
-                }`}
-              >
-                <div className="flex-shrink-0 w-8 flex justify-center">
-                  {getRankDisplay(entry.rank)}
+          <ScrollArea 
+            className="h-[400px] md:h-[500px]" 
+            ref={scrollRef}
+            onScrollCapture={handleScroll}
+          >
+            <div className="divide-y divide-border">
+              {entries.map((entry, index) => {
+                const isCurrentUser = entry.userId === user.id;
+                return (
+                  <div 
+                    key={entry.userId} 
+                    ref={isCurrentUser ? userRowRef : undefined}
+                  >
+                    <LeaderboardRow 
+                      entry={entry} 
+                      isCurrentUser={isCurrentUser} 
+                      index={index}
+                      skipAnimation={index >= 50}
+                    />
+                  </div>
+                );
+              })}
+              
+              {/* Loading more indicator */}
+              {loadingMore && (
+                <div className="p-4 flex justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-                <div className="text-2xl">{entry.avatarEmoji}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground truncate">
-                    {entry.displayName}
-                    {entry.userId === user.id && (
-                      <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
-                    )}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {entry.totalPredictions} {entry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
-                  </p>
+              )}
+              
+              {/* End of list indicator */}
+              {!hasMore && entries.length > 50 && (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  {t('leaderboard.endOfList', { count: entries.length })}
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-foreground">{entry.points}</p>
-                  <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+              )}
+            </div>
+          </ScrollArea>
         )}
         
         <div className="p-4 bg-muted/30 border-t border-border">
@@ -134,6 +246,38 @@ export const LeaderboardView = () => {
           </p>
         </div>
       </motion.div>
+
+      {/* Pinned "Your Position" card */}
+      {showPinnedPosition && currentUserEntry && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-[668px]"
+        >
+          <div className="bg-card/95 backdrop-blur-sm rounded-xl shadow-lg border border-primary/20 overflow-hidden">
+            <div className="flex items-center gap-4 p-3">
+              <div className="flex-shrink-0 w-8 flex justify-center">
+                {getRankDisplay(currentUserEntry.rank)}
+              </div>
+              <div className="text-2xl">{currentUserEntry.avatarEmoji}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-foreground truncate">
+                  {currentUserEntry.displayName}
+                  <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {currentUserEntry.totalPredictions} {currentUserEntry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-foreground">{currentUserEntry.points}</p>
+                <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };

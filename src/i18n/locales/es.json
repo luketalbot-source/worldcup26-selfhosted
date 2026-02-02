@@ -120,7 +120,8 @@
     "exactScore": "Resultado Exacto",
     "correctWinner": "Ganador Correcto",
     "wrong": "Incorrecto",
-    "pointsPerType": "Puntos por tipo de predicción"
+    "pointsPerType": "Puntos por tipo de predicción",
+    "endOfList": "Mostrando los {{count}} jugadores"
   },
   "auth": {
     "title": "Ingresa tu Nombre de Usuario",
