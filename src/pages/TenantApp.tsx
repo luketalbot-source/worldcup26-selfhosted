@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
 import { BoostView } from '@/components/BoostView';
@@ -17,8 +17,12 @@ const TenantApp = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { tenantUid } = useParams();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading, signOut } = useAuth();
   const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
+  
+  // Check for dev load test mode - bypasses auth requirement
+  const isDevMode = searchParams.get('devLoadTest') === 'true';
 
   // Iframe auth support - handle postMessage tokens and user changes
   useIframeAuth({
@@ -95,12 +99,12 @@ const TenantApp = () => {
     checkUserTenant();
   }, [user, tenantId, tenant, authLoading, tenantLoading, signOut]);
 
-  // Redirect to auth page if not logged in
+  // Redirect to auth page if not logged in (skip in dev mode)
   useEffect(() => {
-    if (!authLoading && !checkingTenantMatch && !user && tenantUid) {
+    if (!authLoading && !checkingTenantMatch && !user && tenantUid && !isDevMode) {
       navigate(`/t/${tenantUid}/auth`, { replace: true });
     }
-  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid]);
+  }, [user, authLoading, checkingTenantMatch, navigate, tenantUid, isDevMode]);
 
   // Handle navigation state (e.g., from header profile click)
   useEffect(() => {
@@ -131,8 +135,8 @@ const TenantApp = () => {
     );
   }
 
-  // Show nothing while redirecting
-  if (!user) {
+  // Show nothing while redirecting (unless in dev mode)
+  if (!user && !isDevMode) {
     return null;
   }
 
