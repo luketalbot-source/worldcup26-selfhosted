@@ -54,8 +54,6 @@ ${description ? `Description: ${description}` : 'Description: null'}
 Return format:
 {"title": "translated title", "description": "translated description or null"}`;
 
-    console.log(`Translating from ${sourceLanguage} to ${targetLanguage}:`, { title, description });
-
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -75,14 +73,11 @@ Return format:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", errorText);
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
-    
-    console.log("AI response:", content);
 
     // Parse the JSON response
     let translated = { title, description };
@@ -93,7 +88,6 @@ Return format:
         translated = JSON.parse(jsonMatch[0]);
       }
     } catch (parseErr) {
-      console.error("Failed to parse translation response:", parseErr);
       // Return original if parsing fails
     }
 
@@ -102,7 +96,6 @@ Return format:
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
-    console.error("Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: errorMessage }),

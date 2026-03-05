@@ -46,7 +46,6 @@ export const useLoadTestLeaderboard = ({
       .eq('tenant_id', LOAD_TEST_TENANT_ID);
 
     if (profilesError) {
-      console.error('Error fetching load test profiles:', profilesError);
       setLoading(false);
       return;
     }
@@ -68,7 +67,7 @@ export const useLoadTestLeaderboard = ({
       .eq('tenant_id', LOAD_TEST_TENANT_ID);
 
     if (predictionsError) {
-      console.error('Error fetching load test predictions:', predictionsError);
+      // Error handled silently
     }
 
     // Fetch finished matches for scoring

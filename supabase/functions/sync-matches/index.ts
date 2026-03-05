@@ -58,8 +58,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Fetching matches from Football-Data.org...');
-
     // Fetch matches from Football-Data.org
     const response = await fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
       headers: {
@@ -69,8 +67,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Football API error:', response.status, errorText);
-      
+
       // If competition not found (WC 2026 might not be available yet), return demo data
       if (response.status === 404) {
         return new Response(
@@ -88,8 +85,6 @@ serve(async (req) => {
 
     const data = await response.json();
     const matches: FootballDataMatch[] = data.matches || [];
-
-    console.log(`Received ${matches.length} matches from API`);
 
     // Process and upsert matches
     let updatedCount = 0;
@@ -118,13 +113,11 @@ serve(async (req) => {
         });
 
       if (error) {
-        console.error('Error upserting match:', matchId, error);
+        // Error handled silently
       } else {
         updatedCount++;
       }
     }
-
-    console.log(`Successfully updated ${updatedCount} matches`);
 
     return new Response(
       JSON.stringify({ 
@@ -136,7 +129,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in sync-matches:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: message }),

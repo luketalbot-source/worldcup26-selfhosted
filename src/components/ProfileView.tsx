@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Target, CheckCircle, XCircle, TrendingUp, LogOut, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor, Phone, Loader2, Rocket } from 'lucide-react';
+import { User, Target, CheckCircle, XCircle, TrendingUp, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor, Rocket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,44 +10,22 @@ import { useUserStats } from '@/hooks/useUserStats';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PhoneInput } from '@/components/PhoneInput';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { EmojiPicker } from '@/components/EmojiPicker';
-
-const languages = [
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'es', name: 'Español', flag: '🇪🇸' },
-  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
-  { code: 'fr', name: 'Français', flag: '🇫🇷' },
-  { code: 'pt', name: 'Português', flag: '🇧🇷' },
-  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
-];
+import { languages } from '@/lib/constants';
 
 export const ProfileView = () => {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const { user, signOut, sendOtp, verifyOtp } = useAuth();
-  const { tenant, tenantId } = useTenant();
-  const isSSO = tenant?.auth_method === 'oidc';
-  const { profile, updateProfile, updatePhoneNumber } = useProfile(user?.id);
+  const { user } = useAuth();
+  const { tenantId } = useTenant();
+  const { profile, updateProfile } = useProfile(user?.id);
   const { stats } = useUserStats(user?.id, tenantId);
   const navigate = useNavigate();
   const { tenantUid } = useParams();
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
-  
-  // Phone editing state
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [editPhone, setEditPhone] = useState('');
-  const [phoneStep, setPhoneStep] = useState<'input' | 'verify'>('input');
-  const [otpCode, setOtpCode] = useState('');
-  const [phoneLoading, setPhoneLoading] = useState(false);
-  const [phoneError, setPhoneError] = useState('');
-  const phoneVerifyInFlightRef = useRef(false);
-  
-  const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
   const handleEdit = () => {
     setEditName(profile?.displayName || '');
@@ -59,98 +37,11 @@ export const ProfileView = () => {
     if (!editName.trim()) {
       return;
     }
-    
+
     const { error } = await updateProfile(editName, editAvatar) || {};
     if (!error) {
       setIsEditing(false);
     }
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    if (tenantUid) {
-      navigate(`/t/${tenantUid}/auth`, { replace: true });
-    } else {
-      navigate('/');
-    }
-  };
-
-  const handleEditPhone = () => {
-    setEditPhone(profile?.phoneNumber || '');
-    setPhoneStep('input');
-    setOtpCode('');
-    setPhoneError('');
-    setIsEditingPhone(true);
-  };
-
-  const handleSendPhoneOtp = async () => {
-    if (!editPhone.trim()) return;
-    
-    const phoneRegex = /^\+[1-9]\d{6,14}$/;
-    if (!phoneRegex.test(editPhone)) {
-      setPhoneError(t('auth.validation.phoneFormat'));
-      return;
-    }
-
-    setPhoneLoading(true);
-    setPhoneError('');
-
-    try {
-      const { error } = await sendOtp(editPhone);
-      if (error) {
-        setPhoneError(error.message);
-      } else {
-        setPhoneStep('verify');
-      }
-    } catch (err) {
-      setPhoneError(t('auth.unexpectedError'));
-    } finally {
-      setPhoneLoading(false);
-    }
-  };
-
-  const handleVerifyPhoneOtp = async () => {
-    if (otpCode.length !== 6) return;
-    if (phoneVerifyInFlightRef.current) return;
-    phoneVerifyInFlightRef.current = true;
-
-    setPhoneLoading(true);
-    setPhoneError('');
-
-    try {
-      // Verify the OTP code
-      const { error: verifyError } = await verifyOtp(editPhone, otpCode);
-      if (verifyError) {
-        setPhoneError(verifyError.message);
-        setOtpCode('');
-        return;
-      }
-
-      // Update the phone number in the profile
-      const { error: updateError } = await updatePhoneNumber(editPhone) || {};
-      if (updateError) {
-        setPhoneError(updateError.message || 'Failed to update phone number');
-      } else {
-        setIsEditingPhone(false);
-        setPhoneStep('input');
-        setOtpCode('');
-      }
-    } catch (err) {
-      setPhoneError(t('auth.unexpectedError'));
-      setOtpCode('');
-    } finally {
-      setPhoneLoading(false);
-      phoneVerifyInFlightRef.current = false;
-    }
-  };
-
-  const handleCancelPhoneEdit = () => {
-    setIsEditingPhone(false);
-    setPhoneStep('input');
-    setEditPhone('');
-    setOtpCode('');
-    setPhoneError('');
-    phoneVerifyInFlightRef.current = false;
   };
 
   if (!user) {
@@ -168,7 +59,7 @@ export const ProfileView = () => {
             <h2 className="text-xl font-bold text-white">{t('profile.guest')}</h2>
             <p className="text-white/70 text-sm mt-1">{t('profile.guestSubtitle')}</p>
           </div>
-          
+
           <div className="p-6 text-center">
             <p className="text-muted-foreground mb-4">
               {t('profile.guestPrompt')}
@@ -185,7 +76,7 @@ export const ProfileView = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-4 max-w-[700px] mx-auto">
       {/* Profile Header */}
@@ -203,12 +94,12 @@ export const ProfileView = () => {
               <Edit2 className="w-4 h-4 text-white" />
             </button>
           )}
-          
+
           {isEditing ? (
             <div className="space-y-4">
               <p className="text-white/80 text-sm">{t('profile.edit.updateInGameName')}</p>
               <EmojiPicker value={editAvatar} onChange={setEditAvatar} />
-              
+
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
@@ -233,7 +124,7 @@ export const ProfileView = () => {
             </>
           )}
         </div>
-        
+
         <div className="p-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-muted rounded-xl p-4 text-center">
@@ -258,7 +149,7 @@ export const ProfileView = () => {
         className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
       >
         <h3 className="font-semibold text-foreground mb-4">{t('profile.yourStats')}</h3>
-        
+
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
@@ -267,7 +158,7 @@ export const ProfileView = () => {
             </div>
             <span className="font-semibold text-foreground">{stats.exactScores}</span>
           </div>
-          
+
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 text-fifa-green" />
@@ -275,7 +166,7 @@ export const ProfileView = () => {
             </div>
             <span className="font-semibold text-foreground">{stats.correctResults}</span>
           </div>
-          
+
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <div className="flex items-center gap-3">
               <XCircle className="w-5 h-5 text-destructive" />
@@ -291,118 +182,20 @@ export const ProfileView = () => {
             </div>
             <span className="font-semibold text-foreground">{stats.boostPoints}</span>
           </div>
-          
+
           <div className="flex items-center justify-between py-2">
             <div className="flex items-center gap-3">
               <Target className="w-5 h-5 text-primary" />
               <span className="text-sm text-foreground">{t('profile.accuracy')}</span>
             </div>
             <span className="font-semibold text-foreground">
-              {stats.exactScores + stats.correctResults + stats.wrongResults > 0 
-                ? `${stats.accuracy}%` 
+              {stats.exactScores + stats.correctResults + stats.wrongResults > 0
+                ? `${stats.accuracy}%`
                 : '--'}
             </span>
           </div>
         </div>
       </motion.div>
-
-      {/* Phone Number Card - Only show for OTP users */}
-      {!isSSO && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">{t('profile.phoneNumber', 'Phone Number')}</h3>
-            {!isEditingPhone && (
-              <button
-                onClick={handleEditPhone}
-                className="text-sm text-primary hover:underline"
-              >
-                {profile?.phoneNumber ? t('profile.edit.change', 'Change') : t('profile.edit.add', 'Add')}
-              </button>
-            )}
-          </div>
-
-          {isEditingPhone ? (
-            <div className="space-y-4">
-              {phoneStep === 'input' ? (
-                <>
-                  <div className="space-y-2">
-                    <PhoneInput
-                      value={editPhone}
-                      onChange={setEditPhone}
-                    />
-                  </div>
-                  {phoneError && (
-                    <p className="text-sm text-destructive">{phoneError}</p>
-                  )}
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleCancelPhoneEdit}>
-                      {t('profile.edit.cancel')}
-                    </Button>
-                    <Button size="sm" onClick={handleSendPhoneOtp} disabled={phoneLoading || !editPhone.trim()}>
-                      {phoneLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        t('auth.sendCode')
-                      )}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-center mb-4">
-                    <p className="text-sm text-muted-foreground">{t('auth.codeSentTo')}</p>
-                    <p className="font-medium">{editPhone}</p>
-                  </div>
-                  <div className="flex justify-center mb-4">
-                    <InputOTP
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(value) => setOtpCode(value)}
-                      onComplete={handleVerifyPhoneOtp}
-                    >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                  {phoneError && (
-                    <p className="text-sm text-destructive text-center">{phoneError}</p>
-                  )}
-                  <div className="flex gap-2 justify-center">
-                    <Button variant="outline" size="sm" onClick={() => setPhoneStep('input')}>
-                      {t('common.back')}
-                    </Button>
-                    <Button size="sm" onClick={handleVerifyPhoneOtp} disabled={phoneLoading || otpCode.length !== 6}>
-                      {phoneLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        t('auth.verify')
-                      )}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-muted-foreground" />
-              <span className="text-sm text-foreground">
-                {profile?.phoneNumber || t('profile.noPhone', 'Not set')}
-              </span>
-            </div>
-          )}
-        </motion.div>
-      )}
 
       {/* Settings Card */}
       <motion.div
@@ -412,7 +205,7 @@ export const ProfileView = () => {
         className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
       >
         <h3 className="font-semibold text-foreground mb-4">{t('profile.settings')}</h3>
-        
+
         <div className="space-y-4">
           {/* Language Setting */}
           <div className="flex items-center justify-between">
@@ -426,8 +219,8 @@ export const ProfileView = () => {
                   key={lang.code}
                   onClick={() => i18n.changeLanguage(lang.code)}
                   className={`px-2 py-1 rounded-lg text-lg transition-colors ${
-                    i18n.language === lang.code 
-                      ? 'bg-primary/20 ring-1 ring-primary' 
+                    i18n.language === lang.code
+                      ? 'bg-primary/20 ring-1 ring-primary'
                       : 'hover:bg-muted'
                   }`}
                   title={lang.name}
@@ -437,7 +230,7 @@ export const ProfileView = () => {
               ))}
             </div>
           </div>
-          
+
           {/* Theme Setting */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -482,20 +275,6 @@ export const ProfileView = () => {
           </div>
         </div>
       </motion.div>
-
-      {/* Sign Out - Hide for SSO users */}
-      {!isSSO && (
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          {t('profile.signOut')}
-        </motion.button>
-      )}
     </div>
   );
 };

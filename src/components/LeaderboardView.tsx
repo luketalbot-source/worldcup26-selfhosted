@@ -76,9 +76,8 @@ export const LeaderboardView = () => {
   const loadTestData = useLoadTestLeaderboard({ pageSize: 50 });
   
   // Use real data hook for normal mode
-  const realData = usePaginatedLeaderboard({ 
-    tenantId, 
-    authMethod: tenant?.auth_method,
+  const realData = usePaginatedLeaderboard({
+    tenantId,
     pageSize: 50,
     currentUserId: user?.id,
   });

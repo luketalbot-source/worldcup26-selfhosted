@@ -30,14 +30,12 @@ const TenantApp = () => {
     tenantUid,
     onAuthSuccess: () => {
       // User authenticated via postMessage, no action needed - we're already on the app
-      console.log('[TenantApp] Auth success via postMessage');
     },
-    onAuthError: (err) => {
-      console.error('[TenantApp] Auth error via postMessage:', err);
+    onAuthError: () => {
+      // Error handled silently
     },
     onUserMismatch: () => {
       // User changed in parent, will need to re-auth
-      console.log('[TenantApp] User mismatch, redirecting to auth');
       navigate(`/t/${tenantUid}/auth`, { replace: true });
     },
   });
@@ -56,41 +54,23 @@ const TenantApp = () => {
       }
 
       try {
-        // For OIDC tenants, tenant membership is determined by an OIDC identity row,
-        // NOT by profiles.tenant_id (profiles are currently global/shared).
-        if (tenant.auth_method === 'oidc') {
-          const { data: identity, error } = await supabase
-            .from('oidc_identities')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('tenant_id', tenantId)
-            .maybeSingle();
-
-          if (error) {
-            console.error('Error checking OIDC identity:', error);
-          }
-
-          if (!identity) {
-            console.log('User has no OIDC identity for this tenant, signing out');
-            await signOut();
-          }
-
-          return;
-        }
-
-        // For OTP tenants, keep the existing profile-based check.
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('tenant_id')
+        // Tenant membership is determined by an OIDC identity row
+        const { data: identity, error } = await supabase
+          .from('oidc_identities')
+          .select('id')
           .eq('user_id', user.id)
+          .eq('tenant_id', tenantId)
           .maybeSingle();
 
-        if (profile && profile.tenant_id && profile.tenant_id !== tenantId) {
-          console.log('User belongs to different tenant, signing out');
+        if (error) {
+          // Error handled silently
+        }
+
+        if (!identity) {
           await signOut();
         }
-      } catch (err) {
-        console.error('Error checking user tenant:', err);
+      } catch {
+        // Error handled silently
       } finally {
         setCheckingTenantMatch(false);
       }

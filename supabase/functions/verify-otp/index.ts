@@ -39,7 +39,6 @@ serve(async (req) => {
       const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
       if (!claimsError && claimsData?.claims?.sub) {
         authenticatedUserId = claimsData.claims.sub as string;
-        console.log(`Authenticated user updating phone: ${authenticatedUserId}`);
       }
     }
 
@@ -54,7 +53,6 @@ serve(async (req) => {
       .maybeSingle();
 
     if (otpError) {
-      console.error('Error fetching OTP:', otpError);
       return new Response(
         JSON.stringify({ error: 'Failed to verify code' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -76,7 +74,6 @@ serve(async (req) => {
 
     // If user is already authenticated, they're just verifying their phone
     if (authenticatedUserId) {
-      console.log(`Phone verified for existing user: ${authenticatedUserId}`);
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -118,7 +115,6 @@ serve(async (req) => {
           
           if (roleData) {
             existingProfile = profile;
-            console.log(`Admin user found: ${profile.user_id}`);
             break;
           }
         }
@@ -136,7 +132,6 @@ serve(async (req) => {
     if (existingProfile) {
       // Existing user - just return their info
       userId = existingProfile.user_id;
-      console.log(`Existing user found: ${userId}`);
     } else {
       // New user - need username
       if (!username) {
@@ -162,7 +157,6 @@ serve(async (req) => {
       });
 
       if (authError) {
-        console.error('Error creating user:', authError);
         return new Response(
           JSON.stringify({ error: 'Failed to create account' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -183,7 +177,6 @@ serve(async (req) => {
         .update(updateData)
         .eq('user_id', userId);
 
-      console.log(`New user created: ${userId} for tenant: ${tenant_id}`);
     }
 
     // Get the user's email for signing in
@@ -203,7 +196,6 @@ serve(async (req) => {
     });
 
     if (linkError || !linkData) {
-      console.error('Error generating link:', linkError);
       return new Response(
         JSON.stringify({ error: 'Failed to authenticate' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -227,7 +219,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in verify-otp:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

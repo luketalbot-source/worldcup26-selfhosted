@@ -1,10 +1,9 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantProvider } from "@/contexts/TenantContext";
-import Landing from "./pages/Landing";
 import TenantApp from "./pages/TenantApp";
 import TenantAuth from "./pages/TenantAuth";
 import OIDCCallback from "./pages/OIDCCallback";
@@ -25,8 +24,8 @@ const App = () => (
         <TooltipProvider>
           <BrowserRouter>
             <Routes>
-              {/* Landing page */}
-              <Route path="/" element={<Landing />} />
+              {/* Redirect root to admin */}
+              <Route path="/" element={<Navigate to="/admin" replace />} />
               
               {/* Admin portal */}
               <Route path="/admin" element={<Admin />} />

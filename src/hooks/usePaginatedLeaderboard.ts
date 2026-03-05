@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { groupStageMatches } from '@/data/matches';
-import type { AuthMethod } from '@/contexts/TenantContext';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -15,7 +14,6 @@ export interface LeaderboardEntry {
 
 interface UsePaginatedLeaderboardOptions {
   tenantId: string | null;
-  authMethod?: AuthMethod;
   pageSize?: number;
   currentUserId?: string;
 }
@@ -33,7 +31,6 @@ interface UsePaginatedLeaderboardResult {
 
 export const usePaginatedLeaderboard = ({
   tenantId,
-  authMethod,
   pageSize = 50,
   currentUserId,
 }: UsePaginatedLeaderboardOptions): UsePaginatedLeaderboardResult => {
@@ -57,19 +54,10 @@ export const usePaginatedLeaderboard = ({
     setLoading(true);
     fetchedRef.current = true;
 
-    // Fetch profiles based on auth method
-    let profiles: { id: string; user_id: string; display_name: string; avatar_emoji: string }[] | null = null;
-    let profilesError: Error | null = null;
-
-    if (authMethod === 'oidc') {
-      const result = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenantId });
-      profiles = result.data;
-      profilesError = result.error;
-    } else {
-      const result = await supabase.rpc('get_tenant_profiles', { _tenant_id: tenantId });
-      profiles = result.data;
-      profilesError = result.error;
-    }
+    // Fetch profiles via OIDC identities
+    const result = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenantId });
+    const profiles = result.data;
+    const profilesError = result.error;
 
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);
@@ -214,13 +202,13 @@ export const usePaginatedLeaderboard = ({
     }
 
     setLoading(false);
-  }, [tenantId, authMethod, pageSize, currentUserId]);
+  }, [tenantId, pageSize, currentUserId]);
 
   useEffect(() => {
     if (tenantId && !fetchedRef.current) {
       fetchLeaderboard();
     }
-  }, [tenantId, authMethod, fetchLeaderboard]);
+  }, [tenantId, fetchLeaderboard]);
 
   // Reset when tenant changes
   useEffect(() => {

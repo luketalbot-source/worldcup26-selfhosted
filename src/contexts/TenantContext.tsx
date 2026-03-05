@@ -2,8 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AuthMethod = 'otp' | 'oidc' | 'both';
-
 interface OIDCConfig {
   auth_url: string;
   client_id: string;
@@ -14,7 +12,6 @@ interface Tenant {
   id: string;
   uid: string;
   name: string;
-  auth_method: AuthMethod;
   oidc_config?: OIDCConfig | null;
 }
 
@@ -58,43 +55,26 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
         const tenantRow = tenantData[0];
 
-        // Fetch auth_method from tenants table
-        const { data: fullTenant, error: tenantError } = await supabase
-          .from('tenants')
-          .select('auth_method')
-          .eq('id', tenantRow.id)
+        // Always fetch OIDC config (tenants always use OIDC)
+        let oidcConfig: OIDCConfig | null = null;
+        const { data: oidcData, error: oidcError } = await supabase
+          .from('tenant_oidc_config')
+          .select('auth_url, client_id, redirect_uri')
+          .eq('tenant_id', tenantRow.id)
           .single();
 
-        if (tenantError) {
-          console.error('Error fetching tenant auth_method:', tenantError);
-        }
-
-        const authMethod = (fullTenant?.auth_method as AuthMethod) || 'otp';
-
-        // Fetch OIDC config if auth_method includes OIDC
-        let oidcConfig: OIDCConfig | null = null;
-        if (authMethod === 'oidc' || authMethod === 'both') {
-          const { data: oidcData, error: oidcError } = await supabase
-            .from('tenant_oidc_config')
-            .select('auth_url, client_id, redirect_uri')
-            .eq('tenant_id', tenantRow.id)
-            .single();
-
-          if (!oidcError && oidcData) {
-            oidcConfig = oidcData;
-          }
+        if (!oidcError && oidcData) {
+          oidcConfig = oidcData;
         }
 
         setTenant({
           id: tenantRow.id,
           uid: tenantRow.uid,
           name: tenantRow.name,
-          auth_method: authMethod,
           oidc_config: oidcConfig,
         });
         setError(null);
-      } catch (err) {
-        console.error('Error fetching tenant:', err);
+      } catch {
         setError('Failed to load tenant');
       } finally {
         setLoading(false);
@@ -105,11 +85,11 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
   }, [tenantUid]);
 
   return (
-    <TenantContext.Provider value={{ 
-      tenant, 
-      tenantId: tenant?.id || null, 
-      loading, 
-      error 
+    <TenantContext.Provider value={{
+      tenant,
+      tenantId: tenant?.id || null,
+      loading,
+      error
     }}>
       {children}
     </TenantContext.Provider>

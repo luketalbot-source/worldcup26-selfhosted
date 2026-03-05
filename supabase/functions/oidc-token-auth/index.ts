@@ -57,8 +57,6 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Token auth - OIDC subject: ${oidcSubject}, email: ${oidcEmail}, name: ${oidcName}`);
-
     // Verify tenant exists
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
@@ -86,7 +84,6 @@ serve(async (req) => {
 
     if (existingIdentity) {
       userId = existingIdentity.user_id;
-      console.log(`Existing OIDC user found: ${userId}`);
     } else {
       // New user - username is required
       const displayName = username || oidcName;
@@ -107,8 +104,6 @@ serve(async (req) => {
       const email = oidcEmail || `${shortSubject}@oidc-${shortTenant}.local`;
       const password = crypto.randomUUID();
 
-      console.log('Creating user with email:', email);
-
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
         password,
@@ -121,7 +116,6 @@ serve(async (req) => {
       });
 
       if (authError) {
-        console.error('Error creating user:', authError);
         return new Response(
           JSON.stringify({ error: 'Failed to create account' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -150,7 +144,6 @@ serve(async (req) => {
           oidc_issuer: oidcIssuer,
         });
 
-      console.log(`New OIDC user created: ${userId}`);
     }
 
     // Get the user's email for signing in
@@ -170,7 +163,6 @@ serve(async (req) => {
     });
 
     if (linkError || !linkData) {
-      console.error('Error generating link:', linkError);
       return new Response(
         JSON.stringify({ error: 'Failed to authenticate' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -192,7 +184,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in oidc-token-auth:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -52,8 +52,6 @@ The subject matter from the title/description should be the HERO of the image, n
 
 IMPORTANT: Generate and return an actual high-quality image, not a description.`;
 
-    console.log("Generating image with prompt:", imagePrompt);
-
     // Call Lovable AI Gateway for image generation with retry logic
     let imageBase64: string | null = null;
     let attempts = 0;
@@ -61,8 +59,6 @@ IMPORTANT: Generate and return an actual high-quality image, not a description.`
 
     while (!imageBase64 && attempts < maxAttempts) {
       attempts++;
-      console.log(`Image generation attempt ${attempts}/${maxAttempts}`);
-      
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -83,24 +79,14 @@ IMPORTANT: Generate and return an actual high-quality image, not a description.`
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("AI Gateway error:", errorText);
         throw new Error(`AI Gateway error: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("AI Gateway response structure:", {
-        hasChoices: !!data.choices,
-        choicesLength: data.choices?.length,
-        hasMessage: !!data.choices?.[0]?.message,
-        hasImages: !!data.choices?.[0]?.message?.images,
-        imagesLength: data.choices?.[0]?.message?.images?.length,
-        textContent: data.choices?.[0]?.message?.content?.substring(0, 100)
-      });
-      
+
       imageBase64 = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
       if (!imageBase64 && attempts < maxAttempts) {
-        console.log("No image in response, retrying...");
         // Wait a bit before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -108,7 +94,6 @@ IMPORTANT: Generate and return an actual high-quality image, not a description.`
 
     // If still no image after retries, use a placeholder approach
     if (!imageBase64) {
-      console.log("Failed to generate image after retries, proceeding without image");
       // Don't throw - just skip image update and continue with language detection
     }
 
@@ -135,16 +120,14 @@ IMPORTANT: Generate and return an actual high-quality image, not a description.`
       if (langResponse.ok) {
         const langData = await langResponse.json();
         const langCode = langData.choices?.[0]?.message?.content?.trim().toLowerCase().slice(0, 2);
-        console.log("Detected language code:", langCode);
         if (langCode && /^[a-z]{2}$/.test(langCode)) {
           detectedLanguage = langCode;
         }
       } else {
-        const langError = await langResponse.text();
-        console.error("Language detection failed:", langError);
+        // Language detection failed silently
       }
     } catch (langErr) {
-      console.error("Language detection error:", langErr);
+      // Error handled silently
     }
 
     // Update the boost record
@@ -166,11 +149,8 @@ IMPORTANT: Generate and return an actual high-quality image, not a description.`
       .eq("id", boostId);
 
     if (updateError) {
-      console.error("Error updating boost:", updateError);
       throw updateError;
     }
-
-    console.log("Boost updated successfully:", { boostId, hasImage: !!imageBase64, detectedLanguage });
 
     return new Response(
       JSON.stringify({ 
@@ -183,7 +163,6 @@ IMPORTANT: Generate and return an actual high-quality image, not a description.`
       }
     );
   } catch (error: unknown) {
-    console.error("Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: errorMessage }),

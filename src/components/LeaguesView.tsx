@@ -90,7 +90,7 @@ const ExpandableLeagueCard = ({
   });
   
   const { leaderboard: globalLeaderboard, loading: globalLeaderboardLoading } = useLeaderboard(
-    isEveryone && isExpanded && !isDevMode ? { tenantId, authMethod: tenant?.auth_method } : null
+    isEveryone && isExpanded && !isDevMode ? { tenantId } : null
   );
   
   // Select data source based on dev mode

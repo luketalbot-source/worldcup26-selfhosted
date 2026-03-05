@@ -47,7 +47,6 @@ serve(async (req) => {
       .single();
 
     if (configError || !oidcConfig) {
-      console.error('OIDC config not found:', configError);
       return new Response(
         JSON.stringify({ error: 'OIDC configuration not found for this tenant' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -73,8 +72,6 @@ serve(async (req) => {
       tokenUrl.pathname = tokenUrl.pathname.replace(/\/?$/, '/token');
     }
 
-    console.log(`Exchanging code at token endpoint: ${tokenUrl.toString()}`);
-
     // Exchange authorization code for tokens (PKCE flow - no client_secret needed)
     const tokenResponse = await fetch(tokenUrl.toString(), {
       method: 'POST',
@@ -92,7 +89,6 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', tokenResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to exchange authorization code', details: errorText }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -132,8 +128,6 @@ serve(async (req) => {
       );
     }
 
-    console.log(`OIDC subject: ${oidcSubject}, email: ${oidcEmail}, name: ${oidcName}`);
-
     // Check if this OIDC identity already exists
     const { data: existingIdentity } = await supabase
       .from('oidc_identities')
@@ -148,7 +142,6 @@ serve(async (req) => {
     if (existingIdentity) {
       // Existing user
       userId = existingIdentity.user_id;
-      console.log(`Existing OIDC user found: ${userId}`);
     } else {
       // Check if a user with this email already exists (from a different OIDC provider or tenant)
       let existingUserByEmail = null;
@@ -160,7 +153,6 @@ serve(async (req) => {
       if (existingUserByEmail) {
         // User exists with this email - link the new OIDC identity to them
         userId = existingUserByEmail.id;
-        console.log(`Linking OIDC identity to existing user by email: ${userId}`);
 
         // Store OIDC identity mapping for this tenant
         const { error: linkError } = await supabase
@@ -173,7 +165,7 @@ serve(async (req) => {
           });
 
         if (linkError) {
-          console.error('Error linking OIDC identity:', linkError);
+          // Error handled silently
         }
 
         // Update profile with tenant_id if not set
@@ -215,8 +207,6 @@ serve(async (req) => {
         const email = oidcEmail || `${shortSubject}@oidc-${shortTenant}.local`;
         const password = crypto.randomUUID(); // Use a random UUID as password
         
-        console.log('Creating user with email:', email);
-
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
           email,
           password,
@@ -229,7 +219,6 @@ serve(async (req) => {
         });
 
         if (authError) {
-          console.error('Error creating user:', authError);
           return new Response(
             JSON.stringify({ error: 'Failed to create account' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -258,7 +247,6 @@ serve(async (req) => {
             oidc_issuer: oidcIssuer,
           });
 
-        console.log(`New OIDC user created: ${userId}`);
       }
     }
 
@@ -279,7 +267,6 @@ serve(async (req) => {
     });
 
     if (linkError || !linkData) {
-      console.error('Error generating link:', linkError);
       return new Response(
         JSON.stringify({ error: 'Failed to authenticate' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -303,7 +290,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in oidc-callback:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

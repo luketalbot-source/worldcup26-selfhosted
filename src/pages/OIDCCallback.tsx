@@ -78,8 +78,6 @@ const OIDCCallback = () => {
     setError('');
 
     try {
-      console.log('OIDC Callback: Invoking edge function with tenant_id:', tenantId);
-      
       const { data, error: fnError } = await supabase.functions.invoke('oidc-callback', {
         body: { 
           code, 
@@ -89,10 +87,7 @@ const OIDCCallback = () => {
         },
       });
 
-      console.log('OIDC Callback: Edge function response:', { data, error: fnError });
-
       if (fnError) {
-        console.error('OIDC Callback: Edge function error details:', fnError);
         throw new Error(fnError.message || 'Failed to authenticate');
       }
 
@@ -148,7 +143,6 @@ const OIDCCallback = () => {
       // Success - redirect to tenant app
       navigate(`/t/${tenantUid}`);
     } catch (err) {
-      console.error('OIDC callback error:', err);
       setError(err instanceof Error ? err.message : 'Authentication failed');
       setStep('error');
     } finally {
@@ -187,7 +181,6 @@ const OIDCCallback = () => {
           await completeSignIn(data.token, data.tokenType || 'magiclink');
         }
       } catch (err) {
-        console.error('Username submit error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
         setStep('error');
       } finally {
@@ -217,7 +210,6 @@ const OIDCCallback = () => {
 
       navigate(`/t/${tenantUid}`);
     } catch (err) {
-      console.error('Sign in error:', err);
       setError(err instanceof Error ? err.message : 'Authentication failed');
       setStep('error');
     } finally {
@@ -241,7 +233,6 @@ const OIDCCallback = () => {
             .eq('user_id', session.session.user.id);
 
           if (updateError) {
-            console.error('Failed to save consent:', updateError);
             setError('Failed to save consent. Please try again.');
             setStep('error');
             return;
@@ -249,7 +240,6 @@ const OIDCCallback = () => {
         }
         navigate(`/t/${tenantUid}`);
       } catch (err) {
-        console.error('Consent save error:', err);
         setError('Failed to save consent. Please try again.');
         setStep('error');
       } finally {

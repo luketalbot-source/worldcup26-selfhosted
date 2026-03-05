@@ -37,7 +37,6 @@ serve(async (req) => {
     const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
 
     if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
-      console.error('Missing Twilio credentials');
       return new Response(
         JSON.stringify({ error: 'SMS service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -90,7 +89,6 @@ serve(async (req) => {
       });
 
     if (insertError) {
-      console.error('Error storing OTP:', insertError);
       return new Response(
         JSON.stringify({ error: 'Failed to generate verification code' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -116,8 +114,7 @@ serve(async (req) => {
 
     if (!twilioResponse.ok) {
       const errorText = await twilioResponse.text();
-      console.error('Twilio error:', errorText);
-      
+
       // Clean up the OTP since SMS failed
       await supabase
         .from('otp_codes')
@@ -130,15 +127,12 @@ serve(async (req) => {
       );
     }
 
-    console.log(`OTP sent to ${phone_number}, tenant_id: ${tenant_id}, isNewUser: ${isNewUser}`);
-
     return new Response(
       JSON.stringify({ success: true, message: 'Verification code sent', isNewUser }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in send-otp:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

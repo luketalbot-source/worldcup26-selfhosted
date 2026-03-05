@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { groupStageMatches } from '@/data/matches';
-import type { AuthMethod } from '@/contexts/TenantContext';
 
 interface LeaderboardEntry {
   rank: number;
@@ -15,19 +14,15 @@ interface LeaderboardEntry {
 
 interface UseLeaderboardOptions {
   tenantId: string | null;
-  authMethod?: AuthMethod;
 }
 
 export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string | null) => {
   // Support both old (tenantId string) and new (options object) signatures
   const isOptionsObject = optionsOrTenantId !== null && typeof optionsOrTenantId === 'object';
-  const tenantId: string | null = isOptionsObject 
-    ? (optionsOrTenantId as UseLeaderboardOptions).tenantId 
+  const tenantId: string | null = isOptionsObject
+    ? (optionsOrTenantId as UseLeaderboardOptions).tenantId
     : (optionsOrTenantId as string | null);
-  const authMethod: AuthMethod | undefined = isOptionsObject 
-    ? (optionsOrTenantId as UseLeaderboardOptions).authMethod 
-    : undefined;
-  
+
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,7 +30,7 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
     if (tenantId) {
       fetchLeaderboard();
     }
-  }, [tenantId, authMethod]);
+  }, [tenantId]);
 
   const fetchLeaderboard = async () => {
     if (!tenantId) {
@@ -46,20 +41,10 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
 
     setLoading(true);
     
-    // For OIDC tenants, use the oidc-specific function that queries via oidc_identities
-    // For OTP tenants, use the standard profile-based function
-    let profiles: { id: string; user_id: string; display_name: string; avatar_emoji: string }[] | null = null;
-    let profilesError: Error | null = null;
-    
-    if (authMethod === 'oidc') {
-      const result = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenantId });
-      profiles = result.data;
-      profilesError = result.error;
-    } else {
-      const result = await supabase.rpc('get_tenant_profiles', { _tenant_id: tenantId });
-      profiles = result.data;
-      profilesError = result.error;
-    }
+    // Fetch profiles via OIDC identities
+    const result = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenantId });
+    const profiles = result.data;
+    const profilesError = result.error;
 
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);

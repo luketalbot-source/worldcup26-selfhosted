@@ -36,7 +36,6 @@ interface Tenant {
   uid: string;
   name: string;
   created_at: string;
-  auth_method: 'otp' | 'oidc' | 'both';
   profiles: { count: number }[];
 }
 
@@ -92,7 +91,6 @@ const Admin = () => {
         if (error) throw error;
         setIsAdmin(data === true);
       } catch (err) {
-        console.error('Error checking admin status:', err);
         setIsAdmin(false);
       } finally {
         setLoading(false);
@@ -112,7 +110,7 @@ const Admin = () => {
       try {
         const { data, error } = await supabase
           .from('tenants')
-          .select('*, auth_method, profiles(count)')
+          .select('*, profiles(count)')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -129,8 +127,8 @@ const Admin = () => {
         );
         
         setTenants(tenantsWithCounts);
-      } catch (err) {
-        console.error('Error fetching tenants:', err);
+      } catch {
+        // Error handled silently
       }
     };
 
@@ -154,8 +152,7 @@ const Admin = () => {
       setNewTenantName('');
       setDialogOpen(false);
       toast.success('Tenant created successfully');
-    } catch (err) {
-      console.error('Error creating tenant:', err);
+    } catch {
       toast.error('Failed to create tenant');
     } finally {
       setIsCreating(false);
@@ -173,8 +170,7 @@ const Admin = () => {
 
       setTenants(tenants.filter(t => t.id !== tenantId));
       toast.success(`Tenant "${tenantName}" deleted`);
-    } catch (err) {
-      console.error('Error deleting tenant:', err);
+    } catch {
       toast.error('Failed to delete tenant');
     }
   };
@@ -182,35 +178,22 @@ const Admin = () => {
   const fetchTenantUsers = async (tenant: Tenant) => {
     setLoadingUsers(true);
     try {
-      // For OIDC tenants, first get user IDs via oidc_identities, then fetch their profiles
-      // For OTP tenants, query profiles directly by tenant_id
+      // Get user IDs from oidc_identities for this tenant, then fetch their profiles
       let profiles: { id: string; user_id: string; display_name: string; avatar_emoji: string | null; phone_number: string | null; created_at: string }[] = [];
-      
-      if (tenant.auth_method === 'oidc') {
-        // Get user IDs from oidc_identities for this tenant
-        const { data: oidcData, error: oidcError } = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenant.id });
-        if (oidcError) throw oidcError;
-        
-        if (oidcData && oidcData.length > 0) {
-          // Fetch full profile data for these users (as admin, we can see all profiles)
-          const userIds = oidcData.map((u: { user_id: string }) => u.user_id);
-          const { data: fullProfiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, user_id, display_name, avatar_emoji, phone_number, created_at')
-            .in('user_id', userIds)
-            .order('created_at', { ascending: false });
-          
-          if (profilesError) throw profilesError;
-          profiles = fullProfiles || [];
-        }
-      } else {
-        const { data, error } = await supabase
+
+      const { data: oidcData, error: oidcError } = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenant.id });
+      if (oidcError) throw oidcError;
+
+      if (oidcData && oidcData.length > 0) {
+        const userIds = oidcData.map((u: { user_id: string }) => u.user_id);
+        const { data: fullProfiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id, user_id, display_name, avatar_emoji, phone_number, created_at')
-          .eq('tenant_id', tenant.id)
+          .in('user_id', userIds)
           .order('created_at', { ascending: false });
-        if (error) throw error;
-        profiles = data || [];
+
+        if (profilesError) throw profilesError;
+        profiles = fullProfiles || [];
       }
 
       if (profiles.length === 0) {
@@ -228,7 +211,7 @@ const Admin = () => {
         .order('updated_at', { ascending: false });
 
       if (predictionsError) {
-        console.error('Error fetching predictions:', predictionsError);
+        // Error handled silently
       }
 
       // Create a map of user_id to their latest activity
@@ -251,8 +234,7 @@ const Admin = () => {
       }));
 
       setTenantUsers(usersWithActivity);
-    } catch (err) {
-      console.error('Error fetching tenant users:', err);
+    } catch {
       toast.error('Failed to load users');
     } finally {
       setLoadingUsers(false);
@@ -288,8 +270,7 @@ const Admin = () => {
       setDeleteUserDialogOpen(false);
       setUserToDelete(null);
       setDeleteUserConfirmation('');
-    } catch (err) {
-      console.error('Error deleting user:', err);
+    } catch {
       toast.error('Failed to delete user');
     }
   };
@@ -314,8 +295,7 @@ const Admin = () => {
   };
 
   const openTenantApp = (uid: string) => {
-    const publishedUrl = 'https://worldcup26.lovable.app';
-    window.open(`${publishedUrl}/t/${uid}`, '_blank');
+    window.open(`${window.location.origin}/t/${uid}`, '_blank');
   };
 
   // Show loading
