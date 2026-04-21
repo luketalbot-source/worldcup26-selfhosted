@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 
 interface OIDCConfig {
   auth_url: string;
@@ -41,36 +41,31 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         // Fetch tenant basic info
-        const { data: tenantData, error: fetchError } = await supabase
-          .rpc('get_tenant_by_uid', { _uid: tenantUid });
+        const { data: tenantData, error: fetchError } = await api.get<{ id: string; uid: string; name: string }>(
+          `/tenants/by-uid/${tenantUid}`
+        );
 
         if (fetchError) throw fetchError;
 
-        if (!tenantData || tenantData.length === 0) {
+        if (!tenantData) {
           setError('Tenant not found');
           setTenant(null);
           setLoading(false);
           return;
         }
 
-        const tenantRow = tenantData[0];
-
         // Always fetch OIDC config (tenants always use OIDC)
         let oidcConfig: OIDCConfig | null = null;
-        const { data: oidcData, error: oidcError } = await supabase
-          .from('tenant_oidc_config')
-          .select('auth_url, client_id, redirect_uri')
-          .eq('tenant_id', tenantRow.id)
-          .single();
+        const { data: oidcData } = await api.get<OIDCConfig>(`/tenants/${tenantData.id}/oidc-config`);
 
-        if (!oidcError && oidcData) {
+        if (oidcData) {
           oidcConfig = oidcData;
         }
 
         setTenant({
-          id: tenantRow.id,
-          uid: tenantRow.uid,
-          name: tenantRow.name,
+          id: tenantData.id,
+          uid: tenantData.uid,
+          name: tenantData.name,
           oidc_config: oidcConfig,
         });
         setError(null);

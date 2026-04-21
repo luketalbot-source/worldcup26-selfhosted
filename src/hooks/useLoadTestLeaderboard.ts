@@ -1,11 +1,19 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { calculatePredictionPoints } from '@/lib/scoringCalculator';
+import { api } from '@/lib/apiClient';
 import { groupStageMatches } from '@/data/matches';
 import type { LeaderboardEntry } from './usePaginatedLeaderboard';
 
 const LOAD_TEST_TENANT_ID = 'cb28e2ff-90f5-4aa3-8bb5-6bd6fc9f50b2';
 const SIMULATED_USER_RANK = 500; // Simulate being ranked 500th
+
+interface ApiLeaderboardEntry {
+  user_id: string;
+  display_name: string;
+  avatar_emoji: string;
+  points: number;
+  total_predictions: number;
+  rank: number;
+}
 
 interface UseLoadTestLeaderboardOptions {
   pageSize?: number;
@@ -39,18 +47,11 @@ export const useLoadTestLeaderboard = ({
     setLoading(true);
     fetchedRef.current = true;
 
-    // Fetch load test profiles
-    const { data: profiles, error: profilesError } = await supabase
-      .from('load_test_profiles')
-      .select('id, user_id, display_name, avatar_emoji')
-      .eq('tenant_id', LOAD_TEST_TENANT_ID);
+    const { data, error } = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
+      tenant_id: LOAD_TEST_TENANT_ID,
+    });
 
-    if (profilesError) {
-      setLoading(false);
-      return;
-    }
-
-    if (!profiles || profiles.length === 0) {
+    if (error || !data || data.length === 0) {
       setAllEntries([]);
       setEntries([]);
       setCurrentUserEntry(null);
@@ -58,72 +59,15 @@ export const useLoadTestLeaderboard = ({
       return;
     }
 
-    const userIds = profiles.map(p => p.user_id);
-
-    // Fetch load test predictions
-    const { data: predictions, error: predictionsError } = await supabase
-      .from('load_test_predictions')
-      .select('user_id, match_id, home_score, away_score')
-      .eq('tenant_id', LOAD_TEST_TENANT_ID);
-
-    if (predictionsError) {
-      // Error handled silently
-    }
-
-    // Fetch finished matches for scoring
-    const { data: finishedMatches } = await supabase
-      .from('live_matches')
-      .select('match_id, home_score, away_score, status')
-      .in('status', ['FINISHED', 'FT', 'AET', 'PEN']);
-
-    // Build match results map
-    const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
-    finishedMatches?.forEach(match => {
-      matchResults.set(match.match_id, { home_score: match.home_score, away_score: match.away_score });
-    });
-    groupStageMatches
-      .filter(m => m.status === 'finished' && m.homeScore !== undefined && m.awayScore !== undefined)
-      .forEach(match => {
-        matchResults.set(match.id, { home_score: match.homeScore ?? null, away_score: match.awayScore ?? null });
-      });
-
-    // Initialize user stats
-    const userStats: Record<string, { points: number; predictions: number }> = {};
-    userIds.forEach(userId => {
-      userStats[userId] = { points: 0, predictions: 0 };
-    });
-
-    // Calculate match prediction points
-    predictions?.forEach(p => {
-      if (!userStats[p.user_id]) {
-        userStats[p.user_id] = { points: 0, predictions: 0 };
-      }
-      userStats[p.user_id].predictions++;
-      const match = matchResults.get(p.match_id);
-      if (match && match.home_score !== null && match.away_score !== null) {
-        const { points } = calculatePredictionPoints(p.home_score, p.away_score, match.home_score, match.away_score);
-        userStats[p.user_id].points += points;
-      }
-    });
-
-    // Build and sort leaderboard
-    const allEntriesData: LeaderboardEntry[] = profiles.map(profile => ({
-      rank: 0,
-      userId: profile.user_id,
-      displayName: profile.display_name,
-      avatarEmoji: profile.avatar_emoji || '👤',
-      totalPredictions: userStats[profile.user_id]?.predictions || 0,
-      points: userStats[profile.user_id]?.points || 0,
+    // Map to local shape (already sorted by rank from API)
+    const allEntriesData: LeaderboardEntry[] = data.map(entry => ({
+      rank: entry.rank,
+      userId: entry.user_id,
+      displayName: entry.display_name,
+      avatarEmoji: entry.avatar_emoji || '👤',
+      totalPredictions: entry.total_predictions,
+      points: entry.points,
     }));
-
-    allEntriesData.sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      return b.totalPredictions - a.totalPredictions;
-    });
-
-    allEntriesData.forEach((entry, index) => {
-      entry.rank = index + 1;
-    });
 
     setAllEntries(allEntriesData);
     setEntries(allEntriesData.slice(0, pageSize));
@@ -152,9 +96,9 @@ export const useLoadTestLeaderboard = ({
 
   const loadMore = useCallback(() => {
     if (loadingMore || displayedCount >= allEntries.length) return;
-    
+
     setLoadingMore(true);
-    
+
     setTimeout(() => {
       const newCount = Math.min(displayedCount + pageSize, allEntries.length);
       setEntries(allEntries.slice(0, newCount));

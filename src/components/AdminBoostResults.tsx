@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Trophy, Save, Check, RotateCcw, Settings } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,12 +61,12 @@ export const AdminBoostResults = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [savedRecently, setSavedRecently] = useState<Set<string>>(new Set());
-  
+
   // Local form state
   const [formValues, setFormValues] = useState<Map<string, { teamCode: string; playerName: string }>>(new Map());
   const [resetting, setResetting] = useState(false);
   const [resettingAward, setResettingAward] = useState<string | null>(null);
-  
+
   // Points editing state
   const [pointsValues, setPointsValues] = useState<Map<string, number>>(new Map());
   const [savingPoints, setSavingPoints] = useState<string | null>(null);
@@ -77,14 +77,12 @@ export const AdminBoostResults = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch awards
-      const { data: awardsData, error: awardsError } = await supabase
-        .from('boost_awards')
-        .select('id, slug, name, description, prediction_type, points_value')
-        .order('display_order');
+      const [awardsData, resultsData] = await Promise.all([
+        api.get<BoostAward[]>('/boosts/awards'),
+        api.get<BoostResult[]>('/boosts/results'),
+      ]);
 
-      if (awardsError) throw awardsError;
-      setAwards((awardsData || []) as BoostAward[]);
+      setAwards(awardsData || []);
 
       // Initialize points values
       const pointsMap = new Map<string, number>();
@@ -93,17 +91,10 @@ export const AdminBoostResults = () => {
       });
       setPointsValues(pointsMap);
 
-      // Fetch existing results
-      const { data: resultsData, error: resultsError } = await supabase
-        .from('boost_results')
-        .select('*');
-
-      if (resultsError) throw resultsError;
-
-      // Convert to map
+      // Convert results to map
       const resultsMap = new Map<string, BoostResult>();
       const formMap = new Map<string, { teamCode: string; playerName: string }>();
-      
+
       (resultsData || []).forEach((r: BoostResult) => {
         resultsMap.set(r.award_id, r);
         formMap.set(r.award_id, {
@@ -111,7 +102,7 @@ export const AdminBoostResults = () => {
           playerName: r.result_player_name || '',
         });
       });
-      
+
       setResults(resultsMap);
       setFormValues(formMap);
     } catch (err) {
@@ -128,21 +119,15 @@ export const AdminBoostResults = () => {
 
   const handleSave = async (award: BoostAward) => {
     setSaving(award.id);
-    
-    const formValue = formValues.get(award.id) || { teamCode: '', playerName: '' };
-    
-    try {
-      const { error } = await supabase
-        .from('boost_results')
-        .upsert({
-          award_id: award.id,
-          result_team_code: award.prediction_type === 'team' ? formValue.teamCode || null : null,
-          result_player_name: award.prediction_type === 'player' ? formValue.playerName || null : null,
-        }, {
-          onConflict: 'award_id',
-        });
 
-      if (error) throw error;
+    const formValue = formValues.get(award.id) || { teamCode: '', playerName: '' };
+
+    try {
+      await api.post('/boosts/results', {
+        award_id: award.id,
+        result_team_code: award.prediction_type === 'team' ? formValue.teamCode || null : null,
+        result_player_name: award.prediction_type === 'player' ? formValue.playerName || null : null,
+      });
 
       // Update local state
       const newResults = new Map(results);
@@ -152,7 +137,7 @@ export const AdminBoostResults = () => {
         result_player_name: award.prediction_type === 'player' ? formValue.playerName : null,
       });
       setResults(newResults);
-      
+
       // Show saved indicator
       setSavedRecently(prev => new Set(prev).add(award.id));
       setTimeout(() => {
@@ -162,7 +147,7 @@ export const AdminBoostResults = () => {
           return next;
         });
       }, 2000);
-      
+
       toast.success(`Result saved for ${award.name}`);
     } catch (err) {
       console.error('Error saving result:', err);
@@ -175,17 +160,12 @@ export const AdminBoostResults = () => {
   const handleResetAll = async () => {
     setResetting(true);
     try {
-      const { error } = await supabase
-        .from('boost_results')
-        .delete()
-        .neq('award_id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
-
-      if (error) throw error;
+      await api.delete('/boosts/results');
 
       // Clear local state
       setResults(new Map());
       setFormValues(new Map());
-      
+
       toast.success('All boost results have been reset');
     } catch (err) {
       console.error('Error resetting results:', err);
@@ -198,12 +178,7 @@ export const AdminBoostResults = () => {
   const handleResetAward = async (award: BoostAward) => {
     setResettingAward(award.id);
     try {
-      const { error } = await supabase
-        .from('boost_results')
-        .delete()
-        .eq('award_id', award.id);
-
-      if (error) throw error;
+      await api.delete(`/boosts/results/${award.id}`);
 
       // Clear local state for this award
       const newResults = new Map(results);
@@ -213,7 +188,7 @@ export const AdminBoostResults = () => {
       const newFormValues = new Map(formValues);
       newFormValues.delete(award.id);
       setFormValues(newFormValues);
-      
+
       toast.success(`Result reset for ${award.name}`);
     } catch (err) {
       console.error('Error resetting award result:', err);
@@ -233,20 +208,15 @@ export const AdminBoostResults = () => {
   const handleSavePoints = async (award: BoostAward) => {
     setSavingPoints(award.id);
     const newPoints = pointsValues.get(award.id) ?? award.points_value;
-    
-    try {
-      const { error } = await supabase
-        .from('boost_awards')
-        .update({ points_value: newPoints })
-        .eq('id', award.id);
 
-      if (error) throw error;
+    try {
+      await api.patch(`/boosts/awards/${award.id}`, { points_value: newPoints });
 
       // Update local awards state
-      setAwards(prev => prev.map(a => 
+      setAwards(prev => prev.map(a =>
         a.id === award.id ? { ...a, points_value: newPoints } : a
       ));
-      
+
       // Show saved indicator
       setSavedPointsRecently(prev => new Set(prev).add(award.id));
       setTimeout(() => {
@@ -256,7 +226,7 @@ export const AdminBoostResults = () => {
           return next;
         });
       }, 2000);
-      
+
       toast.success(`Points updated for ${award.name}`);
     } catch (err) {
       console.error('Error saving points:', err);
@@ -379,7 +349,7 @@ export const AdminBoostResults = () => {
               <div className="text-sm text-muted-foreground">
                 Set the final results. Players who predicted correctly will earn the configured points.
               </div>
-              
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm" disabled={resetting || results.size === 0}>
@@ -395,7 +365,7 @@ export const AdminBoostResults = () => {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Reset All Boost Results?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will delete all boost results and allow users to see their predictions again without any scoring. 
+                      This will delete all boost results and allow users to see their predictions again without any scoring.
                       This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
@@ -414,7 +384,7 @@ export const AdminBoostResults = () => {
               const existingResult = results.get(award.id);
               const isSaving = saving === award.id;
               const isSavedRecently = savedRecently.has(award.id);
-              
+
               const hasChanged = award.prediction_type === 'team'
                 ? formValue.teamCode !== (existingResult?.result_team_code || '')
                 : formValue.playerName !== (existingResult?.result_player_name || '');
@@ -509,8 +479,8 @@ export const AdminBoostResults = () => {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleResetAward(award)} 
+                          <AlertDialogAction
+                            onClick={() => handleResetAward(award)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
                             Reset

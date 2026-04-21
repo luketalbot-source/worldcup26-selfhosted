@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
+import { setAccessToken } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { iframeMessageBridge } from '@/lib/iframeMessageBridge';
 
@@ -26,7 +27,7 @@ interface UseIframeAuthOptions {
 
 /**
  * Hook for handling iframe authentication via postMessage
- * 
+ *
  * Uses a global message bridge to ensure no messages are lost during
  * React component mount/unmount cycles (including StrictMode double-mount)
  */
@@ -46,22 +47,23 @@ export const useIframeAuth = ({
     if (!payload || !tenantId) {
       return false;
     }
-    
+
     if (processingRef.current) {
       return false;
     }
-    
+
     processingRef.current = true;
 
     try {
-      // If we have an ID token, send it to the edge function
+      // If we have an ID token, send it to the API
       if (payload.id_token) {
-        const { data, error } = await supabase.functions.invoke('oidc-token-auth', {
-          body: {
+        const { data, error } = await api.post<{ access_token: string; error?: string; needsUsername?: boolean }>(
+          '/auth/oidc/token-auth',
+          {
             id_token: payload.id_token,
             tenant_id: tenantId,
-          },
-        });
+          }
+        );
 
         if (error) {
           throw new Error(error.message || 'Token authentication failed');
@@ -70,36 +72,27 @@ export const useIframeAuth = ({
         if (data?.error) {
           if (data.needsUsername) {
             const username = payload.name || payload.preferred_username || payload.sub?.substring(0, 16);
-            const { data: retryData, error: retryError } = await supabase.functions.invoke('oidc-token-auth', {
-              body: {
+            const { data: retryData, error: retryError } = await api.post<{ access_token: string; error?: string }>(
+              '/auth/oidc/token-auth',
+              {
                 id_token: payload.id_token,
                 tenant_id: tenantId,
                 username,
-              },
-            });
+              }
+            );
 
             if (retryError || retryData?.error) {
               throw new Error(retryData?.error || retryError?.message || 'Failed to create account');
             }
 
-            if (retryData?.token) {
-              await supabase.auth.verifyOtp({
-                token_hash: retryData.token,
-                type: retryData.tokenType || 'magiclink',
-              });
+            if (retryData?.access_token) {
+              setAccessToken(retryData.access_token);
             }
           } else {
             throw new Error(data.error);
           }
-        } else if (data?.token) {
-          const { error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: data.token,
-            type: data.tokenType || 'magiclink',
-          });
-
-          if (verifyError) {
-            throw new Error(verifyError.message);
-          }
+        } else if (data?.access_token) {
+          setAccessToken(data.access_token);
         }
 
         onAuthSuccess?.();
@@ -114,7 +107,7 @@ export const useIframeAuth = ({
     } finally {
       processingRef.current = false;
     }
-    
+
     return false;
   }, [tenantId, onAuthSuccess, onAuthError]);
 
@@ -122,27 +115,26 @@ export const useIframeAuth = ({
   const checkUserMatch = useCallback(async (payload: IframeAuthMessage['payload']): Promise<boolean> => {
     if (!user || !payload?.sub) return false;
 
-    const { data: identity } = await supabase
-      .from('oidc_identities')
-      .select('oidc_subject')
-      .eq('user_id', user.id)
-      .single();
+    const { data: identity } = await api.get<{ tenant_id: string; oidc_subject: string }>(
+      '/auth/identity',
+      tenantId ? { tenant_id: tenantId } : undefined
+    );
 
     if (identity && identity.oidc_subject !== payload.sub) {
       await signOut();
       onUserMismatch?.();
       return true;
     }
-    
+
     // Also check if NO identity found but user exists (edge case)
     if (!identity && payload.sub) {
       await signOut();
       onUserMismatch?.();
       return true;
     }
-    
+
     return false;
-  }, [user, signOut, onUserMismatch]);
+  }, [user, signOut, onUserMismatch, tenantId]);
 
   // Use refs to keep callbacks up-to-date without recreating the subscription
   const authenticateWithTokenRef = useRef(authenticateWithToken);
@@ -198,7 +190,7 @@ export const useIframeAuth = ({
           if (userRef.current && message.payload?.sub) {
             // Check if different user, sign out if needed
             const wasMismatch = await checkUserMatchRef.current(message.payload);
-            
+
             // After signing out the old user, authenticate the new one
             if (wasMismatch && message.payload?.id_token) {
               await authenticateWithTokenRef.current(message.payload);

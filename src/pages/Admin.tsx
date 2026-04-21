@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +36,7 @@ interface Tenant {
   uid: string;
   name: string;
   created_at: string;
-  profiles: { count: number }[];
+  oidc_count: number;
 }
 
 interface TenantUser {
@@ -61,7 +61,7 @@ const Admin = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  
+
   // Tenant detail view state
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [tenantUsers, setTenantUsers] = useState<TenantUser[]>([]);
@@ -85,11 +85,8 @@ const Admin = () => {
       }
 
       try {
-        const { data, error } = await supabase
-          .rpc('is_any_admin', { _user_id: user.id });
-        
-        if (error) throw error;
-        setIsAdmin(data === true);
+        const data = await api.get<{ is_admin: boolean }>('/rpc/is_any_admin');
+        setIsAdmin(data.is_admin === true);
       } catch (err) {
         setIsAdmin(false);
       } finally {
@@ -108,25 +105,8 @@ const Admin = () => {
       if (!isAdmin) return;
 
       try {
-        const { data, error } = await supabase
-          .from('tenants')
-          .select('*, profiles(count)')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        
-        // For each tenant, get accurate user count using RPC
-        const tenantsWithCounts = await Promise.all(
-          (data || []).map(async (tenant) => {
-            const { data: count } = await supabase.rpc('get_tenant_user_count', { _tenant_id: tenant.id });
-            return {
-              ...tenant,
-              profiles: [{ count: count || 0 }],
-            };
-          })
-        );
-        
-        setTenants(tenantsWithCounts);
+        const data = await api.get<Tenant[]>('/tenants');
+        setTenants(data || []);
       } catch {
         // Error handled silently
       }
@@ -140,15 +120,9 @@ const Admin = () => {
 
     setIsCreating(true);
     try {
-      const { data, error } = await supabase
-        .from('tenants')
-        .insert({ name: newTenantName.trim() })
-        .select()
-        .single();
+      const data = await api.post<Tenant>('/tenants', { name: newTenantName.trim() });
 
-      if (error) throw error;
-
-      setTenants([{ ...data, profiles: [{ count: 0 }] }, ...tenants]);
+      setTenants([{ ...data, oidc_count: 0 }, ...tenants]);
       setNewTenantName('');
       setDialogOpen(false);
       toast.success('Tenant created successfully');
@@ -161,12 +135,7 @@ const Admin = () => {
 
   const handleDeleteTenant = async (tenantId: string, tenantName: string) => {
     try {
-      const { error } = await supabase
-        .from('tenants')
-        .delete()
-        .eq('id', tenantId);
-
-      if (error) throw error;
+      await api.delete(`/tenants/${tenantId}`);
 
       setTenants(tenants.filter(t => t.id !== tenantId));
       toast.success(`Tenant "${tenantName}" deleted`);
@@ -178,62 +147,8 @@ const Admin = () => {
   const fetchTenantUsers = async (tenant: Tenant) => {
     setLoadingUsers(true);
     try {
-      // Get user IDs from oidc_identities for this tenant, then fetch their profiles
-      let profiles: { id: string; user_id: string; display_name: string; avatar_emoji: string | null; phone_number: string | null; created_at: string }[] = [];
-
-      const { data: oidcData, error: oidcError } = await supabase.rpc('get_oidc_tenant_profiles', { _tenant_id: tenant.id });
-      if (oidcError) throw oidcError;
-
-      if (oidcData && oidcData.length > 0) {
-        const userIds = oidcData.map((u: { user_id: string }) => u.user_id);
-        const { data: fullProfiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, user_id, display_name, avatar_emoji, phone_number, created_at')
-          .in('user_id', userIds)
-          .order('created_at', { ascending: false });
-
-        if (profilesError) throw profilesError;
-        profiles = fullProfiles || [];
-      }
-
-      if (profiles.length === 0) {
-        setTenantUsers([]);
-        setLoadingUsers(false);
-        return;
-      }
-
-      // Fetch latest prediction for each user
-      const userIds = profiles.map(p => p.user_id);
-      const { data: predictions, error: predictionsError } = await supabase
-        .from('predictions')
-        .select('user_id, updated_at')
-        .in('user_id', userIds)
-        .order('updated_at', { ascending: false });
-
-      if (predictionsError) {
-        // Error handled silently
-      }
-
-      // Create a map of user_id to their latest activity
-      const lastActiveMap: Record<string, string> = {};
-      predictions?.forEach(p => {
-        if (!lastActiveMap[p.user_id]) {
-          lastActiveMap[p.user_id] = p.updated_at;
-        }
-      });
-
-      // Combine profiles with last active data
-      const usersWithActivity: TenantUser[] = profiles.map(profile => ({
-        id: profile.id,
-        user_id: profile.user_id,
-        display_name: profile.display_name,
-        avatar_emoji: profile.avatar_emoji,
-        phone_number: profile.phone_number,
-        created_at: profile.created_at,
-        lastActive: lastActiveMap[profile.user_id] || null,
-      }));
-
-      setTenantUsers(usersWithActivity);
+      const users = await api.get<TenantUser[]>(`/tenants/${tenant.id}/users`);
+      setTenantUsers(users || []);
     } catch {
       toast.error('Failed to load users');
     } finally {
@@ -250,22 +165,17 @@ const Admin = () => {
     if (!userToDelete || deleteUserConfirmation !== userToDelete.display_name) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userToDelete.id);
-
-      if (error) throw error;
+      await api.delete(`/admin/users/${userToDelete.user_id}`);
 
       setTenantUsers(tenantUsers.filter(u => u.id !== userToDelete.id));
-      
+
       // Update tenant user count in the list
-      setTenants(tenants.map(t => 
-        t.id === selectedTenant?.id 
-          ? { ...t, profiles: [{ count: (t.profiles?.[0]?.count ?? 1) - 1 }] }
+      setTenants(tenants.map(t =>
+        t.id === selectedTenant?.id
+          ? { ...t, oidc_count: Math.max((t.oidc_count ?? 1) - 1, 0) }
           : t
       ));
-      
+
       toast.success(`User "${userToDelete.display_name}" deleted`);
       setDeleteUserDialogOpen(false);
       setUserToDelete(null);
@@ -423,7 +333,7 @@ const Admin = () => {
                             <div className="text-right text-xs text-muted-foreground">
                               <div>Joined {new Date(tenantUser.created_at).toLocaleDateString()}</div>
                               <div>
-                                {tenantUser.lastActive 
+                                {tenantUser.lastActive
                                   ? `Active ${new Date(tenantUser.lastActive).toLocaleString()}`
                                   : 'No activity yet'
                                 }
@@ -451,15 +361,15 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="boosts">
-              <TenantCustomBoosts 
-                tenantId={selectedTenant.id} 
+              <TenantCustomBoosts
+                tenantId={selectedTenant.id}
                 tenantName={selectedTenant.name}
               />
             </TabsContent>
 
             <TabsContent value="settings">
-              <TenantOIDCConfig 
-                tenantId={selectedTenant.id} 
+              <TenantOIDCConfig
+                tenantId={selectedTenant.id}
                 tenantName={selectedTenant.name}
                 tenantUid={selectedTenant.uid}
               />
@@ -572,8 +482,8 @@ const Admin = () => {
             </Card>
           ) : (
             tenants.map((tenant) => (
-              <Card 
-                key={tenant.id} 
+              <Card
+                key={tenant.id}
                 className="cursor-pointer hover:border-primary/50 transition-colors"
                 onClick={() => handleViewTenant(tenant)}
               >
@@ -583,12 +493,12 @@ const Admin = () => {
                       <h3 className="font-semibold text-foreground">{tenant.name}</h3>
                       <p className="text-sm text-muted-foreground font-mono">/t/{tenant.uid}</p>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{tenant.profiles?.[0]?.count ?? 0} users</span>
+                        <span>{tenant.oidc_count ?? 0} users</span>
                         <span>•</span>
                         <span>Created {new Date(tenant.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="outline"
@@ -598,7 +508,7 @@ const Admin = () => {
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
-                      
+
                       <Button
                         variant="outline"
                         size="icon"
@@ -607,7 +517,7 @@ const Admin = () => {
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>
-                      
+
                       <Button
                         variant="outline"
                         size="icon"

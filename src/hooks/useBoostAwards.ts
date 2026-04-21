@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 
@@ -40,38 +40,30 @@ export const useBoostAwards = () => {
     setLoading(true);
     try {
       // Fetch awards
-      const { data: awardsData, error: awardsError } = await supabase
-        .from('boost_awards')
-        .select('*')
-        .order('display_order');
+      const { data: awardsData, error: awardsError } = await api.get<BoostAward[]>('/boosts/awards');
 
       if (awardsError) throw awardsError;
-      setAwards((awardsData || []) as BoostAward[]);
+      setAwards(awardsData || []);
+
+      // Fetch results
+      const { data: resultsData, error: resultsError } = await api.get<BoostResult[]>('/boosts/results');
+
+      if (resultsError) throw resultsError;
+      setResults(resultsData || []);
 
       // Fetch user predictions if logged in - filter by tenant
       if (user) {
-        let predictionsQuery = supabase
-          .from('boost_predictions')
-          .select('*')
-          .eq('user_id', user.id);
-        
-        if (tenantId) {
-          predictionsQuery = predictionsQuery.eq('tenant_id', tenantId);
-        }
-        
-        const { data: predictionsData, error: predictionsError } = await predictionsQuery;
+        const params: Record<string, string | undefined> = {};
+        if (tenantId) params.tenant_id = tenantId;
+
+        const { data: predictionsData, error: predictionsError } = await api.get<BoostPrediction[]>(
+          '/boosts/predictions',
+          params
+        );
 
         if (predictionsError) throw predictionsError;
         setPredictions(predictionsData || []);
       }
-
-      // Fetch results
-      const { data: resultsData, error: resultsError } = await supabase
-        .from('boost_results')
-        .select('*');
-
-      if (resultsError) throw resultsError;
-      setResults(resultsData || []);
     } catch (err) {
       console.error('Error fetching boost data:', err);
     } finally {
@@ -87,25 +79,20 @@ export const useBoostAwards = () => {
     if (!user || !tenantId) return false;
 
     try {
-      const { error } = await supabase
-        .from('boost_predictions')
-        .upsert({
-          user_id: user.id,
-          tenant_id: tenantId,
-          award_id: awardId,
-          predicted_team_code: teamCode,
-          predicted_player_name: playerName,
-        }, {
-          onConflict: 'user_id,award_id',
-        });
+      const { error } = await api.post('/boosts/predictions', {
+        award_id: awardId,
+        tenant_id: tenantId,
+        predicted_team_code: teamCode,
+        predicted_player_name: playerName,
+      });
 
       if (error) throw error;
 
       // Update local state
       const existing = predictions.find(p => p.award_id === awardId);
       if (existing) {
-        setPredictions(predictions.map(p => 
-          p.award_id === awardId 
+        setPredictions(predictions.map(p =>
+          p.award_id === awardId
             ? { ...p, predicted_team_code: teamCode, predicted_player_name: playerName }
             : p
         ));
@@ -141,7 +128,7 @@ export const useBoostAwards = () => {
     const prediction = getPrediction(awardId);
     const result = getResult(awardId);
     const award = awards.find(a => a.id === awardId);
-    
+
     if (!prediction || !result || !award) return 0;
 
     if (award.prediction_type === 'team') {

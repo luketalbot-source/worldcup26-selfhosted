@@ -1,0 +1,43 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import authRoutes from "./routes/auth";
+import profileRoutes from "./routes/profiles";
+import predictionRoutes from "./routes/predictions";
+import leagueRoutes from "./routes/leagues";
+import matchRoutes from "./routes/matches";
+import boostRoutes from "./routes/boosts";
+import customBoostRoutes from "./routes/custom-boosts";
+import leaderboardRoutes from "./routes/leaderboard";
+import tenantRoutes from "./routes/tenants";
+import adminRoutes from "./routes/admin";
+import rpcRoutes from "./routes/rpc";
+
+const app = new Hono();
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:5173").split(",").map(s => s.trim());
+
+app.use("*", cors({
+  origin: (origin) => ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]!,
+  credentials: true,
+  allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+}));
+
+app.get("/health", (c) => c.json({ status: "ok" }));
+
+app.route("/api/auth", authRoutes);
+app.route("/api/profiles", profileRoutes);
+app.route("/api/predictions", predictionRoutes);
+app.route("/api/leagues", leagueRoutes);
+app.route("/api/matches", matchRoutes);
+app.route("/api/boosts", boostRoutes);
+app.route("/api/custom-boosts", customBoostRoutes);
+app.route("/api/leaderboard", leaderboardRoutes);
+app.route("/api/tenants", tenantRoutes);
+app.route("/api/admin", adminRoutes);
+app.route("/api/rpc", rpcRoutes);
+
+export default {
+  port: parseInt(process.env.PORT ?? "3000"),
+  fetch: app.fetch,
+};

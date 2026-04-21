@@ -3,11 +3,11 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Loader2, User, ArrowLeft, Info, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
+import { setAccessToken } from '@/lib/auth';
 import { retrievePKCEParams } from '@/lib/oidc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { EmailOtpType } from '@supabase/supabase-js';
 
 type CallbackStep = 'processing' | 'consent' | 'username' | 'error';
 
@@ -16,17 +16,16 @@ const OIDCCallback = () => {
   const { tenantUid } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  
+
   const [step, setStep] = useState<CallbackStep>('processing');
   const [error, setError] = useState<string>('');
   const [username, setUsername] = useState('');
   const [suggestedName, setSuggestedName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [authCode, setAuthCode] = useState<string | null>(null);
   const [pkceParams, setPkceParams] = useState<{ verifier: string; state: string; tenantId: string } | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
   const [consentSaving, setConsentSaving] = useState(false);
-  
+
   const processedRef = useRef(false);
 
   useEffect(() => {
@@ -66,78 +65,39 @@ const OIDCCallback = () => {
       return;
     }
 
-    setAuthCode(code);
     setPkceParams(params);
 
     // Exchange code for tokens
-    exchangeCode(code, params.verifier, params.tenantId);
+    exchangeCode(code, params.tenantId);
   }, [searchParams]);
 
-  const exchangeCode = async (code: string, verifier: string, tenantId: string, usernameOverride?: string) => {
+  const exchangeCode = async (code: string, tenantId: string) => {
     setIsLoading(true);
     setError('');
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('oidc-callback', {
-        body: { 
-          code, 
-          code_verifier: verifier, 
-          tenant_id: tenantId,
-          username: usernameOverride,
-        },
+      const data = await api.post<{ access_token: string; needsConsent?: boolean; needsUsername?: boolean; suggestedName?: string }>('/auth/oidc/callback', {
+        code,
+        state: searchParams.get('state'),
+        tenant_id: tenantId,
       });
 
-      if (fnError) {
-        throw new Error(fnError.message || 'Failed to authenticate');
+      setAccessToken(data.access_token);
+
+      if (data.needsUsername) {
+        setSuggestedName(data.suggestedName || '');
+        setIsNewUser(true);
+        // New users go to consent first, then username
+        setStep('consent');
+        setIsLoading(false);
+        return;
       }
 
-      if (data?.error) {
-        if (data.needsUsername) {
-          setSuggestedName(data.suggestedName || '');
-          setIsNewUser(true);
-          // Store the id_token for use with oidc-token-auth after username is provided
-          if (data.id_token) {
-            setPendingIdToken(data.id_token);
-          }
-          // New users go to consent first, then username
-          setStep('consent');
-          setIsLoading(false);
-          return;
-        }
-        throw new Error(data.error);
-      }
-
-      if (data?.token) {
-        // Verify the token to sign in
-        const type = (data.tokenType || 'magiclink') as EmailOtpType;
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: data.token,
-          type,
-        });
-
-        if (verifyError) {
-          throw new Error(verifyError.message);
-        }
-
-        // Check if returning user has consented
-        if (!data.needsUsername) {
-          const { data: session } = await supabase.auth.getSession();
-          if (session?.session?.user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('privacy_consent_at')
-              .eq('user_id', session.session.user.id)
-              .single();
-
-            if (!profile?.privacy_consent_at) {
-              // Returning SSO user who hasn't consented yet
-              setIsNewUser(false);
-              setStep('consent');
-              setIsLoading(false);
-              return;
-            }
-          }
-        }
+      if (data.needsConsent) {
+        setIsNewUser(false);
+        setStep('consent');
+        setIsLoading(false);
+        return;
       }
 
       // Success - redirect to tenant app
@@ -150,64 +110,20 @@ const OIDCCallback = () => {
     }
   };
 
-  // Store id_token from first exchange for use when username is provided
-  const [pendingIdToken, setPendingIdToken] = useState<string | null>(null);
-
   const handleUsernameSubmit = async () => {
     if (!username.trim() || !pkceParams) return;
-    
-    // Use the stored id_token with oidc-token-auth instead of re-exchanging the code
-    if (pendingIdToken) {
-      setIsLoading(true);
-      setError('');
-      try {
-        const { data, error: fnError } = await supabase.functions.invoke('oidc-token-auth', {
-          body: { 
-            id_token: pendingIdToken,
-            tenant_id: pkceParams.tenantId,
-            username: username.trim(),
-          },
-        });
 
-        if (fnError) {
-          throw new Error(fnError.message || 'Failed to authenticate');
-        }
-
-        if (data?.error) {
-          throw new Error(data.error);
-        }
-
-        if (data?.token) {
-          await completeSignIn(data.token, data.tokenType || 'magiclink');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Authentication failed');
-        setStep('error');
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-    
-    // Fallback to exchangeCode if no pending token (shouldn't happen)
-    if (authCode) {
-      await exchangeCode(authCode, pkceParams.verifier, pkceParams.tenantId, username.trim());
-    }
-  };
-
-  const completeSignIn = async (token: string, tokenType: string) => {
     setIsLoading(true);
+    setError('');
     try {
-      const type = (tokenType || 'magiclink') as EmailOtpType;
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        token_hash: token,
-        type,
+      const data = await api.post<{ access_token: string }>('/auth/oidc/callback', {
+        code: searchParams.get('code'),
+        state: searchParams.get('state'),
+        tenant_id: pkceParams.tenantId,
+        username: username.trim(),
       });
 
-      if (verifyError) {
-        throw new Error(verifyError.message);
-      }
-
+      setAccessToken(data.access_token);
       navigate(`/t/${tenantUid}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
@@ -225,19 +141,7 @@ const OIDCCallback = () => {
       // Returning user - save consent now and redirect
       setConsentSaving(true);
       try {
-        const { data: session } = await supabase.auth.getSession();
-        if (session?.session?.user) {
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ privacy_consent_at: new Date().toISOString() })
-            .eq('user_id', session.session.user.id);
-
-          if (updateError) {
-            setError('Failed to save consent. Please try again.');
-            setStep('error');
-            return;
-          }
-        }
+        await api.patch('/profiles/me', { privacy_consent_at: new Date().toISOString() });
         navigate(`/t/${tenantUid}`);
       } catch (err) {
         setError('Failed to save consent. Please try again.');

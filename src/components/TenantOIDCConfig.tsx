@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Key, Save, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,6 @@ interface TenantOIDCConfigProps {
 }
 
 interface OIDCConfig {
-  id?: string;
   auth_url: string;
   client_id: string;
   redirect_uri: string;
@@ -39,20 +38,14 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        // Fetch OIDC config
-        const { data: oidcData, error: oidcError } = await supabase
-          .from('tenant_oidc_config')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
+        const data = await api.get<OIDCConfig | null>(`/tenants/${tenantId}/oidc-config`);
 
-        if (!oidcError && oidcData) {
+        if (data) {
           setOidcConfig({
-            id: oidcData.id,
-            auth_url: oidcData.auth_url,
-            client_id: oidcData.client_id,
-            redirect_uri: oidcData.redirect_uri,
-            issuer: oidcData.issuer || '',
+            auth_url: data.auth_url,
+            client_id: data.client_id,
+            redirect_uri: data.redirect_uri,
+            issuer: data.issuer || '',
           });
         } else {
           // Set default redirect URI for new config
@@ -75,14 +68,6 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
     setSaving(true);
 
     try {
-      // Ensure auth_method is always 'oidc'
-      const { error: tenantError } = await supabase
-        .from('tenants')
-        .update({ auth_method: 'oidc' })
-        .eq('id', tenantId);
-
-      if (tenantError) throw tenantError;
-
       // Validate required fields
       if (!oidcConfig.auth_url || !oidcConfig.client_id || !oidcConfig.redirect_uri) {
         toast.error('Please fill in all required OIDC fields');
@@ -90,36 +75,12 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
         return;
       }
 
-      if (oidcConfig.id) {
-        // Update existing config
-        const { error } = await supabase
-          .from('tenant_oidc_config')
-          .update({
-            auth_url: oidcConfig.auth_url,
-            client_id: oidcConfig.client_id,
-            redirect_uri: oidcConfig.redirect_uri,
-            issuer: oidcConfig.issuer || null,
-          })
-          .eq('id', oidcConfig.id);
-
-        if (error) throw error;
-      } else {
-        // Insert new config
-        const { data, error } = await supabase
-          .from('tenant_oidc_config')
-          .insert({
-            tenant_id: tenantId,
-            auth_url: oidcConfig.auth_url,
-            client_id: oidcConfig.client_id,
-            redirect_uri: oidcConfig.redirect_uri,
-            issuer: oidcConfig.issuer || null,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        setOidcConfig(prev => ({ ...prev, id: data.id }));
-      }
+      await api.patch(`/tenants/${tenantId}/oidc-config`, {
+        auth_url: oidcConfig.auth_url,
+        client_id: oidcConfig.client_id,
+        redirect_uri: oidcConfig.redirect_uri,
+        issuer: oidcConfig.issuer || null,
+      });
 
       toast.success('Configuration saved successfully');
     } catch (err) {

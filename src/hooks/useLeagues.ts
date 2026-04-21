@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -44,61 +44,14 @@ export const useLeagues = (tenantId?: string | null) => {
     }
 
     try {
-      // Get leagues user is a member of
-      const { data: memberData, error: memberError } = await supabase
-        .from('league_members')
-        .select('league_id')
-        .eq('user_id', user.id);
+      const params: Record<string, string | undefined> = {};
+      if (tenantId) params.tenant_id = tenantId;
 
-      if (memberError) throw memberError;
+      const { data, error } = await api.get<League[]>('/leagues', params);
 
-      const leagueIds = memberData?.map(m => m.league_id) || [];
+      if (error) throw error;
 
-      if (leagueIds.length === 0) {
-        setLeagues([]);
-        setLoading(false);
-        return;
-      }
-
-      // Build query - filter by tenant if provided
-      let leaguesQuery = supabase
-        .from('leagues')
-        .select('*')
-        .in('id', leagueIds);
-      
-      if (tenantId) {
-        leaguesQuery = leaguesQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: leaguesData, error: leaguesError } = await leaguesQuery;
-
-      if (leaguesError) throw leaguesError;
-
-      // Get member counts for each league (only members with active profiles)
-      const leaguesWithCounts = await Promise.all(
-        (leaguesData || []).map(async (league) => {
-          // Get all member user_ids for this league
-          const { data: members } = await supabase
-            .from('league_members')
-            .select('user_id')
-            .eq('league_id', league.id);
-          
-          if (!members || members.length === 0) {
-            return { ...league, member_count: 0 };
-          }
-          
-          // Count only members who have active profiles
-          const memberIds = members.map(m => m.user_id);
-          const { count } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .in('user_id', memberIds);
-          
-          return { ...league, member_count: count || 0 };
-        })
-      );
-
-      setLeagues(leaguesWithCounts);
+      setLeagues(data || []);
     } catch (error) {
       console.error('Error fetching leagues:', error);
     } finally {
@@ -115,44 +68,21 @@ export const useLeagues = (tenantId?: string | null) => {
 
     try {
       const joinCode = generateJoinCode();
-      
-      // Get user's tenant_id from profile if not provided
-      let effectiveTenantId = tenantId;
-      if (!effectiveTenantId) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        effectiveTenantId = profile?.tenant_id;
-      }
-      
-      const { data, error } = await supabase
-        .from('leagues')
-        .insert({
-          name,
-          avatar_emoji: avatarEmoji,
-          join_code: joinCode,
-          creator_id: user.id,
-          tenant_id: effectiveTenantId,
-        })
-        .select()
-        .single();
+
+      const { data, error } = await api.post<{ id: string }>('/leagues', {
+        name,
+        avatar_emoji: avatarEmoji,
+        join_code: joinCode,
+        ...(tenantId ? { tenant_id: tenantId } : {}),
+      });
 
       if (error) throw error;
 
-      // Auto-join the creator to the league
-      await supabase
-        .from('league_members')
-        .insert({
-          league_id: data.id,
-          user_id: user.id,
-          tenant_id: effectiveTenantId,
-        });
-
       toast.success(t('leagues.created'));
       await fetchLeagues();
-      return data;
+
+      // Return a minimal League object — fetchLeagues will have updated state
+      return leagues.find(l => l.id === data?.id) || null;
     } catch (error) {
       console.error('Error creating league:', error);
       toast.error(t('leagues.createError'));
@@ -164,55 +94,33 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      // Look up league by code using security definer function
-      const { data: leagueData, error: lookupError } = await supabase
-        .rpc('get_league_by_code', { code: joinCode.toUpperCase() });
+      // Look up league by code
+      const { data: leagueData, error: lookupError } = await api.get<League>(
+        `/leagues/by-code/${joinCode.toUpperCase()}`
+      );
 
       if (lookupError) throw lookupError;
 
-      if (!leagueData || leagueData.length === 0) {
+      if (!leagueData) {
         toast.error(t('leagues.invalidCode'));
         return false;
       }
 
-      const league = leagueData[0];
-
-      // Check if already a member
-      const { data: existingMember } = await supabase
-        .from('league_members')
-        .select('id')
-        .eq('league_id', league.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (existingMember) {
-        toast.error(t('leagues.alreadyMember'));
-        return false;
-      }
-
-      // Get user's tenant_id from profile if not provided
-      let effectiveTenantId = tenantId;
-      if (!effectiveTenantId) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        effectiveTenantId = profile?.tenant_id;
-      }
-
       // Join the league
-      const { error: joinError } = await supabase
-        .from('league_members')
-        .insert({
-          league_id: league.id,
-          user_id: user.id,
-          tenant_id: effectiveTenantId,
-        });
+      const { error: joinError } = await api.post(`/leagues/${leagueData.id}/members`, {
+        ...(tenantId ? { tenant_id: tenantId } : {}),
+      });
 
-      if (joinError) throw joinError;
+      if (joinError) {
+        // If already a member, the API should return an error we can check
+        if (joinError.message?.includes('already')) {
+          toast.error(t('leagues.alreadyMember'));
+          return false;
+        }
+        throw joinError;
+      }
 
-      toast.success(t('leagues.joined', { name: league.name }));
+      toast.success(t('leagues.joined', { name: leagueData.name }));
       await fetchLeagues();
       return true;
     } catch (error) {
@@ -226,11 +134,7 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase
-        .from('league_members')
-        .delete()
-        .eq('league_id', leagueId)
-        .eq('user_id', user.id);
+      const { error } = await api.delete(`/leagues/${leagueId}/members`);
 
       if (error) throw error;
 
@@ -248,11 +152,7 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase
-        .from('league_members')
-        .delete()
-        .eq('league_id', leagueId)
-        .eq('user_id', memberId);
+      const { error } = await api.delete(`/leagues/${leagueId}/members/${memberId}`);
 
       if (error) throw error;
 
@@ -269,11 +169,7 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase
-        .from('leagues')
-        .delete()
-        .eq('id', leagueId)
-        .eq('creator_id', user.id);
+      const { error } = await api.delete(`/leagues/${leagueId}`);
 
       if (error) throw error;
 
@@ -291,14 +187,10 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase
-        .from('leagues')
-        .update({
-          name,
-          avatar_emoji: avatarEmoji
-        })
-        .eq('id', leagueId)
-        .eq('creator_id', user.id);
+      const { error } = await api.patch(`/leagues/${leagueId}`, {
+        name,
+        avatar_emoji: avatarEmoji,
+      });
 
       if (error) throw error;
 
@@ -314,28 +206,11 @@ export const useLeagues = (tenantId?: string | null) => {
 
   const getLeagueMembers = async (leagueId: string): Promise<LeagueMember[]> => {
     try {
-      const { data: members, error } = await supabase
-        .from('league_members')
-        .select('user_id, joined_at')
-        .eq('league_id', leagueId);
+      const { data, error } = await api.get<LeagueMember[]>(`/leagues/${leagueId}/members`);
 
       if (error) throw error;
 
-      // Get profiles for members
-      const userIds = members?.map(m => m.user_id) || [];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, avatar_emoji')
-        .in('user_id', userIds);
-
-      return (members || []).map(member => {
-        const profile = profiles?.find(p => p.user_id === member.user_id);
-        return {
-          ...member,
-          display_name: profile?.display_name,
-          avatar_emoji: profile?.avatar_emoji
-        };
-      });
+      return data || [];
     } catch (error) {
       console.error('Error fetching league members:', error);
       return [];

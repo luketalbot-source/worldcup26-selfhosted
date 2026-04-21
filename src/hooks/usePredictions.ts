@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface Prediction {
@@ -7,6 +7,13 @@ export interface Prediction {
   homeScore: number;
   awayScore: number;
   timestamp: string;
+}
+
+interface ApiPrediction {
+  match_id: string;
+  home_score: number;
+  away_score: number;
+  updated_at: string;
 }
 
 export const usePredictions = (tenantId?: string | null) => {
@@ -20,20 +27,13 @@ export const usePredictions = (tenantId?: string | null) => {
       setLoading(false);
       return;
     }
-    
+
     setLoading(true);
-    
-    // Build query - filter by tenant_id if provided
-    let query = supabase
-      .from('predictions')
-      .select('*')
-      .eq('user_id', user.id);
-    
-    if (tenantId) {
-      query = query.eq('tenant_id', tenantId);
-    }
-    
-    const { data, error } = await query;
+
+    const params: Record<string, string | undefined> = {};
+    if (tenantId) params.tenant_id = tenantId;
+
+    const { data, error } = await api.get<ApiPrediction[]>('/predictions', params);
 
     if (!error && data) {
       setPredictions(data.map(p => ({
@@ -53,35 +53,19 @@ export const usePredictions = (tenantId?: string | null) => {
   const addPrediction = async (matchId: string, homeScore: number, awayScore: number) => {
     if (!user) return;
 
-    // Get user's tenant_id from profile if not provided
-    let effectiveTenantId = tenantId;
-    if (!effectiveTenantId) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      effectiveTenantId = profile?.tenant_id;
-    }
-
-    const { error } = await supabase
-      .from('predictions')
-      .upsert({
-        user_id: user.id,
-        match_id: matchId,
-        home_score: homeScore,
-        away_score: awayScore,
-        tenant_id: effectiveTenantId,
-      }, {
-        onConflict: 'user_id,match_id',
-      });
+    const { error } = await api.post('/predictions', {
+      match_id: matchId,
+      home_score: homeScore,
+      away_score: awayScore,
+      ...(tenantId ? { tenant_id: tenantId } : {}),
+    });
 
     if (!error) {
       // Update local state
       const existing = predictions.find(p => p.matchId === matchId);
       if (existing) {
-        setPredictions(predictions.map(p => 
-          p.matchId === matchId 
+        setPredictions(predictions.map(p =>
+          p.matchId === matchId
             ? { ...p, homeScore, awayScore, timestamp: new Date().toISOString() }
             : p
         ));

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { Match } from '@/types/match';
 import { groupStageMatches } from '@/data/matches';
 import { getAllKnockoutMatches, KnockoutMatch } from '@/data/knockoutMatches';
@@ -34,16 +34,17 @@ export const useLiveMatches = () => {
   const hasAutoSynced = useRef(false);
 
   const fetchLiveMatches = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('live_matches')
-      .select('*')
-      .order('match_date', { ascending: true });
+    const { data, error } = await api.get<LiveMatch[]>('/matches');
 
     if (!error && data) {
-      setLiveMatches(data);
-      if (data.length > 0) {
+      // Sort by match_date ascending
+      const sorted = [...data].sort((a, b) =>
+        new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+      );
+      setLiveMatches(sorted);
+      if (sorted.length > 0) {
         // Get the most recent last_updated timestamp
-        const mostRecent = data.reduce((latest, match) => {
+        const mostRecent = sorted.reduce((latest, match) => {
           const matchDate = new Date(match.last_updated);
           return matchDate > latest ? matchDate : latest;
         }, new Date(0));
@@ -89,8 +90,8 @@ export const useLiveMatches = () => {
 
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-matches');
-      
+      const { data, error } = await api.post('/admin/sync-matches');
+
       if (error) {
         console.error('Error syncing matches:', error);
         return { success: false, error };
@@ -114,7 +115,7 @@ export const useLiveMatches = () => {
       // First, fetch current data to get the last sync time
       const lastSyncTime = await fetchLiveMatches();
       setLoading(false);
-      
+
       // Only auto-sync once per app session
       if (hasAutoSynced.current) return;
       hasAutoSynced.current = true;
@@ -145,7 +146,7 @@ export const useLiveMatches = () => {
       const liveMatch = liveMatches.find(lm => {
         // Match by our local match_id or by team codes
         if (lm.match_id === match.id) return true;
-        
+
         // Try to match by teams
         const homeMatches = lm.home_team_code === match.homeTeam.code;
         const awayMatches = lm.away_team_code === match.awayTeam.code;
@@ -167,23 +168,23 @@ export const useLiveMatches = () => {
 
   const getTodayMatches = useCallback((): Match[] => {
     const today = new Date();
-    const todayStr = today.toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+    const todayStr = today.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
     });
-    
+
     const todayMatches = groupStageMatches.filter(match => {
       // Parse match date and compare with today
       const matchDate = new Date(match.date);
-      const matchDateStr = matchDate.toLocaleDateString('en-US', { 
-        month: 'long', 
-        day: 'numeric', 
-        year: 'numeric' 
+      const matchDateStr = matchDate.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
       });
       return matchDateStr === todayStr;
     });
-    
+
     return mergeWithLocalData(todayMatches);
   }, [mergeWithLocalData]);
 
@@ -195,7 +196,7 @@ export const useLiveMatches = () => {
   const getKnockoutMatches = useCallback((stage: string): KnockoutMatch[] => {
     const allKnockout = getAllKnockoutMatches();
     const stageMatches = allKnockout.filter(m => m.stage === stage);
-    
+
     return stageMatches.map(match => {
       const liveMatch = liveMatches.find(lm => {
         if (lm.match_id === match.id) return true;

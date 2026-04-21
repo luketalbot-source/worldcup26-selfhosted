@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 
 export interface Profile {
   id: string;
@@ -7,6 +7,14 @@ export interface Profile {
   displayName: string;
   avatarEmoji: string;
   phoneNumber: string | null;
+}
+
+interface ApiProfile {
+  id: string;
+  user_id: string;
+  display_name: string;
+  avatar_emoji: string | null;
+  phone_number: string | null;
 }
 
 export const useProfile = (userId?: string) => {
@@ -24,13 +32,9 @@ export const useProfile = (userId?: string) => {
 
   const fetchProfile = async () => {
     if (!userId) return;
-    
+
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
+    const { data, error } = await api.get<ApiProfile>('/profiles/me');
 
     if (!error && data) {
       setProfile({
@@ -47,13 +51,10 @@ export const useProfile = (userId?: string) => {
   const updateProfile = async (displayName: string, avatarEmoji?: string) => {
     if (!userId) return;
 
-    const updates: any = { display_name: displayName };
+    const updates: Record<string, string> = { display_name: displayName };
     if (avatarEmoji) updates.avatar_emoji = avatarEmoji;
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('user_id', userId);
+    const { error } = await api.patch('/profiles/me', updates);
 
     if (!error && profile) {
       setProfile({
@@ -69,10 +70,7 @@ export const useProfile = (userId?: string) => {
   const updatePhoneNumber = async (phoneNumber: string) => {
     if (!userId) return;
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ phone_number: phoneNumber })
-      .eq('user_id', userId);
+    const { error } = await api.patch('/profiles/me', { phone_number: phoneNumber });
 
     if (!error && profile) {
       setProfile({

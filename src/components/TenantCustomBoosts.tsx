@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Loader2, Trash2, Image, Save, Check, RotateCcw, RefreshCw, Pencil } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,19 +88,19 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
   const [generatingImage, setGeneratingImage] = useState<string | null>(null);
   const [savingResult, setSavingResult] = useState<string | null>(null);
   const [resettingResult, setResettingResult] = useState<string | null>(null);
-  
+
   // Form state for create
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [pointsValue, setPointsValue] = useState('5');
   const [predictionType, setPredictionType] = useState<'team' | 'player'>('team');
-  
+
   // Form state for edit
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editPointsValue, setEditPointsValue] = useState('5');
   const [editPredictionType, setEditPredictionType] = useState<'team' | 'player'>('team');
-  
+
   // Result form state
   const [resultValues, setResultValues] = useState<Map<string, { teamCode: string; playerName: string }>>(new Map());
 
@@ -113,40 +113,26 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch custom boosts for this tenant
-      const { data: boostsData, error: boostsError } = await supabase
-        .from('tenant_custom_boosts')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('display_order');
+      const [boostsData, resultsData] = await Promise.all([
+        api.get<CustomBoost[]>('/custom-boosts', { tenant_id: tenantId }),
+        api.get<CustomBoostResult[]>('/custom-boosts/results', { tenant_id: tenantId }),
+      ]);
 
-      if (boostsError) throw boostsError;
-      setBoosts((boostsData || []) as CustomBoost[]);
+      setBoosts(boostsData || []);
 
-      // Fetch results
-      if (boostsData && boostsData.length > 0) {
-        const boostIds = boostsData.map(b => b.id);
-        const { data: resultsData, error: resultsError } = await supabase
-          .from('tenant_custom_boost_results')
-          .select('*')
-          .in('custom_boost_id', boostIds);
+      const resultsMap = new Map<string, CustomBoostResult>();
+      const formMap = new Map<string, { teamCode: string; playerName: string }>();
 
-        if (resultsError) throw resultsError;
-
-        const resultsMap = new Map<string, CustomBoostResult>();
-        const formMap = new Map<string, { teamCode: string; playerName: string }>();
-        
-        (resultsData || []).forEach((r: CustomBoostResult) => {
-          resultsMap.set(r.custom_boost_id, r);
-          formMap.set(r.custom_boost_id, {
-            teamCode: r.result_team_code || '',
-            playerName: r.result_player_name || '',
-          });
+      (resultsData || []).forEach((r: CustomBoostResult) => {
+        resultsMap.set(r.custom_boost_id, r);
+        formMap.set(r.custom_boost_id, {
+          teamCode: r.result_team_code || '',
+          playerName: r.result_player_name || '',
         });
-        
-        setResults(resultsMap);
-        setResultValues(formMap);
-      }
+      });
+
+      setResults(resultsMap);
+      setResultValues(formMap);
     } catch (err) {
       console.error('Error fetching custom boosts:', err);
       toast.error('Failed to load custom boosts');
@@ -163,34 +149,26 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
 
     setCreating(true);
     try {
-      // First, detect language and prepare translations
-      const { data: boost, error } = await supabase
-        .from('tenant_custom_boosts')
-        .insert({
-          tenant_id: tenantId,
-          title: title.trim(),
-          description: description.trim() || null,
-          points_value: parseInt(pointsValue) || 5,
-          prediction_type: predictionType,
-          display_order: boosts.length,
-          original_language: 'en', // Will be updated by AI
-        })
-        .select()
-        .single();
+      const boost = await api.post<CustomBoost>('/custom-boosts', {
+        tenant_id: tenantId,
+        title: title.trim(),
+        description: description.trim() || null,
+        points_value: parseInt(pointsValue) || 5,
+        prediction_type: predictionType,
+        display_order: boosts.length,
+      });
 
-      if (error) throw error;
+      setBoosts([...boosts, boost]);
 
-      setBoosts([...boosts, boost as CustomBoost]);
-      
       // Reset form
       setTitle('');
       setDescription('');
       setPointsValue('5');
       setPredictionType('team');
       setDialogOpen(false);
-      
+
       toast.success('Custom boost created!');
-      
+
       // Generate image in background
       generateImage(boost.id, boost.title, boost.description);
     } catch (err) {
@@ -204,20 +182,15 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
   const generateImage = async (boostId: string, boostTitle: string, boostDescription: string | null) => {
     setGeneratingImage(boostId);
     try {
-      const response = await supabase.functions.invoke('generate-boost-image', {
-        body: { 
-          boostId,
-          title: boostTitle,
-          description: boostDescription 
-        },
+      const data = await api.post<{ imageUrl: string }>('/admin/generate-boost-image', {
+        boostId,
+        title: boostTitle,
+        description: boostDescription,
       });
 
-      if (response.error) throw response.error;
-
-      // Update local state with the new image URL
-      if (response.data?.imageUrl) {
-        setBoosts(prev => prev.map(b => 
-          b.id === boostId ? { ...b, image_url: response.data.imageUrl } : b
+      if (data?.imageUrl) {
+        setBoosts(prev => prev.map(b =>
+          b.id === boostId ? { ...b, image_url: data.imageUrl } : b
         ));
         toast.success('Image generated!');
       }
@@ -231,12 +204,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
 
   const handleDelete = async (boostId: string) => {
     try {
-      const { error } = await supabase
-        .from('tenant_custom_boosts')
-        .delete()
-        .eq('id', boostId);
-
-      if (error) throw error;
+      await api.delete(`/custom-boosts/${boostId}`);
 
       setBoosts(boosts.filter(b => b.id !== boostId));
       toast.success('Custom boost deleted');
@@ -263,31 +231,26 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
 
     setUpdating(true);
     try {
-      const { error } = await supabase
-        .from('tenant_custom_boosts')
-        .update({
-          title: editTitle.trim(),
-          description: editDescription.trim() || null,
-          points_value: parseInt(editPointsValue) || 5,
-          prediction_type: editPredictionType,
-        })
-        .eq('id', editingBoost.id);
-
-      if (error) throw error;
+      await api.patch(`/custom-boosts/${editingBoost.id}`, {
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        points_value: parseInt(editPointsValue) || 5,
+        prediction_type: editPredictionType,
+      });
 
       // Update local state
-      setBoosts(boosts.map(b => 
-        b.id === editingBoost.id 
-          ? { 
-              ...b, 
-              title: editTitle.trim(), 
+      setBoosts(boosts.map(b =>
+        b.id === editingBoost.id
+          ? {
+              ...b,
+              title: editTitle.trim(),
               description: editDescription.trim() || null,
               points_value: parseInt(editPointsValue) || 5,
               prediction_type: editPredictionType,
-            } 
+            }
           : b
       ));
-      
+
       setEditDialogOpen(false);
       setEditingBoost(null);
       toast.success('Custom boost updated!');
@@ -301,21 +264,15 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
 
   const handleSaveResult = async (boost: CustomBoost) => {
     setSavingResult(boost.id);
-    
-    const formValue = resultValues.get(boost.id) || { teamCode: '', playerName: '' };
-    
-    try {
-      const { error } = await supabase
-        .from('tenant_custom_boost_results')
-        .upsert({
-          custom_boost_id: boost.id,
-          result_team_code: boost.prediction_type === 'team' ? formValue.teamCode || null : null,
-          result_player_name: boost.prediction_type === 'player' ? formValue.playerName || null : null,
-        }, {
-          onConflict: 'custom_boost_id',
-        });
 
-      if (error) throw error;
+    const formValue = resultValues.get(boost.id) || { teamCode: '', playerName: '' };
+
+    try {
+      await api.post('/custom-boosts/results', {
+        custom_boost_id: boost.id,
+        result_team_code: boost.prediction_type === 'team' ? formValue.teamCode || null : null,
+        result_player_name: boost.prediction_type === 'player' ? formValue.playerName || null : null,
+      });
 
       // Update local state
       const newResults = new Map(results);
@@ -325,7 +282,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
         result_player_name: boost.prediction_type === 'player' ? formValue.playerName : null,
       });
       setResults(newResults);
-      
+
       toast.success(`Result saved for ${boost.title}`);
     } catch (err) {
       console.error('Error saving result:', err);
@@ -338,12 +295,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
   const handleResetResult = async (boost: CustomBoost) => {
     setResettingResult(boost.id);
     try {
-      const { error } = await supabase
-        .from('tenant_custom_boost_results')
-        .delete()
-        .eq('custom_boost_id', boost.id);
-
-      if (error) throw error;
+      await api.delete(`/custom-boosts/results/${boost.id}`);
 
       const newResults = new Map(results);
       newResults.delete(boost.id);
@@ -352,7 +304,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
       const newFormValues = new Map(resultValues);
       newFormValues.delete(boost.id);
       setResultValues(newFormValues);
-      
+
       toast.success(`Result reset for ${boost.title}`);
     } catch (err) {
       console.error('Error resetting result:', err);
@@ -394,7 +346,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
               Create custom boost awards specific to {tenantName}. Each will appear with a "Custom" badge.
             </CardDescription>
           </div>
-          
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
@@ -409,7 +361,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                   Create a new boost award for this tenant. An image will be auto-generated based on the description.
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">Title</Label>
@@ -420,7 +372,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                     placeholder="e.g., Top Scorer Prediction"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -431,7 +383,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                     rows={3}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="points">Points Value</Label>
@@ -444,7 +396,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                       max={100}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="type">Prediction Type</Label>
                     <Select value={predictionType} onValueChange={(v) => setPredictionType(v as 'team' | 'player')}>
@@ -459,7 +411,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                   </div>
                 </div>
               </div>
-              
+
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
@@ -479,7 +431,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
           </Dialog>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {boosts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -492,7 +444,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
             const isSaving = savingResult === boost.id;
             const isResetting = resettingResult === boost.id;
             const isGenerating = generatingImage === boost.id;
-            
+
             const hasChanged = boost.prediction_type === 'team'
               ? formValue.teamCode !== (existingResult?.result_team_code || '')
               : formValue.playerName !== (existingResult?.result_player_name || '');
@@ -512,8 +464,8 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                     </div>
                   ) : boost.image_url ? (
                     <>
-                      <img 
-                        src={boost.image_url} 
+                      <img
+                        src={boost.image_url}
                         alt={boost.title}
                         className="w-full h-full object-cover"
                       />
@@ -549,7 +501,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                     </Button>
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="font-medium">{boost.title}</h4>
@@ -563,7 +515,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                   {boost.description && (
                     <p className="text-sm text-muted-foreground mb-3">{boost.description}</p>
                   )}
-                  
+
                   {/* Result controls */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">Result:</span>
@@ -593,7 +545,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                         </SelectContent>
                       </Select>
                     )}
-                    
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -607,7 +559,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                         <Save className="w-3 h-3" />
                       )}
                     </Button>
-                    
+
                     <Button
                       size="sm"
                       variant="ghost"
@@ -623,7 +575,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                     </Button>
                   </div>
                 </div>
-                
+
                 {/* Actions */}
                 <div className="flex items-start gap-2">
                   <Button
@@ -634,7 +586,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
-                  
+
                   {!boost.image_url && (
                     <Button
                       size="sm"
@@ -649,7 +601,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                       )}
                     </Button>
                   )}
-                  
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
@@ -665,7 +617,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
+                        <AlertDialogAction
                           onClick={() => handleDelete(boost.id)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
@@ -680,7 +632,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
           })
         )}
       </CardContent>
-      
+
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
@@ -690,7 +642,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
               Update the details of this custom boost.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-title">Title</Label>
@@ -701,7 +653,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                 placeholder="e.g., Top Scorer Prediction"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="edit-description">Description</Label>
               <Textarea
@@ -712,7 +664,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                 rows={3}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-points">Points Value</Label>
@@ -725,7 +677,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                   max={100}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="edit-type">Prediction Type</Label>
                 <Select value={editPredictionType} onValueChange={(v) => setEditPredictionType(v as 'team' | 'player')}>
@@ -740,7 +692,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel

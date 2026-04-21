@@ -8,7 +8,7 @@ import { ProfileView } from '@/components/ProfileView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { Loader2 } from 'lucide-react';
 
 const TenantApp = () => {
@@ -20,7 +20,7 @@ const TenantApp = () => {
   const [searchParams] = useSearchParams();
   const { user, loading: authLoading, signOut } = useAuth();
   const { tenant, tenantId, loading: tenantLoading, error: tenantError } = useTenant();
-  
+
   // Check for dev load test mode - bypasses auth requirement
   const isDevMode = searchParams.get('devLoadTest') === 'true';
 
@@ -54,19 +54,9 @@ const TenantApp = () => {
       }
 
       try {
-        // Tenant membership is determined by an OIDC identity row
-        const { data: identity, error } = await supabase
-          .from('oidc_identities')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
+        const data = await api.get<{ has_identity: boolean }>('/auth/identity', { tenant_id: tenantId });
 
-        if (error) {
-          // Error handled silently
-        }
-
-        if (!identity) {
+        if (!data.has_identity) {
           await signOut();
         }
       } catch {
@@ -140,7 +130,7 @@ const TenantApp = () => {
       <main className="container py-4">
         {renderContent()}
       </main>
-      
+
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );

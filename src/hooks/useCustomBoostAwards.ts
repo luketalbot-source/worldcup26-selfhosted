@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 
@@ -33,6 +33,18 @@ export interface CustomBoostResult {
   result_player_name: string | null;
 }
 
+interface ApiCustomBoostAward {
+  id: string;
+  title: string;
+  description: string | null;
+  prediction_type: string;
+  points_value: number;
+  lock_date: string | null;
+  image_url: string | null;
+  display_order: number;
+  original_language: string | null;
+}
+
 // Cache translations to avoid repeated API calls
 const translationCache = new Map<string, { title: string; description: string | null }>();
 
@@ -50,7 +62,7 @@ export const useCustomBoostAwards = () => {
     targetLanguage: string
   ): Promise<{ title: string; description: string | null }> => {
     const sourceLanguage = award.original_language || 'en';
-    
+
     // If same language, no translation needed
     if (sourceLanguage === targetLanguage) {
       return { title: award.title, description: award.description };
@@ -63,20 +75,21 @@ export const useCustomBoostAwards = () => {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('translate-boost', {
-        body: {
+      const { data, error } = await api.post<{ title: string; description: string | null }>(
+        '/custom-boosts/translate',
+        {
           title: award.title,
           description: award.description,
           sourceLanguage,
           targetLanguage,
-        },
-      });
+        }
+      );
 
       if (error) throw error;
 
       const translated = {
-        title: data.title || award.title,
-        description: data.description ?? award.description,
+        title: data?.title || award.title,
+        description: data?.description ?? award.description,
       };
 
       // Cache the result
@@ -97,16 +110,15 @@ export const useCustomBoostAwards = () => {
     setLoading(true);
     try {
       // Fetch custom awards for this tenant
-      const { data: awardsData, error: awardsError } = await supabase
-        .from('tenant_custom_boosts')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('display_order');
+      const { data: awardsData, error: awardsError } = await api.get<ApiCustomBoostAward[]>(
+        '/custom-boosts',
+        { tenant_id: tenantId }
+      );
 
       if (awardsError) throw awardsError;
-      
+
       const currentLang = i18n.language?.slice(0, 2) || 'en';
-      
+
       // Translate awards in parallel
       const translatedAwards = await Promise.all(
         (awardsData || []).map(async (award) => {
@@ -127,7 +139,7 @@ export const useCustomBoostAwards = () => {
           };
         })
       );
-      
+
       setAwards(translatedAwards);
 
       if (translatedAwards.length === 0) {
@@ -135,28 +147,25 @@ export const useCustomBoostAwards = () => {
         return;
       }
 
-      const awardIds = translatedAwards.map(a => a.id);
+      // Fetch results
+      const { data: resultsData, error: resultsError } = await api.get<CustomBoostResult[]>(
+        '/custom-boosts/results',
+        { tenant_id: tenantId }
+      );
+
+      if (resultsError) throw resultsError;
+      setResults(resultsData || []);
 
       // Fetch user predictions if logged in
       if (user) {
-        const { data: predictionsData, error: predictionsError } = await supabase
-          .from('tenant_custom_boost_predictions')
-          .select('*')
-          .eq('user_id', user.id)
-          .in('custom_boost_id', awardIds);
+        const { data: predictionsData, error: predictionsError } = await api.get<CustomBoostPrediction[]>(
+          '/custom-boosts/predictions',
+          { tenant_id: tenantId }
+        );
 
         if (predictionsError) throw predictionsError;
         setPredictions(predictionsData || []);
       }
-
-      // Fetch results
-      const { data: resultsData, error: resultsError } = await supabase
-        .from('tenant_custom_boost_results')
-        .select('*')
-        .in('custom_boost_id', awardIds);
-
-      if (resultsError) throw resultsError;
-      setResults(resultsData || []);
     } catch (err) {
       console.error('Error fetching custom boost data:', err);
     } finally {
@@ -172,25 +181,20 @@ export const useCustomBoostAwards = () => {
     if (!user || !tenantId) return false;
 
     try {
-      const { error } = await supabase
-        .from('tenant_custom_boost_predictions')
-        .upsert({
-          user_id: user.id,
-          tenant_id: tenantId,
-          custom_boost_id: customBoostId,
-          predicted_team_code: teamCode,
-          predicted_player_name: playerName,
-        }, {
-          onConflict: 'user_id,custom_boost_id',
-        });
+      const { error } = await api.post('/custom-boosts/predictions', {
+        custom_boost_id: customBoostId,
+        tenant_id: tenantId,
+        predicted_team_code: teamCode,
+        predicted_player_name: playerName,
+      });
 
       if (error) throw error;
 
       // Update local state
       const existing = predictions.find(p => p.custom_boost_id === customBoostId);
       if (existing) {
-        setPredictions(predictions.map(p => 
-          p.custom_boost_id === customBoostId 
+        setPredictions(predictions.map(p =>
+          p.custom_boost_id === customBoostId
             ? { ...p, predicted_team_code: teamCode, predicted_player_name: playerName }
             : p
         ));
@@ -226,7 +230,7 @@ export const useCustomBoostAwards = () => {
     const prediction = getPrediction(customBoostId);
     const result = getResult(customBoostId);
     const award = awards.find(a => a.id === customBoostId);
-    
+
     if (!prediction || !result || !award) return 0;
 
     if (award.prediction_type === 'team') {

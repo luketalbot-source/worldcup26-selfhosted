@@ -1,10 +1,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session, type EmailOtpType } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
+import { getAccessToken, setAccessToken, clearAccessToken, getUser, onAuthChange, type AppUser } from '@/lib/auth';
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AppUser | null;
   loading: boolean;
   sendOtp: (phoneNumber: string, tenantId?: string) => Promise<{ error: Error | null; isNewUser: boolean }>;
   verifyOtp: (phoneNumber: string, code: string, username?: string, tenantId?: string) => Promise<{ error: Error | null }>;
@@ -14,99 +13,80 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    // Subscribe to auth changes
+    const unsubscribe = onAuthChange((u) => {
+      setUser(u);
     });
 
-    return () => subscription.unsubscribe();
+    // Try to restore user from stored token first
+    const storedUser = getUser();
+    if (storedUser) {
+      setUser(storedUser);
+      setLoading(false);
+    } else {
+      // No stored token — try to refresh via httpOnly cookie
+      api.post<{ access_token: string }>('/auth/refresh').then(({ data, error }) => {
+        if (!error && data?.access_token) {
+          setAccessToken(data.access_token);
+          // onAuthChange will update user state
+        }
+        setLoading(false);
+      });
+    }
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const sendOtp = async (phoneNumber: string, tenantId?: string): Promise<{ error: Error | null; isNewUser: boolean }> => {
-    try {
-      // Call the send-otp edge function (server-side check for isNewUser bypasses RLS)
-      const { data, error } = await supabase.functions.invoke('send-otp', {
-        body: { phone_number: phoneNumber, tenant_id: tenantId },
-      });
+    const { data, error } = await api.post<{ isNewUser: boolean }>('/auth/send-otp', {
+      phone: phoneNumber,
+      ...(tenantId ? { tenant_id: tenantId } : {}),
+    });
 
-      if (error) {
-        return { error: new Error(error.message || 'Failed to send OTP'), isNewUser: false };
-      }
-
-      if (data?.error) {
-        return { error: new Error(data.error), isNewUser: false };
-      }
-
-      // Use the server-side isNewUser check result
-      return { error: null, isNewUser: data?.isNewUser ?? false };
-    } catch (err) {
-      return { error: err as Error, isNewUser: false };
+    if (error) {
+      return { error, isNewUser: false };
     }
+
+    return { error: null, isNewUser: data?.isNewUser ?? false };
   };
 
   const verifyOtp = async (
-    phoneNumber: string, 
-    code: string, 
+    phoneNumber: string,
+    code: string,
     username?: string,
     tenantId?: string
   ): Promise<{ error: Error | null }> => {
-    try {
-      // Call the verify-otp edge function
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { phone_number: phoneNumber, code, username, tenant_id: tenantId },
-      });
+    const { data, error } = await api.post<{ access_token: string }>('/auth/verify-otp', {
+      phone: phoneNumber,
+      token: code,
+      ...(username ? { username } : {}),
+      ...(tenantId ? { tenant_id: tenantId } : {}),
+    });
 
-      if (error) {
-        return { error: new Error(error.message || 'Failed to verify OTP') };
-      }
-
-      if (data?.error) {
-        return { error: new Error(data.error) };
-      }
-
-      if (data?.token) {
-        // `admin.generateLink({ type: 'magiclink' })` returns a hashed token.
-        // Supabase expects it as `token_hash` (not `token`) for verifyOtp.
-        const type = (data.tokenType || 'magiclink') as EmailOtpType;
-
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: data.token,
-          type,
-        });
-
-        if (verifyError) {
-          return { error: verifyError };
-        }
-      }
-
-      return { error: null };
-    } catch (err) {
-      return { error: err as Error };
+    if (error) {
+      return { error };
     }
+
+    if (data?.access_token) {
+      setAccessToken(data.access_token);
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await api.post('/auth/signout');
+    clearAccessToken();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, sendOtp, verifyOtp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, sendOtp, verifyOtp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

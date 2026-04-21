@@ -7,13 +7,8 @@ WORKDIR /app
 
 # VITE_ env vars must be present at build time because Vite
 # statically replaces them in the JS bundle during compilation.
-ARG VITE_SUPABASE_PROJECT_ID
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_PUBLISHABLE_KEY
-
-ENV VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
 
 # Copy dependency manifests first for Docker layer caching
 COPY package.json package-lock.json ./
