@@ -43,21 +43,27 @@ router.get("/", async (c) => {
         GROUP BY ap.user_id
       ),
       all_boost_preds AS (
-        SELECT bp.user_id, bp.award_id, bp.predicted_value
+        SELECT bp.user_id, bp.award_id, bp.predicted_team_code, bp.predicted_player_name
         FROM boost_predictions bp
         INNER JOIN league_users lu ON lu.user_id = bp.user_id
         WHERE bp.tenant_id = ${tenantId}
       ),
       boost_pts AS (
         SELECT abp.user_id,
-               SUM(CASE WHEN br.result_value = abp.predicted_value THEN ba.points_value ELSE 0 END) AS pts
+               SUM(
+                 CASE
+                   WHEN br.result_team_code   IS NOT NULL AND abp.predicted_team_code   = br.result_team_code   THEN ba.points_value
+                   WHEN br.result_player_name IS NOT NULL AND abp.predicted_player_name = br.result_player_name THEN ba.points_value
+                   ELSE 0
+                 END
+               ) AS pts
         FROM all_boost_preds abp
         INNER JOIN boost_awards ba ON ba.id = abp.award_id
         LEFT JOIN boost_results br ON br.award_id = abp.award_id
         GROUP BY abp.user_id
       ),
       all_custom_preds AS (
-        SELECT cbp.user_id, cbp.custom_boost_id, cbp.predicted_value
+        SELECT cbp.user_id, cbp.custom_boost_id, cbp.predicted_team_code, cbp.predicted_player_name
         FROM tenant_custom_boost_predictions cbp
         INNER JOIN league_users lu ON lu.user_id = cbp.user_id
         INNER JOIN tenant_custom_boosts cb ON cb.id = cbp.custom_boost_id
@@ -65,7 +71,13 @@ router.get("/", async (c) => {
       ),
       custom_pts AS (
         SELECT acp.user_id,
-               SUM(CASE WHEN cbr.result_value = acp.predicted_value THEN cb2.points_value ELSE 0 END) AS pts
+               SUM(
+                 CASE
+                   WHEN cbr.result_team_code   IS NOT NULL AND acp.predicted_team_code   = cbr.result_team_code   THEN cb2.points_value
+                   WHEN cbr.result_player_name IS NOT NULL AND acp.predicted_player_name = cbr.result_player_name THEN cb2.points_value
+                   ELSE 0
+                 END
+               ) AS pts
         FROM all_custom_preds acp
         INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
         LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
@@ -119,21 +131,27 @@ router.get("/", async (c) => {
       GROUP BY ap.user_id
     ),
     all_boost_preds AS (
-      SELECT bp.user_id, bp.award_id, bp.predicted_value
+      SELECT bp.user_id, bp.award_id, bp.predicted_team_code, bp.predicted_player_name
       FROM boost_predictions bp
       INNER JOIN tenant_users tu ON tu.user_id = bp.user_id
       WHERE bp.tenant_id = ${tenantId}
     ),
     boost_pts AS (
       SELECT abp.user_id,
-             SUM(CASE WHEN br.result_value = abp.predicted_value THEN ba.points_value ELSE 0 END) AS pts
+             SUM(
+               CASE
+                 WHEN br.result_team_code   IS NOT NULL AND abp.predicted_team_code   = br.result_team_code   THEN ba.points_value
+                 WHEN br.result_player_name IS NOT NULL AND abp.predicted_player_name = br.result_player_name THEN ba.points_value
+                 ELSE 0
+               END
+             ) AS pts
       FROM all_boost_preds abp
       INNER JOIN boost_awards ba ON ba.id = abp.award_id
       LEFT JOIN boost_results br ON br.award_id = abp.award_id
       GROUP BY abp.user_id
     ),
     all_custom_preds AS (
-      SELECT cbp.user_id, cbp.custom_boost_id, cbp.predicted_value
+      SELECT cbp.user_id, cbp.custom_boost_id, cbp.predicted_team_code, cbp.predicted_player_name
       FROM tenant_custom_boost_predictions cbp
       INNER JOIN tenant_users tu ON tu.user_id = cbp.user_id
       INNER JOIN tenant_custom_boosts cb ON cb.id = cbp.custom_boost_id
@@ -141,7 +159,13 @@ router.get("/", async (c) => {
     ),
     custom_pts AS (
       SELECT acp.user_id,
-             SUM(CASE WHEN cbr.result_value = acp.predicted_value THEN cb2.points_value ELSE 0 END) AS pts
+             SUM(
+               CASE
+                 WHEN cbr.result_team_code   IS NOT NULL AND acp.predicted_team_code   = cbr.result_team_code   THEN cb2.points_value
+                 WHEN cbr.result_player_name IS NOT NULL AND acp.predicted_player_name = cbr.result_player_name THEN cb2.points_value
+                 ELSE 0
+               END
+             ) AS pts
       FROM all_custom_preds acp
       INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
       LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
