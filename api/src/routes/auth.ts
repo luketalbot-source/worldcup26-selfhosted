@@ -13,11 +13,9 @@ const JWT_REFRESH_SECRET = new TextEncoder().encode(
   process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? "dev-secret-change-me"
 );
 
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID ?? "";
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN ?? "";
-const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID ?? "";
-
 const REFRESH_COOKIE = "wc26_refresh";
+const ADMIN_OPEN = process.env.ADMIN_OPEN === "1";
+const DEV_ADMIN_EMAIL = "admin@wc2026.local";
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -70,80 +68,48 @@ function getCookieValue(cookieHeader: string | undefined, name: string): string 
   return match ? decodeURIComponent(match[1]!) : null;
 }
 
-async function twilioRequest(path: string, body: Record<string, string>): Promise<any> {
-  const url = `https://verify.twilio.com/v2/${path}`;
-  const encoded = new URLSearchParams(body).toString();
-  const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${credentials}`,
-    },
-    body: encoded,
-  });
-  return res.json();
-}
+// POST /dev-login
+// Gated open-admin entry for solo development. Ensures a singleton dev admin
+// user exists with role='admin', then issues a normal JWT pair. Only enabled
+// when ADMIN_OPEN=1 is set on the API service — disabled in prod by default.
+router.post("/dev-login", async (c) => {
+  if (!ADMIN_OPEN) return c.json({ error: "Open admin login is disabled" }, 403);
 
-// POST /send-otp
-router.post(
-  "/send-otp",
-  zValidator("json", z.object({ phone: z.string().min(7) })),
-  async (c) => {
-    const { phone } = c.req.valid("json");
-    const result = await twilioRequest(`Services/${TWILIO_VERIFY_SID}/Verifications`, {
-      To: phone,
-      Channel: "sms",
-    });
-    if (result.status !== "pending") {
-      return c.json({ error: "Failed to send OTP" }, 500);
-    }
-    return c.json({ ok: true });
-  }
-);
+  // Upsert the dev admin user (view-writes fall through to auth.users).
+  const users = await sql<{ id: string }[]>`
+    SELECT id FROM public.users WHERE email = ${DEV_ADMIN_EMAIL} LIMIT 1
+  `;
 
-// POST /verify-otp
-router.post(
-  "/verify-otp",
-  zValidator("json", z.object({ phone: z.string(), code: z.string() })),
-  async (c) => {
-    const { phone, code } = c.req.valid("json");
-
-    const result = await twilioRequest(`Services/${TWILIO_VERIFY_SID}/VerificationCheck`, {
-      To: phone,
-      Code: code,
-    });
-
-    if (result.status !== "approved") {
-      return c.json({ error: "Invalid or expired OTP" }, 401);
-    }
-
-    // Look up or create user
-    let users = await sql<{ id: string; email: string; role: string }[]>`
-      SELECT u.id, u.email, COALESCE(ur.role, 'user') AS role
-      FROM public.users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id
-      WHERE u.phone = ${phone}
-      LIMIT 1
+  let userId: string;
+  if (users.length > 0) {
+    userId = users[0]!.id;
+  } else {
+    const created = await sql<{ id: string }[]>`
+      INSERT INTO public.users (id, email, display_name, created_at)
+      VALUES (gen_random_uuid(), ${DEV_ADMIN_EMAIL}, 'Dev Admin', NOW())
+      RETURNING id
     `;
-
-    if (users.length === 0) {
-      users = await sql<{ id: string; email: string; role: string }[]>`
-        INSERT INTO public.users (id, phone, created_at)
-        VALUES (gen_random_uuid(), ${phone}, NOW())
-        RETURNING id, '' AS email, 'user' AS role
-      `;
-    }
-
-    const user = users[0]!;
-    const accessToken = await signAccessToken({ sub: user.id, email: user.email ?? "", role: user.role });
-    const refreshToken = await signRefreshToken(user.id);
-    await storeRefreshToken(user.id, refreshToken);
-
-    setRefreshCookie(c, refreshToken);
-    return c.json({ access_token: accessToken });
+    userId = created[0]!.id;
   }
-);
+
+  // Ensure admin role is granted (idempotent).
+  await sql`
+    INSERT INTO user_roles (id, user_id, role, created_at)
+    VALUES (gen_random_uuid(), ${userId}, 'admin'::app_role, NOW())
+    ON CONFLICT (user_id, role) DO NOTHING
+  `;
+
+  const accessToken = await signAccessToken({
+    sub: userId,
+    email: DEV_ADMIN_EMAIL,
+    role: "admin",
+  });
+  const refreshToken = await signRefreshToken(userId);
+  await storeRefreshToken(userId, refreshToken);
+
+  setRefreshCookie(c, refreshToken);
+  return c.json({ access_token: accessToken, user: { id: userId, email: DEV_ADMIN_EMAIL, role: "admin" } });
+});
 
 // POST /refresh
 router.post("/refresh", async (c) => {
@@ -178,7 +144,7 @@ router.post("/refresh", async (c) => {
   await sql`DELETE FROM refresh_tokens WHERE id = ${rows[0]!.id}`;
 
   const users = await sql<{ id: string; email: string; role: string }[]>`
-    SELECT u.id, COALESCE(u.email, '') AS email, COALESCE(ur.role, 'user') AS role
+    SELECT u.id, COALESCE(u.email, '') AS email, COALESCE(ur.role::text, 'user') AS role
     FROM public.users u
     LEFT JOIN user_roles ur ON ur.user_id = u.id
     WHERE u.id = ${userId}
@@ -361,7 +327,7 @@ async function upsertOidcUser(
   }
 
   const users = await sql<{ id: string; email: string; role: string }[]>`
-    SELECT u.id, COALESCE(u.email, '') AS email, COALESCE(ur.role, 'user') AS role
+    SELECT u.id, COALESCE(u.email, '') AS email, COALESCE(ur.role::text, 'user') AS role
     FROM public.users u
     LEFT JOIN user_roles ur ON ur.user_id = u.id
     WHERE u.id = ${userId}

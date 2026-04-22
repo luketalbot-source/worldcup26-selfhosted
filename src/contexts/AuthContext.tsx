@@ -5,8 +5,7 @@ import { getAccessToken, setAccessToken, clearAccessToken, getUser, onAuthChange
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
-  sendOtp: (phoneNumber: string, tenantId?: string) => Promise<{ error: Error | null; isNewUser: boolean }>;
-  verifyOtp: (phoneNumber: string, code: string, username?: string, tenantId?: string) => Promise<{ error: Error | null }>;
+  devLogin: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -43,31 +42,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const sendOtp = async (phoneNumber: string, tenantId?: string): Promise<{ error: Error | null; isNewUser: boolean }> => {
-    const { data, error } = await api.post<{ isNewUser: boolean }>('/auth/send-otp', {
-      phone: phoneNumber,
-      ...(tenantId ? { tenant_id: tenantId } : {}),
-    });
-
-    if (error) {
-      return { error, isNewUser: false };
-    }
-
-    return { error: null, isNewUser: data?.isNewUser ?? false };
-  };
-
-  const verifyOtp = async (
-    phoneNumber: string,
-    code: string,
-    username?: string,
-    tenantId?: string
-  ): Promise<{ error: Error | null }> => {
-    const { data, error } = await api.post<{ access_token: string }>('/auth/verify-otp', {
-      phone: phoneNumber,
-      token: code,
-      ...(username ? { username } : {}),
-      ...(tenantId ? { tenant_id: tenantId } : {}),
-    });
+  // Open-admin login for solo dev. Backend is gated by ADMIN_OPEN=1.
+  // When Entra SSO lands, this gets replaced with a proper OIDC flow.
+  const devLogin = async (): Promise<{ error: Error | null }> => {
+    const { data, error } = await api.post<{ access_token: string }>('/auth/dev-login');
 
     if (error) {
       return { error };
@@ -86,7 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, sendOtp, verifyOtp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, devLogin, signOut }}>
       {children}
     </AuthContext.Provider>
   );
