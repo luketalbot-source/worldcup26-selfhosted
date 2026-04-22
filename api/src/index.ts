@@ -25,6 +25,13 @@ app.use("*", cors({
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
+// Public config endpoint — tells the frontend whether dev mode is on, so it
+// can conditionally show "enter without SSO" buttons. Safe to expose: only
+// returns booleans derived from server env.
+app.get("/api/config", (c) => c.json({
+  devMode: process.env.ADMIN_OPEN === "1",
+}));
+
 app.route("/api/auth", authRoutes);
 app.route("/api/profiles", profileRoutes);
 app.route("/api/predictions", predictionRoutes);

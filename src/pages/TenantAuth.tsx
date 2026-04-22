@@ -6,12 +6,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { buildAuthorizationUrl } from '@/lib/oidc';
+import { api } from '@/lib/apiClient';
+import { Button } from '@/components/ui/button';
 
 const TenantAuth = () => {
   const { tenantUid } = useParams();
   const { tenant, loading: tenantLoading, error: tenantError } = useTenant();
   const [error, setError] = useState('');
-  const { user } = useAuth();
+  const [devMode, setDevMode] = useState(false);
+  const [devLoading, setDevLoading] = useState(false);
+  const { user, devTenantLogin } = useAuth();
   const navigate = useNavigate();
 
   // Iframe auth support - handles postMessage tokens from parent
@@ -30,6 +34,13 @@ const TenantAuth = () => {
     },
   });
 
+  // Fetch server-side dev-mode flag (ADMIN_OPEN on the API)
+  useEffect(() => {
+    api.get<{ devMode: boolean }>('/config').then(({ data }) => {
+      if (data?.devMode) setDevMode(true);
+    }).catch(() => {});
+  }, []);
+
   // Redirect if already logged in
   useEffect(() => {
     if (user && tenantUid) {
@@ -37,7 +48,7 @@ const TenantAuth = () => {
     }
   }, [user, navigate, tenantUid]);
 
-  // Immediately redirect to SSO (clickless flow)
+  // Immediately redirect to SSO (clickless flow) if OIDC is configured
   useEffect(() => {
     const triggerSSO = async () => {
       if (!tenant?.oidc_config) return;
@@ -55,7 +66,6 @@ const TenantAuth = () => {
       }
     };
 
-    // Trigger SSO redirect when tenant is loaded, user not logged in, and OIDC config exists
     if (
       !user &&
       !tenantLoading &&
@@ -64,6 +74,18 @@ const TenantAuth = () => {
       triggerSSO();
     }
   }, [tenant, tenantLoading, user]);
+
+  const handleDevEntry = async () => {
+    if (!tenant?.id) return;
+    setDevLoading(true);
+    setError('');
+    const { error: loginError } = await devTenantLogin(tenant.id);
+    if (loginError) {
+      setError(loginError.message || 'Dev login failed');
+      setDevLoading(false);
+    }
+    // Success → user state updates → useEffect above navigates to /t/:tenantUid
+  };
 
   // Show loading while checking tenant
   if (tenantLoading) {
@@ -86,7 +108,8 @@ const TenantAuth = () => {
     );
   }
 
-  // Show redirecting state (auto-redirect happens via useEffect)
+  const oidcConfigured = !!tenant.oidc_config;
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container py-8">
@@ -102,25 +125,46 @@ const TenantAuth = () => {
             </span>
           </div>
 
-          {error ? (
+          {error && (
+            <p className="text-sm text-destructive mb-4">{error}</p>
+          )}
+
+          {oidcConfigured ? (
             <div className="space-y-4">
-              <p className="text-sm text-destructive">{error}</p>
-              <p className="text-muted-foreground text-sm">
-                Please contact your administrator for assistance.
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+              <p className="text-muted-foreground">
+                Redirecting to your organization's login…
               </p>
             </div>
-          ) : !tenant.oidc_config ? (
+          ) : devMode ? (
             <div className="space-y-4">
-              <p className="text-sm text-destructive">SSO is not configured for this tenant.</p>
               <p className="text-muted-foreground text-sm">
-                Please contact your administrator to set up OIDC authentication.
+                SSO is not configured yet — dev mode is enabled.
+              </p>
+              <Button
+                onClick={handleDevEntry}
+                disabled={devLoading}
+                className="w-full"
+                size="lg"
+              >
+                {devLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Entering…
+                  </>
+                ) : (
+                  'Enter as Demo User'
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Creates a demo user scoped to this tenant. Disabled in prod.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-              <p className="text-muted-foreground">
-                Redirecting to your organization's login...
+              <p className="text-sm text-destructive">SSO is not configured for this tenant.</p>
+              <p className="text-muted-foreground text-sm">
+                Please contact your administrator to set up OIDC authentication.
               </p>
             </div>
           )}

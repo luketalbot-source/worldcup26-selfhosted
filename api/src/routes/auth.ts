@@ -111,6 +111,64 @@ router.post("/dev-login", async (c) => {
   return c.json({ access_token: accessToken, user: { id: userId, email: DEV_ADMIN_EMAIL, role: "admin" } });
 });
 
+// POST /dev-tenant-login
+// Gated open-user entry for testing the tenant app without a real OIDC
+// provider. Creates or reuses a demo tenant user with an oidc_identity
+// row tied to the given tenant_id, so checkUserTenant() in TenantApp
+// is satisfied. Only enabled when ADMIN_OPEN=1.
+router.post(
+  "/dev-tenant-login",
+  zValidator("json", z.object({ tenant_id: z.string().uuid() })),
+  async (c) => {
+    if (!ADMIN_OPEN) return c.json({ error: "Open dev login is disabled" }, 403);
+    const { tenant_id } = c.req.valid("json");
+
+    const demoEmail = `demo-${tenant_id.slice(0, 8)}@wc2026.local`;
+    const demoName = "Demo User";
+    const demoSubject = `demo-${tenant_id}`;
+
+    // Upsert user
+    const users = await sql<{ id: string }[]>`
+      SELECT id FROM public.users WHERE email = ${demoEmail} LIMIT 1
+    `;
+    let userId: string;
+    if (users.length > 0) {
+      userId = users[0]!.id;
+    } else {
+      const created = await sql<{ id: string }[]>`
+        INSERT INTO public.users (id, email, display_name, created_at)
+        VALUES (gen_random_uuid(), ${demoEmail}, ${demoName}, NOW())
+        RETURNING id
+      `;
+      userId = created[0]!.id;
+    }
+
+    // Upsert oidc_identity so TenantApp's checkUserTenant passes
+    await sql`
+      INSERT INTO oidc_identities (id, user_id, tenant_id, oidc_subject, created_at)
+      VALUES (gen_random_uuid(), ${userId}, ${tenant_id}, ${demoSubject}, NOW())
+      ON CONFLICT (user_id, tenant_id) DO UPDATE SET oidc_subject = EXCLUDED.oidc_subject
+    `;
+
+    // Ensure a profile row exists for this tenant (MatchesView / leaderboard needs it)
+    await sql`
+      INSERT INTO profiles (id, user_id, tenant_id, display_name, created_at, updated_at)
+      VALUES (gen_random_uuid(), ${userId}, ${tenant_id}, ${demoName}, NOW(), NOW())
+      ON CONFLICT (user_id) DO UPDATE SET tenant_id = EXCLUDED.tenant_id
+    `.catch(() => {});
+
+    const accessToken = await signAccessToken({ sub: userId, email: demoEmail, role: "user" });
+    const refreshToken = await signRefreshToken(userId);
+    await storeRefreshToken(userId, refreshToken);
+
+    setRefreshCookie(c, refreshToken);
+    return c.json({
+      access_token: accessToken,
+      user: { id: userId, email: demoEmail, role: "user" },
+    });
+  }
+);
+
 // POST /refresh
 router.post("/refresh", async (c) => {
   const cookieHeader = c.req.header("Cookie");

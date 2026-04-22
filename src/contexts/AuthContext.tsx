@@ -6,6 +6,7 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   devLogin: () => Promise<{ error: Error | null }>;
+  devTenantLogin: (tenantId: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -58,13 +59,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: null };
   };
 
+  // Open-tenant login for solo dev. Creates a demo user scoped to the given
+  // tenant_id with an oidc_identity row, so TenantApp's identity check passes.
+  // Backend is gated by ADMIN_OPEN=1.
+  const devTenantLogin = async (tenantId: string): Promise<{ error: Error | null }> => {
+    const { data, error } = await api.post<{ access_token: string }>('/auth/dev-tenant-login', {
+      tenant_id: tenantId,
+    });
+
+    if (error) {
+      return { error };
+    }
+
+    if (data?.access_token) {
+      setAccessToken(data.access_token);
+    }
+
+    return { error: null };
+  };
+
   const signOut = async () => {
     await api.post('/auth/signout');
     clearAccessToken();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, devLogin, signOut }}>
+    <AuthContext.Provider value={{ user, loading, devLogin, devTenantLogin, signOut }}>
       {children}
     </AuthContext.Provider>
   );
