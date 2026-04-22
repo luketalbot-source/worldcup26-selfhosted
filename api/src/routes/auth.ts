@@ -147,7 +147,7 @@ router.post(
     await sql`
       INSERT INTO oidc_identities (id, user_id, tenant_id, oidc_subject, created_at)
       VALUES (gen_random_uuid(), ${userId}, ${tenant_id}, ${demoSubject}, NOW())
-      ON CONFLICT (user_id, tenant_id) DO UPDATE SET oidc_subject = EXCLUDED.oidc_subject
+      ON CONFLICT (tenant_id, oidc_subject) DO UPDATE SET user_id = EXCLUDED.user_id
     `;
 
     // Ensure a profile row exists for this tenant (MatchesView / leaderboard needs it)
@@ -380,7 +380,7 @@ async function upsertOidcUser(
     await sql`
       INSERT INTO oidc_identities (id, user_id, tenant_id, oidc_subject, created_at)
       VALUES (gen_random_uuid(), ${userId}, ${tenantId}, ${userInfo.sub}, NOW())
-      ON CONFLICT (user_id, tenant_id) DO UPDATE SET oidc_subject = EXCLUDED.oidc_subject
+      ON CONFLICT (tenant_id, oidc_subject) DO UPDATE SET user_id = EXCLUDED.user_id
     `;
   }
 

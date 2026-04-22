@@ -22,7 +22,7 @@ router.get("/", async (c) => {
         WHERE lm.league_id = ${leagueId}
       ),
       all_preds AS (
-        SELECT pr.user_id, pr.match_id, pr.predicted_home_score, pr.predicted_away_score
+        SELECT pr.user_id, pr.match_id, pr.home_score AS predicted_home_score, pr.away_score AS predicted_away_score
         FROM predictions pr
         INNER JOIN league_users lu ON lu.user_id = pr.user_id
         WHERE pr.tenant_id = ${tenantId}
@@ -39,7 +39,7 @@ router.get("/", async (c) => {
                ) AS pts,
                COUNT(*) AS pred_count
         FROM all_preds ap
-        INNER JOIN live_matches lm2 ON lm2.id = ap.match_id
+        INNER JOIN live_matches lm2 ON lm2.match_id = ap.match_id
         GROUP BY ap.user_id
       ),
       all_boost_preds AS (
@@ -98,7 +98,7 @@ router.get("/", async (c) => {
       WHERE oi.tenant_id = ${tenantId}
     ),
     all_preds AS (
-      SELECT pr.user_id, pr.match_id, pr.predicted_home_score, pr.predicted_away_score
+      SELECT pr.user_id, pr.match_id, pr.home_score AS predicted_home_score, pr.away_score AS predicted_away_score
       FROM predictions pr
       INNER JOIN tenant_users tu ON tu.user_id = pr.user_id
       WHERE pr.tenant_id = ${tenantId}
@@ -115,7 +115,7 @@ router.get("/", async (c) => {
              ) AS pts,
              COUNT(*) AS pred_count
       FROM all_preds ap
-      INNER JOIN live_matches lm ON lm.id = ap.match_id
+      INNER JOIN live_matches lm ON lm.match_id = ap.match_id
       GROUP BY ap.user_id
     ),
     all_boost_preds AS (
