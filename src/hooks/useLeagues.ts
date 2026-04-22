@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/apiClient';
+import { api, ApiError } from '@/lib/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -47,10 +47,7 @@ export const useLeagues = (tenantId?: string | null) => {
       const params: Record<string, string | undefined> = {};
       if (tenantId) params.tenant_id = tenantId;
 
-      const { data, error } = await api.get<League[]>('/leagues', params);
-
-      if (error) throw error;
-
+      const data = await api.get<League[]>('/leagues', params);
       setLeagues(data || []);
     } catch (error) {
       console.error('Error fetching leagues:', error);
@@ -69,19 +66,16 @@ export const useLeagues = (tenantId?: string | null) => {
     try {
       const joinCode = generateJoinCode();
 
-      const { data, error } = await api.post<{ id: string }>('/leagues', {
+      const data = await api.post<{ id: string }>('/leagues', {
         name,
         avatar_emoji: avatarEmoji,
         join_code: joinCode,
         ...(tenantId ? { tenant_id: tenantId } : {}),
       });
 
-      if (error) throw error;
-
       toast.success(t('leagues.created'));
       await fetchLeagues();
 
-      // Return a minimal League object — fetchLeagues will have updated state
       return leagues.find(l => l.id === data?.id) || null;
     } catch (error) {
       console.error('Error creating league:', error);
@@ -94,26 +88,19 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      // Look up league by code
-      const { data: leagueData, error: lookupError } = await api.get<League>(
-        `/leagues/by-code/${joinCode.toUpperCase()}`
-      );
-
-      if (lookupError) throw lookupError;
+      const leagueData = await api.get<League>(`/leagues/by-code/${joinCode.toUpperCase()}`);
 
       if (!leagueData) {
         toast.error(t('leagues.invalidCode'));
         return false;
       }
 
-      // Join the league
-      const { error: joinError } = await api.post(`/leagues/${leagueData.id}/members`, {
-        ...(tenantId ? { tenant_id: tenantId } : {}),
-      });
-
-      if (joinError) {
-        // If already a member, the API should return an error we can check
-        if (joinError.message?.includes('already')) {
+      try {
+        await api.post(`/leagues/${leagueData.id}/members`, {
+          ...(tenantId ? { tenant_id: tenantId } : {}),
+        });
+      } catch (joinError) {
+        if (joinError instanceof ApiError && joinError.message?.includes('already')) {
           toast.error(t('leagues.alreadyMember'));
           return false;
         }
@@ -134,10 +121,7 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await api.delete(`/leagues/${leagueId}/members`);
-
-      if (error) throw error;
-
+      await api.delete(`/leagues/${leagueId}/members`);
       toast.success(t('leagues.left'));
       await fetchLeagues();
       return true;
@@ -152,10 +136,7 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await api.delete(`/leagues/${leagueId}/members/${memberId}`);
-
-      if (error) throw error;
-
+      await api.delete(`/leagues/${leagueId}/members/${memberId}`);
       toast.success(t('leagues.memberRemoved'));
       return true;
     } catch (error) {
@@ -169,10 +150,7 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await api.delete(`/leagues/${leagueId}`);
-
-      if (error) throw error;
-
+      await api.delete(`/leagues/${leagueId}`);
       toast.success(t('leagues.deleted'));
       await fetchLeagues();
       return true;
@@ -187,12 +165,10 @@ export const useLeagues = (tenantId?: string | null) => {
     if (!user) return false;
 
     try {
-      const { error } = await api.patch(`/leagues/${leagueId}`, {
+      await api.patch(`/leagues/${leagueId}`, {
         name,
         avatar_emoji: avatarEmoji,
       });
-
-      if (error) throw error;
 
       toast.success(t('leagues.updated'));
       await fetchLeagues();
@@ -206,11 +182,7 @@ export const useLeagues = (tenantId?: string | null) => {
 
   const getLeagueMembers = async (leagueId: string): Promise<LeagueMember[]> => {
     try {
-      const { data, error } = await api.get<LeagueMember[]>(`/leagues/${leagueId}/members`);
-
-      if (error) throw error;
-
-      return data || [];
+      return await api.get<LeagueMember[]>(`/leagues/${leagueId}/members`) || [];
     } catch (error) {
       console.error('Error fetching league members:', error);
       return [];

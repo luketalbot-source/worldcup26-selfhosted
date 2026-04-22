@@ -41,11 +41,9 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         // Fetch tenant basic info
-        const { data: tenantData, error: fetchError } = await api.get<{ id: string; uid: string; name: string }>(
+        const tenantData = await api.get<{ id: string; uid: string; name: string }>(
           `/tenants/by-uid/${tenantUid}`
         );
-
-        if (fetchError) throw fetchError;
 
         if (!tenantData) {
           setError('Tenant not found');
@@ -54,12 +52,13 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        // Always fetch OIDC config (tenants always use OIDC)
+        // Always fetch OIDC config (tenants always use OIDC). Missing config
+        // is a valid state (dev-mode tenants without SSO), so swallow errors.
         let oidcConfig: OIDCConfig | null = null;
-        const { data: oidcData } = await api.get<OIDCConfig>(`/tenants/${tenantData.id}/oidc-config`);
-
-        if (oidcData) {
-          oidcConfig = oidcData;
+        try {
+          oidcConfig = await api.get<OIDCConfig>(`/tenants/${tenantData.id}/oidc-config`);
+        } catch {
+          oidcConfig = null;
         }
 
         setTenant({

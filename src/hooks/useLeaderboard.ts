@@ -48,27 +48,26 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
 
     setLoading(true);
 
-    const { data, error } = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
-      tenant_id: tenantId,
-    });
+    try {
+      const data = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
+        tenant_id: tenantId,
+      });
 
-    if (error) {
+      const entries: LeaderboardEntry[] = (data || []).map(entry => ({
+        rank: entry.rank,
+        userId: entry.user_id,
+        displayName: entry.display_name,
+        avatarEmoji: entry.avatar_emoji || '👤',
+        totalPredictions: entry.total_predictions,
+        points: entry.points,
+      }));
+
+      setLeaderboard(entries);
+    } catch (error) {
       console.error('Error fetching leaderboard:', error);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const entries: LeaderboardEntry[] = (data || []).map(entry => ({
-      rank: entry.rank,
-      userId: entry.user_id,
-      displayName: entry.display_name,
-      avatarEmoji: entry.avatar_emoji || '👤',
-      totalPredictions: entry.total_predictions,
-      points: entry.points,
-    }));
-
-    setLeaderboard(entries);
-    setLoading(false);
   };
 
   return { leaderboard, loading, refetch: fetchLeaderboard };

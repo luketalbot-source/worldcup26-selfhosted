@@ -34,25 +34,27 @@ export const useLiveMatches = () => {
   const hasAutoSynced = useRef(false);
 
   const fetchLiveMatches = useCallback(async () => {
-    const { data, error } = await api.get<LiveMatch[]>('/matches');
-
-    if (!error && data) {
-      // Sort by match_date ascending
-      const sorted = [...data].sort((a, b) =>
-        new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
-      );
-      setLiveMatches(sorted);
-      if (sorted.length > 0) {
-        // Get the most recent last_updated timestamp
-        const mostRecent = sorted.reduce((latest, match) => {
-          const matchDate = new Date(match.last_updated);
-          return matchDate > latest ? matchDate : latest;
-        }, new Date(0));
-        setLastSync(mostRecent);
-        return mostRecent;
+    try {
+      const data = await api.get<LiveMatch[]>('/matches');
+      if (data) {
+        const sorted = [...data].sort((a, b) =>
+          new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+        );
+        setLiveMatches(sorted);
+        if (sorted.length > 0) {
+          const mostRecent = sorted.reduce((latest, match) => {
+            const matchDate = new Date(match.last_updated);
+            return matchDate > latest ? matchDate : latest;
+          }, new Date(0));
+          setLastSync(mostRecent);
+          return mostRecent;
+        }
       }
+    } catch (err) {
+      console.error('Error fetching live matches:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
     return null;
   }, []);
 
@@ -90,17 +92,10 @@ export const useLiveMatches = () => {
 
     setSyncing(true);
     try {
-      const { data, error } = await api.post('/admin/sync-matches');
-
-      if (error) {
-        console.error('Error syncing matches:', error);
-        return { success: false, error };
-      } else {
-        console.log('Sync result:', data);
-        // Refresh local data after sync
-        await fetchLiveMatches();
-        return { success: true, data };
-      }
+      const data = await api.post('/admin/sync-matches');
+      console.log('Sync result:', data);
+      await fetchLiveMatches();
+      return { success: true, data };
     } catch (err) {
       console.error('Failed to sync:', err);
       return { success: false, error: err };

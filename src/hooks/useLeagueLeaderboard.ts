@@ -61,34 +61,36 @@ export const useLeagueLeaderboard = (leagueId: string | null, creatorId: string 
     };
     if (tenantId) params.tenant_id = tenantId;
 
-    const { data, error } = await api.get<ApiLeaderboardEntry[]>('/leaderboard', params);
+    try {
+      const data = await api.get<ApiLeaderboardEntry[]>('/leaderboard', params);
 
-    if (error || !data) {
+      if (!data) {
+        setLeaderboard([]);
+        return;
+      }
+
+      const entries: LeagueLeaderboardEntry[] = data.map(entry => ({
+        rank: entry.rank,
+        userId: entry.user_id,
+        displayName: entry.display_name,
+        avatarEmoji: entry.avatar_emoji || '👤',
+        totalPredictions: entry.total_predictions,
+        points: entry.points,
+        isCreator: entry.user_id === creatorId,
+      }));
+
+      leaderboardCache.set(leagueId, {
+        data: entries,
+        timestamp: Date.now(),
+      });
+
+      setLeaderboard(entries);
+    } catch {
       setLeaderboard([]);
+    } finally {
       setLoading(false);
       fetchingRef.current = false;
-      return;
     }
-
-    const entries: LeagueLeaderboardEntry[] = data.map(entry => ({
-      rank: entry.rank,
-      userId: entry.user_id,
-      displayName: entry.display_name,
-      avatarEmoji: entry.avatar_emoji || '👤',
-      totalPredictions: entry.total_predictions,
-      points: entry.points,
-      isCreator: entry.user_id === creatorId,
-    }));
-
-    // Store in cache
-    leaderboardCache.set(leagueId, {
-      data: entries,
-      timestamp: Date.now(),
-    });
-
-    setLeaderboard(entries);
-    setLoading(false);
-    fetchingRef.current = false;
   };
 
   const refetch = () => {

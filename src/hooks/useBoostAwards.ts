@@ -39,29 +39,17 @@ export const useBoostAwards = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch awards
-      const { data: awardsData, error: awardsError } = await api.get<BoostAward[]>('/boosts/awards');
-
-      if (awardsError) throw awardsError;
+      const [awardsData, resultsData] = await Promise.all([
+        api.get<BoostAward[]>('/boosts/awards'),
+        api.get<BoostResult[]>('/boosts/results'),
+      ]);
       setAwards(awardsData || []);
-
-      // Fetch results
-      const { data: resultsData, error: resultsError } = await api.get<BoostResult[]>('/boosts/results');
-
-      if (resultsError) throw resultsError;
       setResults(resultsData || []);
 
-      // Fetch user predictions if logged in - filter by tenant
       if (user) {
         const params: Record<string, string | undefined> = {};
         if (tenantId) params.tenant_id = tenantId;
-
-        const { data: predictionsData, error: predictionsError } = await api.get<BoostPrediction[]>(
-          '/boosts/predictions',
-          params
-        );
-
-        if (predictionsError) throw predictionsError;
+        const predictionsData = await api.get<BoostPrediction[]>('/boosts/predictions', params);
         setPredictions(predictionsData || []);
       }
     } catch (err) {
@@ -79,14 +67,12 @@ export const useBoostAwards = () => {
     if (!user || !tenantId) return false;
 
     try {
-      const { error } = await api.post('/boosts/predictions', {
+      await api.post('/boosts/predictions', {
         award_id: awardId,
         tenant_id: tenantId,
         predicted_team_code: teamCode,
         predicted_player_name: playerName,
       });
-
-      if (error) throw error;
 
       // Update local state
       const existing = predictions.find(p => p.award_id === awardId);

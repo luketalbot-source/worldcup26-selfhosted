@@ -61,12 +61,13 @@ export const usePaginatedLeaderboard = ({
     setLoading(true);
     fetchedRef.current = true;
 
-    const { data, error } = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
-      tenant_id: tenantId,
-    });
-
-    if (error) {
-      console.error('Error fetching leaderboard:', error);
+    let data: ApiLeaderboardEntry[] | null = null;
+    try {
+      data = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
+        tenant_id: tenantId,
+      });
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err);
       setLoading(false);
       return;
     }

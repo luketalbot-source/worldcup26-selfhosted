@@ -75,7 +75,7 @@ export const useCustomBoostAwards = () => {
     }
 
     try {
-      const { data, error } = await api.post<{ title: string; description: string | null }>(
+      const data = await api.post<{ title: string; description: string | null }>(
         '/custom-boosts/translate',
         {
           title: award.title,
@@ -84,8 +84,6 @@ export const useCustomBoostAwards = () => {
           targetLanguage,
         }
       );
-
-      if (error) throw error;
 
       const translated = {
         title: data?.title || award.title,
@@ -110,12 +108,10 @@ export const useCustomBoostAwards = () => {
     setLoading(true);
     try {
       // Fetch custom awards for this tenant
-      const { data: awardsData, error: awardsError } = await api.get<ApiCustomBoostAward[]>(
+      const awardsData = await api.get<ApiCustomBoostAward[]>(
         '/custom-boosts',
         { tenant_id: tenantId }
       );
-
-      if (awardsError) throw awardsError;
 
       const currentLang = i18n.language?.slice(0, 2) || 'en';
 
@@ -148,22 +144,18 @@ export const useCustomBoostAwards = () => {
       }
 
       // Fetch results
-      const { data: resultsData, error: resultsError } = await api.get<CustomBoostResult[]>(
+      const resultsData = await api.get<CustomBoostResult[]>(
         '/custom-boosts/results',
         { tenant_id: tenantId }
       );
-
-      if (resultsError) throw resultsError;
       setResults(resultsData || []);
 
       // Fetch user predictions if logged in
       if (user) {
-        const { data: predictionsData, error: predictionsError } = await api.get<CustomBoostPrediction[]>(
+        const predictionsData = await api.get<CustomBoostPrediction[]>(
           '/custom-boosts/predictions',
           { tenant_id: tenantId }
         );
-
-        if (predictionsError) throw predictionsError;
         setPredictions(predictionsData || []);
       }
     } catch (err) {
@@ -181,14 +173,12 @@ export const useCustomBoostAwards = () => {
     if (!user || !tenantId) return false;
 
     try {
-      const { error } = await api.post('/custom-boosts/predictions', {
+      await api.post('/custom-boosts/predictions', {
         custom_boost_id: customBoostId,
         tenant_id: tenantId,
         predicted_team_code: teamCode,
         predicted_player_name: playerName,
       });
-
-      if (error) throw error;
 
       // Update local state
       const existing = predictions.find(p => p.custom_boost_id === customBoostId);

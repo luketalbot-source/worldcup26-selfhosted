@@ -34,18 +34,22 @@ export const useProfile = (userId?: string) => {
     if (!userId) return;
 
     setLoading(true);
-    const { data, error } = await api.get<ApiProfile>('/profiles/me');
-
-    if (!error && data) {
-      setProfile({
-        id: data.id,
-        userId: data.user_id,
-        displayName: data.display_name,
-        avatarEmoji: data.avatar_emoji || '👤',
-        phoneNumber: data.phone_number || null,
-      });
+    try {
+      const data = await api.get<ApiProfile>('/profiles/me');
+      if (data) {
+        setProfile({
+          id: data.id,
+          userId: data.user_id,
+          displayName: data.display_name,
+          avatarEmoji: data.avatar_emoji || '👤',
+          phoneNumber: data.phone_number || null,
+        });
+      }
+    } catch {
+      // leave profile as-is on error
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const updateProfile = async (displayName: string, avatarEmoji?: string) => {
@@ -54,32 +58,36 @@ export const useProfile = (userId?: string) => {
     const updates: Record<string, string> = { display_name: displayName };
     if (avatarEmoji) updates.avatar_emoji = avatarEmoji;
 
-    const { error } = await api.patch('/profiles/me', updates);
-
-    if (!error && profile) {
-      setProfile({
-        ...profile,
-        displayName,
-        avatarEmoji: avatarEmoji || profile.avatarEmoji,
-      });
+    try {
+      await api.patch('/profiles/me', updates);
+      if (profile) {
+        setProfile({
+          ...profile,
+          displayName,
+          avatarEmoji: avatarEmoji || profile.avatarEmoji,
+        });
+      }
+      return { error: null as Error | null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
-
-    return { error };
   };
 
   const updatePhoneNumber = async (phoneNumber: string) => {
     if (!userId) return;
 
-    const { error } = await api.patch('/profiles/me', { phone_number: phoneNumber });
-
-    if (!error && profile) {
-      setProfile({
-        ...profile,
-        phoneNumber,
-      });
+    try {
+      await api.patch('/profiles/me', { phone_number: phoneNumber });
+      if (profile) {
+        setProfile({
+          ...profile,
+          phoneNumber,
+        });
+      }
+      return { error: null as Error | null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
-
-    return { error };
   };
 
   return { profile, loading, updateProfile, updatePhoneNumber, refetch: fetchProfile };

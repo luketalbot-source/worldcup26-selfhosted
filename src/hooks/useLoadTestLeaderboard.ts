@@ -47,11 +47,16 @@ export const useLoadTestLeaderboard = ({
     setLoading(true);
     fetchedRef.current = true;
 
-    const { data, error } = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
-      tenant_id: LOAD_TEST_TENANT_ID,
-    });
+    let data: ApiLeaderboardEntry[] | null = null;
+    try {
+      data = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
+        tenant_id: LOAD_TEST_TENANT_ID,
+      });
+    } catch {
+      data = null;
+    }
 
-    if (error || !data || data.length === 0) {
+    if (!data || data.length === 0) {
       setAllEntries([]);
       setEntries([]);
       setCurrentUserEntry(null);

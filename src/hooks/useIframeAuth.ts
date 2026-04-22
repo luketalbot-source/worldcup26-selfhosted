@@ -57,7 +57,7 @@ export const useIframeAuth = ({
     try {
       // If we have an ID token, send it to the API
       if (payload.id_token) {
-        const { data, error } = await api.post<{ access_token: string; error?: string; needsUsername?: boolean }>(
+        const data = await api.post<{ access_token: string; error?: string; needsUsername?: boolean }>(
           '/auth/oidc/token-auth',
           {
             id_token: payload.id_token,
@@ -65,14 +65,10 @@ export const useIframeAuth = ({
           }
         );
 
-        if (error) {
-          throw new Error(error.message || 'Token authentication failed');
-        }
-
         if (data?.error) {
           if (data.needsUsername) {
             const username = payload.name || payload.preferred_username || payload.sub?.substring(0, 16);
-            const { data: retryData, error: retryError } = await api.post<{ access_token: string; error?: string }>(
+            const retryData = await api.post<{ access_token: string; error?: string }>(
               '/auth/oidc/token-auth',
               {
                 id_token: payload.id_token,
@@ -81,8 +77,8 @@ export const useIframeAuth = ({
               }
             );
 
-            if (retryError || retryData?.error) {
-              throw new Error(retryData?.error || retryError?.message || 'Failed to create account');
+            if (retryData?.error) {
+              throw new Error(retryData.error);
             }
 
             if (retryData?.access_token) {
@@ -115,10 +111,15 @@ export const useIframeAuth = ({
   const checkUserMatch = useCallback(async (payload: IframeAuthMessage['payload']): Promise<boolean> => {
     if (!user || !payload?.sub) return false;
 
-    const { data: identity } = await api.get<{ tenant_id: string; oidc_subject: string }>(
-      '/auth/identity',
-      tenantId ? { tenant_id: tenantId } : undefined
-    );
+    let identity: { tenant_id: string; oidc_subject: string } | null = null;
+    try {
+      identity = await api.get<{ tenant_id: string; oidc_subject: string }>(
+        '/auth/identity',
+        tenantId ? { tenant_id: tenantId } : undefined
+      );
+    } catch {
+      identity = null;
+    }
 
     if (identity && identity.oidc_subject !== payload.sub) {
       await signOut();

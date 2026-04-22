@@ -33,17 +33,19 @@ export const usePredictions = (tenantId?: string | null) => {
     const params: Record<string, string | undefined> = {};
     if (tenantId) params.tenant_id = tenantId;
 
-    const { data, error } = await api.get<ApiPrediction[]>('/predictions', params);
-
-    if (!error && data) {
-      setPredictions(data.map(p => ({
+    try {
+      const data = await api.get<ApiPrediction[]>('/predictions', params);
+      setPredictions((data || []).map(p => ({
         matchId: p.match_id,
         homeScore: p.home_score,
         awayScore: p.away_score,
         timestamp: p.updated_at,
       })));
+    } catch {
+      // leave predictions as-is on error
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -53,14 +55,14 @@ export const usePredictions = (tenantId?: string | null) => {
   const addPrediction = async (matchId: string, homeScore: number, awayScore: number) => {
     if (!user) return;
 
-    const { error } = await api.post('/predictions', {
-      match_id: matchId,
-      home_score: homeScore,
-      away_score: awayScore,
-      ...(tenantId ? { tenant_id: tenantId } : {}),
-    });
+    try {
+      await api.post('/predictions', {
+        match_id: matchId,
+        home_score: homeScore,
+        away_score: awayScore,
+        ...(tenantId ? { tenant_id: tenantId } : {}),
+      });
 
-    if (!error) {
       // Update local state
       const existing = predictions.find(p => p.matchId === matchId);
       if (existing) {
@@ -77,6 +79,8 @@ export const usePredictions = (tenantId?: string | null) => {
           timestamp: new Date().toISOString(),
         }]);
       }
+    } catch (err) {
+      console.error('Error saving prediction:', err);
     }
   };
 

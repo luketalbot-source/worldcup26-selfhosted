@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { api } from '@/lib/apiClient';
-import { getAccessToken, setAccessToken, clearAccessToken, getUser, onAuthChange, type AppUser } from '@/lib/auth';
+import { setAccessToken, clearAccessToken, getUser, onAuthChange, type AppUser } from '@/lib/auth';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -17,25 +17,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Subscribe to auth changes
     const unsubscribe = onAuthChange((u) => {
       setUser(u);
     });
 
-    // Try to restore user from stored token first
     const storedUser = getUser();
     if (storedUser) {
       setUser(storedUser);
       setLoading(false);
     } else {
       // No stored token — try to refresh via httpOnly cookie
-      api.post<{ access_token: string }>('/auth/refresh').then(({ data, error }) => {
-        if (!error && data?.access_token) {
-          setAccessToken(data.access_token);
-          // onAuthChange will update user state
-        }
-        setLoading(false);
-      });
+      api.post<{ access_token: string }>('/auth/refresh')
+        .then((data) => {
+          if (data?.access_token) {
+            setAccessToken(data.access_token);
+            // onAuthChange will update user state
+          }
+        })
+        .catch(() => {
+          // No refresh cookie or refresh failed — stay logged out
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
 
     return () => {
@@ -44,42 +48,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Open-admin login for solo dev. Backend is gated by ADMIN_OPEN=1.
-  // When Entra SSO lands, this gets replaced with a proper OIDC flow.
   const devLogin = async (): Promise<{ error: Error | null }> => {
-    const { data, error } = await api.post<{ access_token: string }>('/auth/dev-login');
-
-    if (error) {
-      return { error };
+    try {
+      const data = await api.post<{ access_token: string }>('/auth/dev-login');
+      if (data?.access_token) setAccessToken(data.access_token);
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
-
-    if (data?.access_token) {
-      setAccessToken(data.access_token);
-    }
-
-    return { error: null };
   };
 
-  // Open-tenant login for solo dev. Creates a demo user scoped to the given
-  // tenant_id with an oidc_identity row, so TenantApp's identity check passes.
-  // Backend is gated by ADMIN_OPEN=1.
+  // Open-tenant login for solo dev. Creates a demo user scoped to the tenant.
   const devTenantLogin = async (tenantId: string): Promise<{ error: Error | null }> => {
-    const { data, error } = await api.post<{ access_token: string }>('/auth/dev-tenant-login', {
-      tenant_id: tenantId,
-    });
-
-    if (error) {
-      return { error };
+    try {
+      const data = await api.post<{ access_token: string }>('/auth/dev-tenant-login', {
+        tenant_id: tenantId,
+      });
+      if (data?.access_token) setAccessToken(data.access_token);
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
     }
-
-    if (data?.access_token) {
-      setAccessToken(data.access_token);
-    }
-
-    return { error: null };
   };
 
   const signOut = async () => {
-    await api.post('/auth/signout');
+    try { await api.post('/auth/signout'); } catch { /* best-effort */ }
     clearAccessToken();
   };
 

@@ -1,9 +1,28 @@
 // src/lib/apiClient.ts
+//
+// Contract: api.get/post/patch/delete return the raw response body (typed as T)
+// on success, and throw `ApiError` on failure. Callers that care about the
+// error use try/catch; fire-and-forget callers can ignore the return.
+//
+// The previous `{data, error}` wrapper caused widespread bugs because many
+// callers treated the wrapper as the raw body and quietly consumed stale
+// undefined values. Raw-body-or-throw matches the idiom the majority of
+// call sites already assumed.
+
 import { getAccessToken, setAccessToken, clearAccessToken } from './auth';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
-export type ApiResult<T> = { data: T; error: null } | { data: null; error: Error };
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
 
 async function refreshToken(): Promise<boolean> {
   try {
@@ -25,7 +44,7 @@ async function request<T>(
   method: string,
   path: string,
   options: { body?: unknown; params?: Record<string, string | undefined> } = {}
-): Promise<ApiResult<T>> {
+): Promise<T> {
   const url = new URL(`${API_BASE}${path}`, window.location.origin);
   if (options.params) {
     Object.entries(options.params).forEach(([k, v]) => {
@@ -46,34 +65,37 @@ async function request<T>(
     });
   };
 
-  try {
-    let res = await makeRequest();
+  let res = await makeRequest();
 
-    if (res.status === 401) {
-      const refreshed = await refreshToken();
-      if (!refreshed) return { data: null, error: new Error('Unauthorized') };
+  // Transparently try refresh on 401 (except for the refresh endpoint itself,
+  // which would loop). Still propagates 401 as a thrown ApiError if refresh fails.
+  if (res.status === 401 && !path.startsWith('/auth/refresh')) {
+    const refreshed = await refreshToken();
+    if (refreshed) {
       res = await makeRequest();
     }
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText })) as { error?: string };
-      return { data: null, error: new Error(body.error ?? res.statusText) };
-    }
-
-    const data = res.status === 204 ? (null as T) : (await res.json() as T);
-    return { data, error: null };
-  } catch (err) {
-    return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
   }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null) as { error?: string } | null;
+    throw new ApiError(
+      body?.error ?? res.statusText ?? 'Request failed',
+      res.status,
+      body,
+    );
+  }
+
+  if (res.status === 204) return null as T;
+  return (await res.json()) as T;
 }
 
 export const api = {
-  get:    <T>(path: string, params?: Record<string, string | undefined>) =>
+  get:    <T = unknown>(path: string, params?: Record<string, string | undefined>) =>
             request<T>('GET', path, { params }),
-  post:   <T>(path: string, body?: unknown) =>
+  post:   <T = unknown>(path: string, body?: unknown) =>
             request<T>('POST', path, { body }),
-  patch:  <T>(path: string, body?: unknown) =>
+  patch:  <T = unknown>(path: string, body?: unknown) =>
             request<T>('PATCH', path, { body }),
-  delete: <T = { success: boolean }>(path: string) =>
+  delete: <T = unknown>(path: string) =>
             request<T>('DELETE', path),
 };
