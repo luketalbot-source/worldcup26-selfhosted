@@ -96,7 +96,9 @@ router.post(
     "json",
     z.object({
       custom_boost_id: z.string().uuid(),
-      predicted_value: z.string(),
+      tenant_id: z.string().uuid(),
+      predicted_team_code: z.string().nullable().optional(),
+      predicted_player_name: z.string().nullable().optional(),
     })
   ),
   async (c) => {
@@ -105,11 +107,20 @@ router.post(
 
     const rows = await withUser(user.sub, (tx) =>
       tx`
-        INSERT INTO tenant_custom_boost_predictions (id, user_id, custom_boost_id, predicted_value, created_at, updated_at)
-        VALUES (gen_random_uuid(), ${user.sub}, ${body.custom_boost_id}, ${body.predicted_value}, NOW(), NOW())
+        INSERT INTO tenant_custom_boost_predictions (
+          id, user_id, custom_boost_id, tenant_id,
+          predicted_team_code, predicted_player_name,
+          created_at, updated_at
+        )
+        VALUES (
+          gen_random_uuid(), ${user.sub}, ${body.custom_boost_id}, ${body.tenant_id},
+          ${body.predicted_team_code ?? null}, ${body.predicted_player_name ?? null},
+          NOW(), NOW()
+        )
         ON CONFLICT (user_id, custom_boost_id) DO UPDATE
-          SET predicted_value = EXCLUDED.predicted_value,
-              updated_at = NOW()
+          SET predicted_team_code   = EXCLUDED.predicted_team_code,
+              predicted_player_name = EXCLUDED.predicted_player_name,
+              updated_at            = NOW()
         RETURNING *
       `
     );
@@ -138,16 +149,25 @@ router.post(
     "json",
     z.object({
       custom_boost_id: z.string().uuid(),
-      result_value: z.string(),
+      result_team_code: z.string().nullable().optional(),
+      result_player_name: z.string().nullable().optional(),
     })
   ),
   async (c) => {
     const body = c.req.valid("json");
     const rows = await sql`
-      INSERT INTO tenant_custom_boost_results (id, custom_boost_id, result_value, created_at)
-      VALUES (gen_random_uuid(), ${body.custom_boost_id}, ${body.result_value}, NOW())
+      INSERT INTO tenant_custom_boost_results (
+        id, custom_boost_id, result_team_code, result_player_name, created_at, updated_at
+      )
+      VALUES (
+        gen_random_uuid(), ${body.custom_boost_id},
+        ${body.result_team_code ?? null}, ${body.result_player_name ?? null},
+        NOW(), NOW()
+      )
       ON CONFLICT (custom_boost_id) DO UPDATE
-        SET result_value = EXCLUDED.result_value
+        SET result_team_code   = EXCLUDED.result_team_code,
+            result_player_name = EXCLUDED.result_player_name,
+            updated_at         = NOW()
       RETURNING *
     `;
     return c.json(rows[0], 201);
