@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Key, Save, Loader2 } from 'lucide-react';
-import { api } from '@/lib/apiClient';
+import { Key, Save, Loader2, Info } from 'lucide-react';
+import { api, ApiError } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,24 +13,29 @@ interface TenantOIDCConfigProps {
   tenantUid: string;
 }
 
-interface OIDCConfig {
-  auth_url: string;
+// What the backend returns (client_secret is omitted; has_client_secret is a boolean).
+interface OIDCConfigResponse {
+  issuer: string;
   client_id: string;
   redirect_uri: string;
-  issuer?: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  userinfo_endpoint: string;
+  jwks_uri: string;
+  consent_required?: boolean;
+  has_client_secret?: boolean;
 }
 
 export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDCConfigProps) => {
-  const [oidcConfig, setOidcConfig] = useState<OIDCConfig>({
-    auth_url: '',
-    client_id: '',
-    redirect_uri: '',
-    issuer: '',
-  });
+  const [issuer, setIssuer] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [redirectUri, setRedirectUri] = useState('');
+  const [hasExistingSecret, setHasExistingSecret] = useState(false);
+  const [loaded, setLoaded] = useState<OIDCConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Generate default redirect URI
   const defaultRedirectUri = typeof window !== 'undefined'
     ? `${window.location.origin}/t/${tenantUid}/auth/callback`
     : `/t/${tenantUid}/auth/callback`;
@@ -38,24 +43,19 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const data = await api.get<OIDCConfig | null>(`/tenants/${tenantId}/oidc-config`);
-
-        if (data) {
-          setOidcConfig({
-            auth_url: data.auth_url,
-            client_id: data.client_id,
-            redirect_uri: data.redirect_uri,
-            issuer: data.issuer || '',
-          });
-        } else {
-          // Set default redirect URI for new config
-          setOidcConfig(prev => ({
-            ...prev,
-            redirect_uri: defaultRedirectUri,
-          }));
-        }
+        const data = await api.get<OIDCConfigResponse>(`/tenants/${tenantId}/oidc-config`);
+        setIssuer(data.issuer ?? '');
+        setClientId(data.client_id ?? '');
+        setRedirectUri(data.redirect_uri ?? defaultRedirectUri);
+        setHasExistingSecret(!!data.has_client_secret);
+        setLoaded(data);
       } catch (err) {
-        toast.error('Failed to load OIDC configuration');
+        if (err instanceof ApiError && err.status === 404) {
+          // No config yet — seed sensible defaults.
+          setRedirectUri(defaultRedirectUri);
+        } else {
+          toast.error('Failed to load OIDC configuration');
+        }
       } finally {
         setLoading(false);
       }
@@ -65,26 +65,31 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
   }, [tenantId, defaultRedirectUri]);
 
   const handleSave = async () => {
+    if (!issuer || !clientId || !redirectUri) {
+      toast.error('Issuer, Client ID, and Redirect URI are required');
+      return;
+    }
+
     setSaving(true);
-
     try {
-      // Validate required fields
-      if (!oidcConfig.auth_url || !oidcConfig.client_id || !oidcConfig.redirect_uri) {
-        toast.error('Please fill in all required OIDC fields');
-        setSaving(false);
-        return;
-      }
+      const body: Record<string, unknown> = {
+        issuer: issuer.trim(),
+        client_id: clientId.trim(),
+        redirect_uri: redirectUri.trim(),
+      };
+      // Only send client_secret if the user typed one. Empty string → "keep existing".
+      if (clientSecret) body.client_secret = clientSecret;
 
-      await api.patch(`/tenants/${tenantId}/oidc-config`, {
-        auth_url: oidcConfig.auth_url,
-        client_id: oidcConfig.client_id,
-        redirect_uri: oidcConfig.redirect_uri,
-        issuer: oidcConfig.issuer || null,
-      });
-
-      toast.success('Configuration saved successfully');
+      const saved = await api.patch<OIDCConfigResponse>(`/tenants/${tenantId}/oidc-config`, body);
+      setLoaded(saved);
+      setHasExistingSecret(!!saved.has_client_secret);
+      setClientSecret('');
+      toast.success('OIDC configuration saved');
     } catch (err) {
-      toast.error('Failed to save configuration');
+      const message = err instanceof ApiError
+        ? err.message
+        : 'Failed to save configuration';
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -108,22 +113,24 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
           SSO (OIDC) Configuration
         </CardTitle>
         <CardDescription>
-          Configure Single Sign-On for {tenantName}. Users will authenticate via your identity provider.
+          Configure Single Sign-On for <strong>{tenantName}</strong>. Endpoints are
+          auto-discovered from the issuer URL on save — no need to enter them manually.
         </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-6">
-        {/* OIDC Configuration Fields */}
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="auth-url">Authorization URL *</Label>
+            <Label htmlFor="issuer">Issuer URL *</Label>
             <Input
-              id="auth-url"
-              placeholder="https://your-idp.com/oauth/authorize"
-              value={oidcConfig.auth_url}
-              onChange={(e) => setOidcConfig(prev => ({ ...prev, auth_url: e.target.value }))}
+              id="issuer"
+              placeholder="https://login.microsoftonline.com/{tenant-id}/v2.0"
+              value={issuer}
+              onChange={(e) => setIssuer(e.target.value)}
+              autoComplete="off"
             />
             <p className="text-xs text-muted-foreground">
-              The OIDC authorization endpoint from your identity provider
+              The OIDC issuer. Must serve <code>/.well-known/openid-configuration</code>.
             </p>
           </div>
 
@@ -132,11 +139,26 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
             <Input
               id="client-id"
               placeholder="your-client-id"
-              value={oidcConfig.client_id}
-              onChange={(e) => setOidcConfig(prev => ({ ...prev, client_id: e.target.value }))}
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="client-secret">
+              Client Secret {hasExistingSecret && <span className="text-muted-foreground font-normal">(already set — leave blank to keep)</span>}
+            </Label>
+            <Input
+              id="client-secret"
+              type="password"
+              placeholder={hasExistingSecret ? '••••••••' : 'your-client-secret'}
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+              autoComplete="new-password"
             />
             <p className="text-xs text-muted-foreground">
-              The public client ID from your identity provider
+              Required for the authorization-code flow. Stored encrypted-at-rest.
             </p>
           </div>
 
@@ -145,27 +167,28 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
             <Input
               id="redirect-uri"
               placeholder={defaultRedirectUri}
-              value={oidcConfig.redirect_uri}
-              onChange={(e) => setOidcConfig(prev => ({ ...prev, redirect_uri: e.target.value }))}
+              value={redirectUri}
+              onChange={(e) => setRedirectUri(e.target.value)}
+              autoComplete="off"
             />
             <p className="text-xs text-muted-foreground">
-              This URL must be registered in your identity provider. Default: <code className="text-xs">{defaultRedirectUri}</code>
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="issuer">Issuer URL (optional)</Label>
-            <Input
-              id="issuer"
-              placeholder="https://your-idp.com"
-              value={oidcConfig.issuer}
-              onChange={(e) => setOidcConfig(prev => ({ ...prev, issuer: e.target.value }))}
-            />
-            <p className="text-xs text-muted-foreground">
-              Optional: Used for token validation
+              Must be registered in your IdP. Default: <code className="break-all">{defaultRedirectUri}</code>
             </p>
           </div>
         </div>
+
+        {loaded && (
+          <div className="rounded-md bg-muted/50 p-3 text-xs space-y-1">
+            <div className="flex items-center gap-1.5 font-medium text-muted-foreground mb-1">
+              <Info className="w-3.5 h-3.5" />
+              Discovered endpoints (read-only)
+            </div>
+            <div><span className="text-muted-foreground">authorization_endpoint:</span> <code className="break-all">{loaded.authorization_endpoint}</code></div>
+            <div><span className="text-muted-foreground">token_endpoint:</span> <code className="break-all">{loaded.token_endpoint}</code></div>
+            <div><span className="text-muted-foreground">userinfo_endpoint:</span> <code className="break-all">{loaded.userinfo_endpoint}</code></div>
+            <div><span className="text-muted-foreground">jwks_uri:</span> <code className="break-all">{loaded.jwks_uri}</code></div>
+          </div>
+        )}
 
         <Button onClick={handleSave} disabled={saving} className="w-full">
           {saving ? (

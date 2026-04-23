@@ -251,7 +251,7 @@ router.post(
       consent_required: boolean;
     }[]>`
       SELECT client_id, client_secret, token_endpoint, userinfo_endpoint, redirect_uri, consent_required
-      FROM tenant_oidc_configs
+      FROM tenant_oidc_config
       WHERE tenant_id = ${tenant_id}
       LIMIT 1
     `;
@@ -308,7 +308,7 @@ router.post(
       consent_required: boolean;
     }[]>`
       SELECT jwks_uri, client_id, issuer, consent_required
-      FROM tenant_oidc_configs
+      FROM tenant_oidc_config
       WHERE tenant_id = ${tenant_id}
       LIMIT 1
     `;

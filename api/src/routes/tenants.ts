@@ -52,32 +52,89 @@ router.get("/by-uid/:uid", async (c) => {
 router.get("/:id/oidc-config", async (c) => {
   const id = c.req.param("id");
   const rows = await sql`
-    SELECT * FROM tenant_oidc_configs WHERE tenant_id = ${id} LIMIT 1
+    SELECT * FROM tenant_oidc_config WHERE tenant_id = ${id} LIMIT 1
   `;
   if (rows.length === 0) return c.json({ error: "OIDC config not found" }, 404);
-  // Don't expose client_secret
-  const { client_secret: _omit, ...safe } = rows[0] as any;
-  return c.json(safe);
+  // Don't expose client_secret — but do expose whether one is stored so the
+  // admin UI can show "••••••" and treat an empty input as "leave unchanged".
+  const row = rows[0] as any;
+  const { client_secret, ...safe } = row;
+  return c.json({ ...safe, has_client_secret: !!client_secret });
 });
 
+// Admin-facing schema: we only require the fields a human can realistically
+// know off-hand. The endpoints are fetched from the IdP's discovery document.
 const oidcConfigSchema = z.object({
-  client_id: z.string(),
-  client_secret: z.string().optional(),
   issuer: z.string().url(),
-  authorization_endpoint: z.string().url(),
-  token_endpoint: z.string().url(),
-  userinfo_endpoint: z.string().url(),
-  jwks_uri: z.string().url(),
+  client_id: z.string().min(1),
+  client_secret: z.string().optional(),
   redirect_uri: z.string().url(),
   consent_required: z.boolean().optional(),
+  // Optional manual overrides for IdPs that don't publish discovery correctly.
+  authorization_endpoint: z.string().url().optional(),
+  token_endpoint: z.string().url().optional(),
+  userinfo_endpoint: z.string().url().optional(),
+  jwks_uri: z.string().url().optional(),
 });
+
+interface OidcDiscoveryDoc {
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  userinfo_endpoint?: string;
+  jwks_uri?: string;
+  issuer?: string;
+}
+
+async function fetchOidcDiscovery(issuer: string): Promise<OidcDiscoveryDoc> {
+  // Normalise: strip trailing slash, append well-known path.
+  const base = issuer.replace(/\/+$/, "");
+  const url = `${base}/.well-known/openid-configuration`;
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) {
+    throw new Error(`OIDC discovery failed: ${res.status} ${res.statusText} at ${url}`);
+  }
+  return (await res.json()) as OidcDiscoveryDoc;
+}
 
 router.patch("/:id/oidc-config", requireAdmin, zValidator("json", oidcConfigSchema), async (c) => {
   const tenantId = c.req.param("id");
   const body = c.req.valid("json");
 
+  // Fill in the OIDC endpoints from the IdP's discovery document — unless the
+  // admin supplied explicit overrides.
+  let discovery: OidcDiscoveryDoc = {};
+  try {
+    discovery = await fetchOidcDiscovery(body.issuer);
+  } catch (err) {
+    // If discovery fails but the admin provided all four endpoints manually,
+    // that's fine — we'll fall back to those below. Otherwise, 400.
+    const hasAllManual =
+      body.authorization_endpoint &&
+      body.token_endpoint &&
+      body.userinfo_endpoint &&
+      body.jwks_uri;
+    if (!hasAllManual) {
+      return c.json(
+        { error: `Could not load OIDC discovery document: ${(err as Error).message}` },
+        400
+      );
+    }
+  }
+
+  const authorizationEndpoint = body.authorization_endpoint ?? discovery.authorization_endpoint;
+  const tokenEndpoint = body.token_endpoint ?? discovery.token_endpoint;
+  const userinfoEndpoint = body.userinfo_endpoint ?? discovery.userinfo_endpoint;
+  const jwksUri = body.jwks_uri ?? discovery.jwks_uri;
+
+  if (!authorizationEndpoint || !tokenEndpoint || !userinfoEndpoint || !jwksUri) {
+    return c.json(
+      { error: "OIDC discovery was incomplete and no manual endpoints were provided" },
+      400
+    );
+  }
+
   const rows = await sql`
-    INSERT INTO tenant_oidc_configs (
+    INSERT INTO tenant_oidc_config (
       id, tenant_id, client_id, client_secret, issuer,
       authorization_endpoint, token_endpoint, userinfo_endpoint,
       jwks_uri, redirect_uri, consent_required, updated_at
@@ -85,13 +142,18 @@ router.patch("/:id/oidc-config", requireAdmin, zValidator("json", oidcConfigSche
     VALUES (
       gen_random_uuid(), ${tenantId}, ${body.client_id},
       ${body.client_secret ?? null}, ${body.issuer},
-      ${body.authorization_endpoint}, ${body.token_endpoint},
-      ${body.userinfo_endpoint}, ${body.jwks_uri}, ${body.redirect_uri},
+      ${authorizationEndpoint}, ${tokenEndpoint},
+      ${userinfoEndpoint}, ${jwksUri}, ${body.redirect_uri},
       ${body.consent_required ?? false}, NOW()
     )
     ON CONFLICT (tenant_id) DO UPDATE
       SET client_id              = EXCLUDED.client_id,
-          client_secret          = COALESCE(EXCLUDED.client_secret, tenant_oidc_configs.client_secret),
+          -- Empty-string client_secret means "leave unchanged"; null means "clear"
+          client_secret          = CASE
+                                     WHEN EXCLUDED.client_secret IS NULL THEN tenant_oidc_config.client_secret
+                                     WHEN EXCLUDED.client_secret = '' THEN tenant_oidc_config.client_secret
+                                     ELSE EXCLUDED.client_secret
+                                   END,
           issuer                 = EXCLUDED.issuer,
           authorization_endpoint = EXCLUDED.authorization_endpoint,
           token_endpoint         = EXCLUDED.token_endpoint,
@@ -102,8 +164,9 @@ router.patch("/:id/oidc-config", requireAdmin, zValidator("json", oidcConfigSche
           updated_at             = NOW()
     RETURNING *
   `;
-  const { client_secret: _omit, ...safe } = rows[0] as any;
-  return c.json(safe);
+  const row = rows[0] as any;
+  const { client_secret, ...safe } = row;
+  return c.json({ ...safe, has_client_secret: !!client_secret });
 });
 
 router.get("/:id/users", requireAdmin, async (c) => {
