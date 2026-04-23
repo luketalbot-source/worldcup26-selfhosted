@@ -80,122 +80,164 @@ function computeTeamGroups(matches: FootballDataMatch[]): Map<string, string> {
   return out;
 }
 
+// Simple in-memory sync job state. Enough for the singleton-admin use case.
+// If we ever need per-tenant sync or multiple instances, replace with a DB row.
+interface SyncState {
+  status: "idle" | "running" | "success" | "failed";
+  startedAt: string | null;
+  finishedAt: string | null;
+  matchesUpdated: number;
+  teamsUpdated: number;
+  totalMatches: number;
+  error: string | null;
+}
+const syncState: SyncState = {
+  status: "idle",
+  startedAt: null,
+  finishedAt: null,
+  matchesUpdated: 0,
+  teamsUpdated: 0,
+  totalMatches: 0,
+  error: null,
+};
+
+async function runSync(apiKey: string): Promise<void> {
+  syncState.status = "running";
+  syncState.startedAt = new Date().toISOString();
+  syncState.finishedAt = null;
+  syncState.matchesUpdated = 0;
+  syncState.teamsUpdated = 0;
+  syncState.totalMatches = 0;
+  syncState.error = null;
+
+  try {
+    const [matchesRes, teamsRes] = await Promise.all([
+      fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
+        headers: { "X-Auth-Token": apiKey },
+      }),
+      fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/teams`, {
+        headers: { "X-Auth-Token": apiKey },
+      }),
+    ]);
+
+    if (matchesRes.status === 404) {
+      syncState.status = "success";
+      syncState.error = "World Cup 2026 data not yet available in football-data.org";
+      syncState.finishedAt = new Date().toISOString();
+      return;
+    }
+    if (!matchesRes.ok) {
+      throw new Error(`Football API matches returned ${matchesRes.status}: ${await matchesRes.text()}`);
+    }
+
+    const matchesData = (await matchesRes.json()) as { matches?: FootballDataMatch[] };
+    const matches = matchesData.matches ?? [];
+    syncState.totalMatches = matches.length;
+
+    // Upsert matches concurrently (bounded by postgres.js pool of 10).
+    const matchResults = await Promise.allSettled(
+      matches.map((match) =>
+        sql`
+          INSERT INTO public.live_matches (
+            match_id, api_match_id, home_team_name, home_team_code,
+            away_team_name, away_team_code, home_score, away_score,
+            match_date, venue, stage, group_name, status, last_updated
+          ) VALUES (
+            ${generateMatchId(match)},
+            ${match.id},
+            ${match.homeTeam.name},
+            ${match.homeTeam.tla || match.homeTeam.shortName?.substring(0, 3).toUpperCase() || "TBD"},
+            ${match.awayTeam.name},
+            ${match.awayTeam.tla || match.awayTeam.shortName?.substring(0, 3).toUpperCase() || "TBD"},
+            ${match.score.fullTime.home},
+            ${match.score.fullTime.away},
+            ${match.utcDate},
+            ${match.venue},
+            ${mapStage(match.stage)},
+            ${match.group},
+            ${match.status},
+            NOW()
+          )
+          ON CONFLICT (match_id) DO UPDATE SET
+            api_match_id   = EXCLUDED.api_match_id,
+            home_score     = EXCLUDED.home_score,
+            away_score     = EXCLUDED.away_score,
+            match_date     = EXCLUDED.match_date,
+            venue          = EXCLUDED.venue,
+            stage          = EXCLUDED.stage,
+            group_name     = EXCLUDED.group_name,
+            status         = EXCLUDED.status,
+            last_updated   = NOW()
+        `
+      )
+    );
+    syncState.matchesUpdated = matchResults.filter((r) => r.status === "fulfilled").length;
+
+    // Upsert teams (best-effort).
+    if (teamsRes.ok) {
+      const teamsData = (await teamsRes.json()) as { teams?: FootballDataTeam[] };
+      const teams = teamsData.teams ?? [];
+      const groupMap = computeTeamGroups(matches);
+
+      const teamResults = await Promise.allSettled(
+        teams
+          .filter((t) => !!t.tla)
+          .map((team) => {
+            const group = groupMap.get(team.tla) ?? null;
+            return sql`
+              INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
+              VALUES (
+                gen_random_uuid(),
+                ${team.tla},
+                ${team.name},
+                ${team.shortName ?? team.name},
+                ${team.crest ?? null},
+                ${group},
+                ${team.id},
+                NOW()
+              )
+              ON CONFLICT (tla) DO UPDATE SET
+                name        = EXCLUDED.name,
+                short_name  = EXCLUDED.short_name,
+                crest_url   = EXCLUDED.crest_url,
+                group_name  = EXCLUDED.group_name,
+                fd_team_id  = EXCLUDED.fd_team_id,
+                updated_at  = NOW()
+            `;
+          })
+      );
+      syncState.teamsUpdated = teamResults.filter((r) => r.status === "fulfilled").length;
+    }
+
+    syncState.status = "success";
+    syncState.finishedAt = new Date().toISOString();
+  } catch (err) {
+    syncState.status = "failed";
+    syncState.error = err instanceof Error ? err.message : String(err);
+    syncState.finishedAt = new Date().toISOString();
+    console.error("[sync-matches] failed:", err);
+  }
+}
+
 router.post("/sync-matches", requireAdmin, async (c) => {
   const apiKey = process.env.FOOTBALL_DATA_API_KEY;
   if (!apiKey) return c.json({ error: "FOOTBALL_DATA_API_KEY not configured" }, 500);
 
-  // Fetch matches + teams in parallel.
-  const [matchesRes, teamsRes] = await Promise.all([
-    fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
-      headers: { "X-Auth-Token": apiKey },
-    }),
-    fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/teams`, {
-      headers: { "X-Auth-Token": apiKey },
-    }),
-  ]);
-
-  if (matchesRes.status === 404) {
-    return c.json({
-      message: "World Cup 2026 data not yet available in the football-data.org API.",
-      matchesUpdated: 0,
-      teamsUpdated: 0,
-      status: "pending",
-    });
+  // Don't kick off a second concurrent sync.
+  if (syncState.status === "running") {
+    return c.json({ status: "running", startedAt: syncState.startedAt }, 202);
   }
 
-  if (!matchesRes.ok) {
-    const errText = await matchesRes.text();
-    return c.json({ error: `Football API matches returned ${matchesRes.status}: ${errText}` }, 502);
-  }
+  // Fire and forget. Envoy's 10s upstream timeout would otherwise kill a
+  // synchronous sync in progress; Bun keeps the async task alive after the
+  // handler returns. Poll GET /sync-status to see progress.
+  void runSync(apiKey);
 
-  const matchesData = (await matchesRes.json()) as { matches?: FootballDataMatch[] };
-  const matches = matchesData.matches ?? [];
+  return c.json({ status: "started", startedAt: new Date().toISOString() }, 202);
+});
 
-  // --- Upsert matches ---
-  // Use Promise.all so postgres.js's connection pool (max:10) can run these
-  // concurrently. Sequential loop tripped Envoy's 10s upstream timeout with
-  // 152 round-trips under load.
-  const matchResults = await Promise.allSettled(
-    matches.map((match) =>
-      sql`
-        INSERT INTO public.live_matches (
-          match_id, api_match_id, home_team_name, home_team_code,
-          away_team_name, away_team_code, home_score, away_score,
-          match_date, venue, stage, group_name, status, last_updated
-        ) VALUES (
-          ${generateMatchId(match)},
-          ${match.id},
-          ${match.homeTeam.name},
-          ${match.homeTeam.tla || match.homeTeam.shortName?.substring(0, 3).toUpperCase() || "TBD"},
-          ${match.awayTeam.name},
-          ${match.awayTeam.tla || match.awayTeam.shortName?.substring(0, 3).toUpperCase() || "TBD"},
-          ${match.score.fullTime.home},
-          ${match.score.fullTime.away},
-          ${match.utcDate},
-          ${match.venue},
-          ${mapStage(match.stage)},
-          ${match.group},
-          ${match.status},
-          NOW()
-        )
-        ON CONFLICT (match_id) DO UPDATE SET
-          api_match_id   = EXCLUDED.api_match_id,
-          home_score     = EXCLUDED.home_score,
-          away_score     = EXCLUDED.away_score,
-          match_date     = EXCLUDED.match_date,
-          venue          = EXCLUDED.venue,
-          stage          = EXCLUDED.stage,
-          group_name     = EXCLUDED.group_name,
-          status         = EXCLUDED.status,
-          last_updated   = NOW()
-      `
-    )
-  );
-  const updated = matchResults.filter((r) => r.status === "fulfilled").length;
-
-  // --- Upsert teams (best-effort; matches still succeed if this fails) ---
-  let teamsUpdated = 0;
-  if (teamsRes.ok) {
-    const teamsData = (await teamsRes.json()) as { teams?: FootballDataTeam[] };
-    const teams = teamsData.teams ?? [];
-    const groupMap = computeTeamGroups(matches);
-
-    const teamResults = await Promise.allSettled(
-      teams
-        .filter((t) => !!t.tla)
-        .map((team) => {
-          const group = groupMap.get(team.tla) ?? null;
-          return sql`
-            INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
-            VALUES (
-              gen_random_uuid(),
-              ${team.tla},
-              ${team.name},
-              ${team.shortName ?? team.name},
-              ${team.crest ?? null},
-              ${group},
-              ${team.id},
-              NOW()
-            )
-            ON CONFLICT (tla) DO UPDATE SET
-              name        = EXCLUDED.name,
-              short_name  = EXCLUDED.short_name,
-              crest_url   = EXCLUDED.crest_url,
-              group_name  = EXCLUDED.group_name,
-              fd_team_id  = EXCLUDED.fd_team_id,
-              updated_at  = NOW()
-          `;
-        })
-    );
-    teamsUpdated = teamResults.filter((r) => r.status === "fulfilled").length;
-  }
-
-  return c.json({
-    message: "Matches synced successfully",
-    matchesUpdated: updated,
-    totalMatches: matches.length,
-    teamsUpdated,
-  });
+router.get("/sync-status", requireAdmin, async (c) => {
+  return c.json(syncState);
 });
 
 // -----------------------------------------------------------------------------
