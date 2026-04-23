@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/apiClient';
 
 interface OIDCConfig {
-  auth_url: string;
+  authorization_endpoint: string;
   client_id: string;
   redirect_uri: string;
 }

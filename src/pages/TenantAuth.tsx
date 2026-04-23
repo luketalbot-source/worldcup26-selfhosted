@@ -55,7 +55,7 @@ const TenantAuth = () => {
 
       try {
         const authUrl = await buildAuthorizationUrl(
-          tenant.oidc_config.auth_url,
+          tenant.oidc_config.authorization_endpoint,
           tenant.oidc_config.client_id,
           tenant.oidc_config.redirect_uri,
           tenant.id

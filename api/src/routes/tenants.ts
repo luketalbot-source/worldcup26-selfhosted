@@ -15,6 +15,21 @@ router.get("/", requireAdmin, async (c) => {
   return c.json(rows);
 });
 
+// Build a URL-safe tenant uid: "<slug>-<12 hex bytes>". The slug makes the
+// admin-side URLs readable, the suffix keeps them unique even for duplicate
+// names. Matches the existing format already in the DB ("flip-76bd82f1...").
+function generateTenantUid(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32) || "tenant";
+  const suffix = [...crypto.getRandomValues(new Uint8Array(12))]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `${slug}-${suffix}`;
+}
+
 router.post(
   "/",
   requireAdmin,
@@ -27,9 +42,10 @@ router.post(
   ),
   async (c) => {
     const body = c.req.valid("json");
+    const uid = body.uid ?? generateTenantUid(body.name);
     const rows = await sql`
       INSERT INTO tenants (id, name, uid, created_at)
-      VALUES (gen_random_uuid(), ${body.name}, ${body.uid ?? null}, NOW())
+      VALUES (gen_random_uuid(), ${body.name}, ${uid}, NOW())
       RETURNING *
     `;
     return c.json(rows[0], 201);
@@ -173,7 +189,7 @@ router.get("/:id/users", requireAdmin, async (c) => {
   const tenantId = c.req.param("id");
   const rows = await sql`
     SELECT u.id, u.email, u.phone, u.created_at,
-           p.display_name, p.avatar_emoji, p.locale,
+           p.display_name, p.avatar_emoji,
            oi.oidc_subject, oi.created_at AS identity_linked_at
     FROM oidc_identities oi
     INNER JOIN public.users u ON u.id = oi.user_id
