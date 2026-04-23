@@ -190,6 +190,17 @@ async function runSync(apiKey: string): Promise<void> {
     // as we go so polling reflects actual progress.
     for (const match of matches) {
       try {
+        // postgres.js rejects `undefined` parameters — FD omits fields like
+        // `group` for knockout matches and `score.fullTime.home` for unplayed
+        // fixtures, so every `?? null` below matters.
+        const homeCode =
+          match.homeTeam?.tla ||
+          match.homeTeam?.shortName?.substring(0, 3).toUpperCase() ||
+          "TBD";
+        const awayCode =
+          match.awayTeam?.tla ||
+          match.awayTeam?.shortName?.substring(0, 3).toUpperCase() ||
+          "TBD";
         await sql`
           INSERT INTO public.live_matches (
             match_id, api_match_id, home_team_name, home_team_code,
@@ -197,18 +208,18 @@ async function runSync(apiKey: string): Promise<void> {
             match_date, venue, stage, group_name, status, last_updated
           ) VALUES (
             ${generateMatchId(match)},
-            ${match.id},
-            ${match.homeTeam.name},
-            ${match.homeTeam.tla || match.homeTeam.shortName?.substring(0, 3).toUpperCase() || "TBD"},
-            ${match.awayTeam.name},
-            ${match.awayTeam.tla || match.awayTeam.shortName?.substring(0, 3).toUpperCase() || "TBD"},
-            ${match.score.fullTime.home},
-            ${match.score.fullTime.away},
-            ${match.utcDate},
-            ${match.venue},
+            ${match.id ?? null},
+            ${match.homeTeam?.name ?? "TBD"},
+            ${homeCode},
+            ${match.awayTeam?.name ?? "TBD"},
+            ${awayCode},
+            ${match.score?.fullTime?.home ?? null},
+            ${match.score?.fullTime?.away ?? null},
+            ${match.utcDate ?? null},
+            ${match.venue ?? null},
             ${mapStage(match.stage)},
-            ${match.group},
-            ${match.status},
+            ${match.group ?? null},
+            ${match.status ?? "SCHEDULED"},
             NOW()
           )
           ON CONFLICT (match_id) DO UPDATE SET
@@ -245,11 +256,11 @@ async function runSync(apiKey: string): Promise<void> {
             VALUES (
               gen_random_uuid(),
               ${team.tla},
-              ${team.name},
-              ${team.shortName ?? team.name},
+              ${team.name ?? team.tla},
+              ${team.shortName ?? team.name ?? team.tla},
               ${team.crest ?? null},
               ${group},
-              ${team.id},
+              ${team.id ?? null},
               NOW()
             )
             ON CONFLICT (tla) DO UPDATE SET
