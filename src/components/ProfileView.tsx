@@ -1,15 +1,13 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Target, CheckCircle, XCircle, TrendingUp, Edit2, LogIn, Zap, Globe, Moon, Sun, Monitor, Rocket } from 'lucide-react';
+import { User, Target, CheckCircle, XCircle, TrendingUp, LogIn, Zap, Globe, Moon, Sun, Monitor, Rocket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserStats } from '@/hooks/useUserStats';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { useFlipBridge } from '@/hooks/useFlipBridge';
+import { useNavigate } from 'react-router-dom';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { languages } from '@/lib/constants';
 
@@ -18,30 +16,16 @@ export const ProfileView = () => {
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
   const { tenantId } = useTenant();
-  const { profile, updateProfile } = useProfile(user?.id);
+  const { profile, updateAvatar } = useProfile(user?.id);
   const { stats } = useUserStats(user?.id, tenantId);
   const navigate = useNavigate();
-  const { tenantUid } = useParams();
+  const { isEmbedded } = useFlipBridge();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editAvatar, setEditAvatar] = useState('');
-
-  const handleEdit = () => {
-    setEditName(profile?.displayName || '');
-    setEditAvatar(profile?.avatarEmoji || '👤');
-    setIsEditing(true);
-  };
-
-  const handleSave = async () => {
-    if (!editName.trim()) {
-      return;
-    }
-
-    const { error } = await updateProfile(editName, editAvatar) || {};
-    if (!error) {
-      setIsEditing(false);
-    }
+  // Display name is read-only — it mirrors the OIDC host identity (see
+  // upsertOidcUser on the backend). Only the avatar emoji is editable;
+  // picking one fires the PATCH immediately and optimistically updates.
+  const handleEmojiChange = (emoji: string) => {
+    void updateAvatar(emoji);
   };
 
   if (!user) {
@@ -85,44 +69,19 @@ export const ProfileView = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
       >
-        <div className="gradient-navy px-4 py-8 text-center relative">
-          {!isEditing && (
-            <button
-              onClick={handleEdit}
-              className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-            >
-              <Edit2 className="w-4 h-4 text-white" />
-            </button>
-          )}
-
-          {isEditing ? (
-            <div className="space-y-4">
-              <p className="text-white/80 text-sm">{t('profile.edit.updateInGameName')}</p>
-              <EmojiPicker value={editAvatar} onChange={setEditAvatar} />
-
-              <Input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder={t('profile.edit.displayName')}
-                className="max-w-xs mx-auto text-center"
+        <div className="gradient-navy px-4 py-8 text-center">
+          <div className="flex flex-col items-center gap-3">
+            {/* Avatar is the emoji picker trigger — tap to change. */}
+            <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center text-4xl">
+              <EmojiPicker
+                value={profile?.avatarEmoji || '👤'}
+                onChange={handleEmojiChange}
               />
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
-                  {t('profile.edit.cancel')}
-                </Button>
-                <Button size="sm" onClick={handleSave}>
-                  {t('profile.edit.save')}
-                </Button>
-              </div>
             </div>
-          ) : (
-            <>
-              <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center mx-auto mb-3 text-4xl">
-                {profile?.avatarEmoji || '👤'}
-              </div>
-              <h2 className="text-xl font-bold text-white">{profile?.displayName || t('profile.predictor')}</h2>
-            </>
-          )}
+            <h2 className="text-xl font-bold text-white">
+              {profile?.displayName || t('profile.predictor')}
+            </h2>
+          </div>
         </div>
 
         <div className="p-4">
@@ -231,48 +190,50 @@ export const ProfileView = () => {
             </div>
           </div>
 
-          {/* Theme Setting */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {theme === 'dark' ? (
-                <Moon className="w-5 h-5 text-muted-foreground" />
-              ) : theme === 'light' ? (
-                <Sun className="w-5 h-5 text-muted-foreground" />
-              ) : (
-                <Monitor className="w-5 h-5 text-muted-foreground" />
-              )}
-              <span className="text-sm text-foreground">{t('profile.theme')}</span>
+          {/* Theme Setting — hidden when embedded in Flip (host controls it). */}
+          {!isEmbedded && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {theme === 'dark' ? (
+                  <Moon className="w-5 h-5 text-muted-foreground" />
+                ) : theme === 'light' ? (
+                  <Sun className="w-5 h-5 text-muted-foreground" />
+                ) : (
+                  <Monitor className="w-5 h-5 text-muted-foreground" />
+                )}
+                <span className="text-sm text-foreground">{t('profile.theme')}</span>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setTheme('light')}
+                  className={`p-2 rounded-lg transition-colors ${
+                    theme === 'light' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
+                  }`}
+                  title={t('theme.light')}
+                >
+                  <Sun className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setTheme('dark')}
+                  className={`p-2 rounded-lg transition-colors ${
+                    theme === 'dark' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
+                  }`}
+                  title={t('theme.dark')}
+                >
+                  <Moon className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setTheme('system')}
+                  className={`p-2 rounded-lg transition-colors ${
+                    theme === 'system' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
+                  }`}
+                  title={t('theme.system')}
+                >
+                  <Monitor className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setTheme('light')}
-                className={`p-2 rounded-lg transition-colors ${
-                  theme === 'light' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
-                }`}
-                title={t('theme.light')}
-              >
-                <Sun className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setTheme('dark')}
-                className={`p-2 rounded-lg transition-colors ${
-                  theme === 'dark' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
-                }`}
-                title={t('theme.dark')}
-              >
-                <Moon className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setTheme('system')}
-                className={`p-2 rounded-lg transition-colors ${
-                  theme === 'system' ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted'
-                }`}
-                title={t('theme.system')}
-              >
-                <Monitor className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </motion.div>
     </div>

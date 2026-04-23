@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantProvider } from "@/contexts/TenantContext";
+import { FlipBridgeProvider } from "@/hooks/useFlipBridge";
 import TenantApp from "./pages/TenantApp";
 import TenantAuth from "./pages/TenantAuth";
 import OIDCCallback from "./pages/OIDCCallback";
@@ -20,6 +21,11 @@ const TenantRouteWrapper = ({ children }: { children: React.ReactNode }) => (
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      {/* FlipBridgeProvider must sit INSIDE ThemeProvider (so it can call
+          setTheme via useTheme) and can be outside AuthProvider — it only
+          consumes theme + i18n. When the app is not inside a Flip iframe,
+          it's a no-op. */}
+      <FlipBridgeProvider>
       <AuthProvider>
         <TooltipProvider>
           <BrowserRouter>
@@ -41,6 +47,7 @@ const App = () => (
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
+      </FlipBridgeProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

@@ -8,7 +8,6 @@ import { useBoostAwards } from '@/hooks/useBoostAwards';
 import { useCustomBoostAwards } from '@/hooks/useCustomBoostAwards';
 import { BoostAwardCard } from './BoostAwardCard';
 import { CustomBoostAwardCard } from './CustomBoostAwardCard';
-import mascotImage from '@/assets/mascots-waiting.png';
 
 type BoostTab = 'standard' | 'extra';
 
@@ -94,26 +93,6 @@ export const BoostView = () => {
     </div>
   );
 
-  const renderEmptyExtraState = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center py-8 text-center"
-    >
-      <img 
-        src={mascotImage} 
-        alt="Mascots waiting" 
-        className="w-full max-w-[300px] mb-6 opacity-80"
-      />
-      <h3 className="text-lg font-semibold text-foreground mb-2">
-        {t('boost.noExtraBoosts')}
-      </h3>
-      <p className="text-sm text-muted-foreground max-w-sm">
-        {t('boost.noExtraBoostsDesc')}
-      </p>
-    </motion.div>
-  );
-
   if (loading || customLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -155,11 +134,13 @@ export const BoostView = () => {
 
       {renderLoginPrompt()}
 
-      {/* Tab Selector */}
-      {renderTabSelector()}
+      {/* Tab Selector — only shown when the tenant has custom boosts.
+          Without it, the standard grid below renders alone (and we force
+          activeTab back to 'standard' in case it was left on 'extra'). */}
+      {customAwards.length > 0 && renderTabSelector()}
 
       {/* Standard Awards */}
-      {activeTab === 'standard' && (
+      {(customAwards.length === 0 || activeTab === 'standard') && (
         <motion.div
           key="standard"
           initial={{ opacity: 0, x: -20 }}
@@ -187,37 +168,35 @@ export const BoostView = () => {
         </motion.div>
       )}
 
-      {/* Extra Awards */}
-      {activeTab === 'extra' && (
+      {/* Extra Awards — only when the tenant has custom boosts AND the
+          Extra tab is the active one. When there are no custom boosts the
+          block is entirely hidden (not just an empty state). */}
+      {customAwards.length > 0 && activeTab === 'extra' && (
         <motion.div
           key="extra"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
         >
-          {customAwards.length === 0 ? (
-            renderEmptyExtraState()
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {customAwards.map((award, index) => (
-                <motion.div
-                  key={award.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <CustomBoostAwardCard
-                    award={award}
-                    prediction={getCustomPrediction(award.id)}
-                    result={getCustomResult(award.id)}
-                    isLocked={isCustomLocked(award)}
-                    onSave={(teamCode, playerName) => saveCustomPrediction(award.id, teamCode, playerName)}
-                    disabled={!user}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {customAwards.map((award, index) => (
+              <motion.div
+                key={award.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <CustomBoostAwardCard
+                  award={award}
+                  prediction={getCustomPrediction(award.id)}
+                  result={getCustomResult(award.id)}
+                  isLocked={isCustomLocked(award)}
+                  onSave={(teamCode, playerName) => saveCustomPrediction(award.id, teamCode, playerName)}
+                  disabled={!user}
+                />
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
       )}
 

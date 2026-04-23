@@ -30,23 +30,6 @@ const createMatch = (
 
 // All times are in ET (Eastern Time) - the standard reference for FIFA World Cup 2026
 export const groupStageMatches: Match[] = [
-  // ============ TEST MATCHES FOR SCORING SYSTEM (Group X) ============
-  
-  // FINISHED: Italy vs Portugal - Final score 2-1 (predict 2-1 for exact match +3pts)
-  createMatch('TEST_EXACT', 'ita', 'por', 'January 27, 2026', '10:00', 'Test Stadium', 'Test City', 'X', 'finished', 2, 1),
-  
-  // FINISHED: Netherlands vs Belgium - Final score 3-2 (predict any home win for +1pt, e.g. 1-0)
-  createMatch('TEST_CORRECT', 'ned', 'bel', 'January 27, 2026', '12:00', 'Test Stadium', 'Test City', 'X', 'finished', 3, 2),
-  
-  // FINISHED: Germany vs France - Final score 0-0 draw (predict wrong result for 0pts, e.g. 2-0)
-  createMatch('TEST_WRONG', 'ger_x', 'fra_x', 'January 27, 2026', '14:00', 'Test Stadium', 'Test City', 'X', 'finished', 0, 0),
-  
-  // FINISHED: England vs Brazil - Final score 1-0
-  createMatch('TEST_LIVE', 'eng_x', 'bra_x', 'January 28, 2026', '08:00', 'Test Stadium', 'Test City', 'X', 'finished', 1, 0),
-  
-  // UPCOMING: Spain vs Argentina - kicks off later today
-  createMatch('TEST_UPCOMING', 'esp_x', 'arg_x', 'January 28, 2026', '10:30', 'Test Stadium', 'Test City', 'X'),
-
   // ============ MATCHDAY 1 ============
   
   // June 11, 2026

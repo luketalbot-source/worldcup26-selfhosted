@@ -52,20 +52,18 @@ export const useProfile = (userId?: string) => {
     }
   };
 
-  const updateProfile = async (displayName: string, avatarEmoji?: string) => {
+  /**
+   * Update only the avatar emoji. Display name is owned by the OIDC sync
+   * path (see api/src/routes/auth.ts::upsertOidcUser) and cannot be changed
+   * in-app — the backend PATCH schema rejects display_name outright.
+   */
+  const updateAvatar = async (avatarEmoji: string) => {
     if (!userId) return;
 
-    const updates: Record<string, string> = { display_name: displayName };
-    if (avatarEmoji) updates.avatar_emoji = avatarEmoji;
-
     try {
-      await api.patch('/profiles/me', updates);
+      await api.patch('/profiles/me', { avatar_emoji: avatarEmoji });
       if (profile) {
-        setProfile({
-          ...profile,
-          displayName,
-          avatarEmoji: avatarEmoji || profile.avatarEmoji,
-        });
+        setProfile({ ...profile, avatarEmoji });
       }
       return { error: null as Error | null };
     } catch (err) {
@@ -79,10 +77,7 @@ export const useProfile = (userId?: string) => {
     try {
       await api.patch('/profiles/me', { phone_number: phoneNumber });
       if (profile) {
-        setProfile({
-          ...profile,
-          phoneNumber,
-        });
+        setProfile({ ...profile, phoneNumber });
       }
       return { error: null as Error | null };
     } catch (err) {
@@ -90,5 +85,5 @@ export const useProfile = (userId?: string) => {
     }
   };
 
-  return { profile, loading, updateProfile, updatePhoneNumber, refetch: fetchProfile };
+  return { profile, loading, updateAvatar, updatePhoneNumber, refetch: fetchProfile };
 };

@@ -55,9 +55,11 @@ export const useIframeAuth = ({
     processingRef.current = true;
 
     try {
-      // If we have an ID token, send it to the API
+      // If we have an ID token, send it to the API. The backend now always
+      // derives a display name from OIDC claims (given_name + family_name
+      // preferred) so there's no longer a needsUsername retry path.
       if (payload.id_token) {
-        const data = await api.post<{ access_token: string; error?: string; needsUsername?: boolean }>(
+        const data = await api.post<{ access_token: string; error?: string }>(
           '/auth/oidc/token-auth',
           {
             id_token: payload.id_token,
@@ -65,31 +67,8 @@ export const useIframeAuth = ({
           }
         );
 
-        if (data?.error) {
-          if (data.needsUsername) {
-            const username = payload.name || payload.preferred_username || payload.sub?.substring(0, 16);
-            const retryData = await api.post<{ access_token: string; error?: string }>(
-              '/auth/oidc/token-auth',
-              {
-                id_token: payload.id_token,
-                tenant_id: tenantId,
-                username,
-              }
-            );
-
-            if (retryData?.error) {
-              throw new Error(retryData.error);
-            }
-
-            if (retryData?.access_token) {
-              setAccessToken(retryData.access_token);
-            }
-          } else {
-            throw new Error(data.error);
-          }
-        } else if (data?.access_token) {
-          setAccessToken(data.access_token);
-        }
+        if (data?.error) throw new Error(data.error);
+        if (data?.access_token) setAccessToken(data.access_token);
 
         onAuthSuccess?.();
         return true;

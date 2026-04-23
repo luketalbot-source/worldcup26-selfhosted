@@ -72,18 +72,6 @@ export const teams: Team[] = [
   { id: 'cro', name: 'Croatia', code: 'CRO', flag: '🇭🇷', group: 'L' },
   { id: 'gha', name: 'Ghana', code: 'GHA', flag: '🇬🇭', group: 'L' },
   { id: 'pan', name: 'Panama', code: 'PAN', flag: '🇵🇦', group: 'L' },
-  
-  // Test teams (Group X - for testing purposes)
-  { id: 'ita', name: 'Italy', code: 'ITA', flag: '🇮🇹', group: 'X' },
-  { id: 'por', name: 'Portugal', code: 'POR', flag: '🇵🇹', group: 'X' },
-  { id: 'ned', name: 'Netherlands', code: 'NED', flag: '🇳🇱', group: 'X' },
-  { id: 'bel', name: 'Belgium', code: 'BEL', flag: '🇧🇪', group: 'X' },
-  { id: 'ger_x', name: 'Germany', code: 'GER', flag: '🇩🇪', group: 'X' },
-  { id: 'fra_x', name: 'France', code: 'FRA', flag: '🇫🇷', group: 'X' },
-  { id: 'eng_x', name: 'England', code: 'ENG', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', group: 'X' },
-  { id: 'bra_x', name: 'Brazil', code: 'BRA', flag: '🇧🇷', group: 'X' },
-  { id: 'esp_x', name: 'Spain', code: 'ESP', flag: '🇪🇸', group: 'X' },
-  { id: 'arg_x', name: 'Argentina', code: 'ARG', flag: '🇦🇷', group: 'X' },
 ];
 
 export const getTeamById = (id: string): Team | undefined => {

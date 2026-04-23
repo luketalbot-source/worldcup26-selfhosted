@@ -25,10 +25,15 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
   const [hasEdited, setHasEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  const { localDate, localTime, isLocked, countdownText, urgency } = useMatchTime(match.date, match.time);
-  
+  // Prefer the ISO kickoff (from the API) — useMatchTime formats it in the
+  // user's timezone with a short abbreviation. Fall back to the legacy
+  // date + time split for knockout fixtures still on the static shape.
+  const dateArg = match.dateIso ?? match.date;
+  const timeArg = match.dateIso ? undefined : match.time;
+  const { localDate, localTime, isLocked, countdownText, urgency } = useMatchTime(dateArg, timeArg);
+
   // Get effective status - auto-finishes matches that have been "live" for 3+ hours
-  const effectiveStatus = getEffectiveMatchStatus(match.date, match.time, match.status);
+  const effectiveStatus = getEffectiveMatchStatus(dateArg, timeArg, match.status);
   
   // Match is locked if it's within 30 min of start, live, or finished
   const isMatchLocked = isLocked || effectiveStatus === 'live' || effectiveStatus === 'finished';

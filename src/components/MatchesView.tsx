@@ -10,16 +10,16 @@ import { SyncButton } from './SyncButton';
 import { GroupStandings } from './GroupStandings';
 import { usePredictions, Prediction } from '@/hooks/usePredictions';
 import { useLiveMatches } from '@/hooks/useLiveMatches';
+import { useTeams } from '@/hooks/useTeams';
+import { useGroupFixtures } from '@/hooks/useGroupFixtures';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
-import { getTeamsByGroup } from '@/data/teams';
-import { GroupStanding, Match } from '@/types/match';
+import { GroupStanding, Match, Team } from '@/types/match';
 import { LogIn, Trophy } from 'lucide-react';
 import mascotsWaiting from '@/assets/mascots-waiting.png';
 
 
-const calculateStandings = (group: string, matches: Match[]): GroupStanding[] => {
-  const teams = getTeamsByGroup(group);
+const calculateStandings = (group: string, matches: Match[], teams: Team[]): GroupStanding[] => {
   const standingsMap = new Map<string, GroupStanding>();
   
   // Initialize all teams with zero stats
@@ -87,7 +87,7 @@ const calculateStandings = (group: string, matches: Match[]): GroupStanding[] =>
     return b.goalsFor - a.goalsFor;
   });
 };
-const groups = ['X', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 export const MatchesView = () => {
   const {
     t
@@ -102,7 +102,6 @@ export const MatchesView = () => {
     predictions
   } = usePredictions(tenantId);
   const {
-    getGroupMatches,
     getTodayMatches,
     syncMatches,
     syncing,
@@ -110,12 +109,23 @@ export const MatchesView = () => {
     canSync,
     cooldownRemaining
   } = useLiveMatches();
+  const { getTeamsByGroup } = useTeams();
+  const { matches: apiGroupMatches, getMatchesByGroup, refetch: refetchFixtures } = useGroupFixtures();
   const {
     user
   } = useAuth();
   const navigate = useNavigate();
-  const matches = getGroupMatches(activeGroup);
+  // Group-stage fixtures come from the API (populated by sync-matches) so the
+  // Group X test data is gone and the full 48-team roster is live.
+  const matches = getMatchesByGroup(activeGroup);
   const todayMatches = getTodayMatches();
+
+  // Kick off a fixture refetch after a successful admin sync so the UI
+  // reflects what the backend just pulled from football-data.org.
+  const handleSyncAndRefresh = async () => {
+    await syncMatches();
+    await refetchFixtures();
+  };
 
   // Convert predictions array to Record for component
   const predictionsRecord = useMemo(() => {
@@ -170,7 +180,7 @@ export const MatchesView = () => {
           onKnockoutStageChange={setActiveKnockoutStage}
           syncButton={
             <SyncButton 
-              onSync={() => syncMatches()} 
+              onSync={() => handleSyncAndRefresh()} 
               syncing={syncing} 
               lastSync={lastSync} 
               canSync={canSync()} 
@@ -188,7 +198,7 @@ export const MatchesView = () => {
         </div>
         
         {/* Non-sticky sync button */}
-        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+        <SyncButton onSync={() => handleSyncAndRefresh()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
         
         {renderLoginPrompt()}
         
@@ -208,7 +218,7 @@ export const MatchesView = () => {
           </motion.div>}
       </div>;
   }
-  const standings = calculateStandings(activeGroup, matches);
+  const standings = calculateStandings(activeGroup, matches, getTeamsByGroup(activeGroup));
 
   return <div className="space-y-4">
       {/* Sticky header - stage selector + group tabs on mobile */}
@@ -225,7 +235,7 @@ export const MatchesView = () => {
       
       {/* Non-sticky content: sync button and login prompt */}
       <div className="max-w-[700px] mx-auto space-y-4">
-        <SyncButton onSync={() => syncMatches()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
+        <SyncButton onSync={() => handleSyncAndRefresh()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
         {renderLoginPrompt()}
       </div>
       
