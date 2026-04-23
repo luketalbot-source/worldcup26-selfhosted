@@ -133,11 +133,16 @@ async function runSync(apiKey: string): Promise<void> {
     const matchesData = (await matchesRes.json()) as { matches?: FootballDataMatch[] };
     const matches = matchesData.matches ?? [];
     syncState.totalMatches = matches.length;
+    console.log(`[sync-matches] got ${matches.length} matches from football-data.org, inserting…`);
 
-    // Upsert matches concurrently (bounded by postgres.js pool of 10).
-    const matchResults = await Promise.allSettled(
-      matches.map((match) =>
-        sql`
+    // Sequential inserts — we've already returned 202 to the client so
+    // Envoy's upstream timeout is irrelevant. Sequential is more predictable
+    // than Promise.allSettled with a lazy postgres.js template (which appeared
+    // to silently stall at scale on Bun). Also updates syncState.matchesUpdated
+    // as we go so polling reflects actual progress.
+    for (const match of matches) {
+      try {
+        await sql`
           INSERT INTO public.live_matches (
             match_id, api_match_id, home_team_name, home_team_code,
             away_team_name, away_team_code, home_score, away_score,
@@ -168,45 +173,51 @@ async function runSync(apiKey: string): Promise<void> {
             group_name     = EXCLUDED.group_name,
             status         = EXCLUDED.status,
             last_updated   = NOW()
-        `
-      )
-    );
-    syncState.matchesUpdated = matchResults.filter((r) => r.status === "fulfilled").length;
+        `;
+        syncState.matchesUpdated++;
+      } catch (err) {
+        console.error(`[sync-matches] match ${match.id} failed:`, err);
+      }
+    }
+    console.log(`[sync-matches] matches done: ${syncState.matchesUpdated}/${matches.length}`);
 
-    // Upsert teams (best-effort).
+    // Upsert teams.
     if (teamsRes.ok) {
       const teamsData = (await teamsRes.json()) as { teams?: FootballDataTeam[] };
       const teams = teamsData.teams ?? [];
       const groupMap = computeTeamGroups(matches);
+      console.log(`[sync-matches] got ${teams.length} teams, inserting…`);
 
-      const teamResults = await Promise.allSettled(
-        teams
-          .filter((t) => !!t.tla)
-          .map((team) => {
-            const group = groupMap.get(team.tla) ?? null;
-            return sql`
-              INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
-              VALUES (
-                gen_random_uuid(),
-                ${team.tla},
-                ${team.name},
-                ${team.shortName ?? team.name},
-                ${team.crest ?? null},
-                ${group},
-                ${team.id},
-                NOW()
-              )
-              ON CONFLICT (tla) DO UPDATE SET
-                name        = EXCLUDED.name,
-                short_name  = EXCLUDED.short_name,
-                crest_url   = EXCLUDED.crest_url,
-                group_name  = EXCLUDED.group_name,
-                fd_team_id  = EXCLUDED.fd_team_id,
-                updated_at  = NOW()
-            `;
-          })
-      );
-      syncState.teamsUpdated = teamResults.filter((r) => r.status === "fulfilled").length;
+      for (const team of teams) {
+        if (!team.tla) continue;
+        const group = groupMap.get(team.tla) ?? null;
+        try {
+          await sql`
+            INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
+            VALUES (
+              gen_random_uuid(),
+              ${team.tla},
+              ${team.name},
+              ${team.shortName ?? team.name},
+              ${team.crest ?? null},
+              ${group},
+              ${team.id},
+              NOW()
+            )
+            ON CONFLICT (tla) DO UPDATE SET
+              name        = EXCLUDED.name,
+              short_name  = EXCLUDED.short_name,
+              crest_url   = EXCLUDED.crest_url,
+              group_name  = EXCLUDED.group_name,
+              fd_team_id  = EXCLUDED.fd_team_id,
+              updated_at  = NOW()
+          `;
+          syncState.teamsUpdated++;
+        } catch (err) {
+          console.error(`[sync-matches] team ${team.tla} failed:`, err);
+        }
+      }
+      console.log(`[sync-matches] teams done: ${syncState.teamsUpdated}/${teams.length}`);
     }
 
     syncState.status = "success";
@@ -228,10 +239,12 @@ router.post("/sync-matches", requireAdmin, async (c) => {
     return c.json({ status: "running", startedAt: syncState.startedAt }, 202);
   }
 
-  // Fire and forget. Envoy's 10s upstream timeout would otherwise kill a
-  // synchronous sync in progress; Bun keeps the async task alive after the
-  // handler returns. Poll GET /sync-status to see progress.
-  void runSync(apiKey);
+  // Fire and forget via setTimeout — decouples from the request handler's
+  // microtask queue so the work survives the response being sent. Envoy's
+  // 10s upstream timeout is irrelevant because we've already responded.
+  setTimeout(() => {
+    runSync(apiKey).catch((err) => console.error("[sync-matches] unhandled:", err));
+  }, 0);
 
   return c.json({ status: "started", startedAt: new Date().toISOString() }, 202);
 });
