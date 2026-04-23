@@ -54,30 +54,64 @@ function mapStage(apiStage: string): string {
   return m[apiStage] ?? "group";
 }
 
+// Football-Data.org /competitions/WC/teams response. Populated once FIFA
+// finalises the roster (post-playoffs, post-March 2026).
+interface FootballDataTeam {
+  id: number;
+  name: string;
+  shortName?: string;
+  tla: string;
+  crest?: string;
+}
+
+// Derive each team's group_name by looking at the first group-stage fixture
+// the team appears in and reading its GROUP_X label. Returns a Map keyed by tla.
+function computeTeamGroups(matches: FootballDataMatch[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const m of matches) {
+    if (m.stage !== "GROUP_STAGE" || !m.group) continue;
+    // "GROUP_A" → "A"
+    const letter = m.group.replace(/^GROUP_/, "");
+    const home = m.homeTeam.tla;
+    const away = m.awayTeam.tla;
+    if (home) out.set(home, letter);
+    if (away) out.set(away, letter);
+  }
+  return out;
+}
+
 router.post("/sync-matches", requireAdmin, async (c) => {
   const apiKey = process.env.FOOTBALL_DATA_API_KEY;
   if (!apiKey) return c.json({ error: "FOOTBALL_DATA_API_KEY not configured" }, 500);
 
-  const res = await fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
-    headers: { "X-Auth-Token": apiKey },
-  });
+  // Fetch matches + teams in parallel.
+  const [matchesRes, teamsRes] = await Promise.all([
+    fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
+      headers: { "X-Auth-Token": apiKey },
+    }),
+    fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/teams`, {
+      headers: { "X-Auth-Token": apiKey },
+    }),
+  ]);
 
-  if (res.status === 404) {
+  if (matchesRes.status === 404) {
     return c.json({
       message: "World Cup 2026 data not yet available in the football-data.org API.",
       matchesUpdated: 0,
+      teamsUpdated: 0,
       status: "pending",
     });
   }
 
-  if (!res.ok) {
-    const errText = await res.text();
-    return c.json({ error: `Football API returned ${res.status}: ${errText}` }, 502);
+  if (!matchesRes.ok) {
+    const errText = await matchesRes.text();
+    return c.json({ error: `Football API matches returned ${matchesRes.status}: ${errText}` }, 502);
   }
 
-  const data = (await res.json()) as { matches?: FootballDataMatch[] };
-  const matches = data.matches ?? [];
+  const matchesData = (await matchesRes.json()) as { matches?: FootballDataMatch[] };
+  const matches = matchesData.matches ?? [];
 
+  // --- Upsert matches ---
   let updated = 0;
   for (const match of matches) {
     try {
@@ -119,7 +153,50 @@ router.post("/sync-matches", requireAdmin, async (c) => {
     }
   }
 
-  return c.json({ message: "Matches synced successfully", matchesUpdated: updated, totalMatches: matches.length });
+  // --- Upsert teams (best-effort; matches still succeed if this fails) ---
+  let teamsUpdated = 0;
+  if (teamsRes.ok) {
+    const teamsData = (await teamsRes.json()) as { teams?: FootballDataTeam[] };
+    const teams = teamsData.teams ?? [];
+    const groupMap = computeTeamGroups(matches);
+
+    for (const team of teams) {
+      if (!team.tla) continue;
+      const group = groupMap.get(team.tla) ?? null;
+      try {
+        await sql`
+          INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
+          VALUES (
+            gen_random_uuid(),
+            ${team.tla},
+            ${team.name},
+            ${team.shortName ?? team.name},
+            ${team.crest ?? null},
+            ${group},
+            ${team.id},
+            NOW()
+          )
+          ON CONFLICT (tla) DO UPDATE SET
+            name        = EXCLUDED.name,
+            short_name  = EXCLUDED.short_name,
+            crest_url   = EXCLUDED.crest_url,
+            group_name  = EXCLUDED.group_name,
+            fd_team_id  = EXCLUDED.fd_team_id,
+            updated_at  = NOW()
+        `;
+        teamsUpdated++;
+      } catch {
+        // continue on per-row errors
+      }
+    }
+  }
+
+  return c.json({
+    message: "Matches synced successfully",
+    matchesUpdated: updated,
+    totalMatches: matches.length,
+    teamsUpdated,
+  });
 });
 
 // -----------------------------------------------------------------------------

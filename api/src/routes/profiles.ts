@@ -15,8 +15,10 @@ router.get("/me", requireAuth, async (c) => {
   return c.json(rows[0]);
 });
 
+// display_name is intentionally NOT editable via this endpoint — it's
+// derived from the OIDC claims on every login (see upsertOidcUser in
+// auth.ts). Users can change their emoji, locale, and consent timestamp.
 const patchSchema = z.object({
-  display_name: z.string().min(1).max(100).optional(),
   avatar_emoji: z.string().optional(),
   privacy_consent_at: z.string().datetime().optional(),
   locale: z.string().max(10).optional(),
@@ -30,7 +32,6 @@ router.patch("/me", requireAuth, zValidator("json", patchSchema), async (c) => {
     tx`
       UPDATE profiles
       SET
-        display_name     = COALESCE(${body.display_name ?? null}, display_name),
         avatar_emoji     = COALESCE(${body.avatar_emoji ?? null}, avatar_emoji),
         privacy_consent_at = COALESCE(${body.privacy_consent_at ?? null}::timestamptz, privacy_consent_at),
         locale           = COALESCE(${body.locale ?? null}, locale),

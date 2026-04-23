@@ -353,7 +353,7 @@ router.post(
       console.error(`[oidc] userinfo failed (${userInfoRes.status}): ${errText}`);
       return c.json({ error: `Failed to fetch user info: ${errText}` }, 400);
     }
-    const userInfo = await userInfoRes.json() as { sub: string; email?: string; name?: string };
+    const userInfo = (await userInfoRes.json()) as OidcUserInfo;
 
     const { user, needsConsent } = await upsertOidcUser(userInfo, tenant_id, config.consent_required ?? false);
 
@@ -388,7 +388,7 @@ router.post(
     if (configs.length === 0) return c.json({ error: "OIDC not configured for tenant" }, 400);
     const config = configs[0]!;
 
-    let userInfo: { sub: string; email?: string; name?: string };
+    let userInfo: OidcUserInfo;
     try {
       const JWKS = createRemoteJWKSet(new URL(config.jwks_uri));
       const { payload } = await jwtVerify(id_token, JWKS, {
@@ -411,11 +411,52 @@ router.post(
   }
 );
 
+// Standard OIDC user-info claims we care about. Keycloak, Entra, Google all
+// send at least some subset. `name` is the full formatted name; `given_name` +
+// `family_name` are the split versions. `preferred_username` is usually a
+// machine-style handle ("luke.talbot") — last-resort fallback.
+export interface OidcUserInfo {
+  sub: string;
+  email?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  preferred_username?: string;
+}
+
+/**
+ * Derives the human-readable display name for a user from their OIDC claims.
+ * Precedence:
+ *   1. "{given_name} {family_name}"  — preferred, always reads as "Luke Talbot"
+ *   2. name                          — pre-formatted full name from the IdP
+ *   3. preferred_username            — machine handle, e.g. "luke.talbot"
+ *   4. email local part              — last resort
+ *   5. null                          — upstream will fall back to something else
+ */
+function deriveDisplayName(info: OidcUserInfo): string | null {
+  const given = info.given_name?.trim();
+  const family = info.family_name?.trim();
+  if (given && family) return `${given} ${family}`;
+  if (given) return given;
+  if (family) return family;
+  const name = info.name?.trim();
+  if (name) return name;
+  const preferred = info.preferred_username?.trim();
+  if (preferred) return preferred;
+  if (info.email) {
+    const local = info.email.split("@")[0]?.trim();
+    if (local) return local;
+  }
+  return null;
+}
+
 async function upsertOidcUser(
-  userInfo: { sub: string; email?: string; name?: string },
+  userInfo: OidcUserInfo,
   tenantId: string,
   consentRequired: boolean
 ): Promise<{ user: { id: string; email: string; role: string }; needsConsent: boolean }> {
+  const displayName = deriveDisplayName(userInfo);
+
   // Check if oidc_identity already exists
   const existing = await sql<{ user_id: string }[]>`
     SELECT user_id FROM oidc_identities
@@ -442,7 +483,7 @@ async function upsertOidcUser(
     } else {
       const created = await sql<{ id: string }[]>`
         INSERT INTO public.users (id, email, display_name, created_at)
-        VALUES (gen_random_uuid(), ${userInfo.email ?? null}, ${userInfo.name ?? null}, NOW())
+        VALUES (gen_random_uuid(), ${userInfo.email ?? null}, ${displayName}, NOW())
         RETURNING id
       `;
       userId = created[0]!.id;
@@ -453,6 +494,27 @@ async function upsertOidcUser(
       INSERT INTO oidc_identities (id, user_id, tenant_id, oidc_subject, created_at)
       VALUES (gen_random_uuid(), ${userId}, ${tenantId}, ${userInfo.sub}, NOW())
       ON CONFLICT (tenant_id, oidc_subject) DO UPDATE SET user_id = EXCLUDED.user_id
+    `;
+  }
+
+  // Sync the derived name on every login — keeps the in-app name aligned with
+  // the host (Flip) identity even if someone renames themselves upstream.
+  // Updates both users.display_name (source of truth) and profiles.display_name
+  // (what the UI reads). Only writes if the derived name actually differs, so
+  // we don't churn updated_at on every sign-in.
+  if (displayName) {
+    await sql`
+      UPDATE public.users
+         SET display_name = ${displayName}
+       WHERE id = ${userId}
+         AND (display_name IS DISTINCT FROM ${displayName})
+    `;
+    await sql`
+      UPDATE public.profiles
+         SET display_name = ${displayName},
+             updated_at   = NOW()
+       WHERE user_id = ${userId}
+         AND (display_name IS DISTINCT FROM ${displayName})
     `;
   }
 
