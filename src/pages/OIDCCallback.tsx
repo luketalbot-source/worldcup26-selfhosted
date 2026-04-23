@@ -67,11 +67,12 @@ const OIDCCallback = () => {
 
     setPkceParams(params);
 
-    // Exchange code for tokens
-    exchangeCode(code, params.tenantId);
+    // Exchange code for tokens (pass the PKCE verifier — required when the
+    // IdP enforces PKCE, which Keycloak does by default for public clients).
+    exchangeCode(code, params.tenantId, params.verifier);
   }, [searchParams]);
 
-  const exchangeCode = async (code: string, tenantId: string) => {
+  const exchangeCode = async (code: string, tenantId: string, codeVerifier: string) => {
     setIsLoading(true);
     setError('');
 
@@ -80,6 +81,7 @@ const OIDCCallback = () => {
         code,
         state: searchParams.get('state'),
         tenant_id: tenantId,
+        code_verifier: codeVerifier,
       });
 
       setAccessToken(data.access_token);
@@ -120,6 +122,7 @@ const OIDCCallback = () => {
         code: searchParams.get('code'),
         state: searchParams.get('state'),
         tenant_id: pkceParams.tenantId,
+        code_verifier: pkceParams.verifier,
         username: username.trim(),
       });
 

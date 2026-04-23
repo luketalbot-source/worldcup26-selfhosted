@@ -248,9 +248,17 @@ router.post("/signout", async (c) => {
 // POST /oidc/callback
 router.post(
   "/oidc/callback",
-  zValidator("json", z.object({ code: z.string(), state: z.string().optional(), tenant_id: z.string().uuid() })),
+  zValidator(
+    "json",
+    z.object({
+      code: z.string(),
+      state: z.string().optional(),
+      tenant_id: z.string().uuid(),
+      code_verifier: z.string().optional(),
+    })
+  ),
   async (c) => {
-    const { code, tenant_id } = c.req.valid("json");
+    const { code, tenant_id, code_verifier } = c.req.valid("json");
 
     const configs = await sql<{
       client_id: string;
@@ -269,28 +277,82 @@ router.post(
     if (configs.length === 0) return c.json({ error: "OIDC not configured for tenant" }, 400);
     const config = configs[0]!;
 
-    // Exchange code for tokens
-    const tokenRes = await fetch(config.token_endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: config.redirect_uri,
-        client_id: config.client_id,
-        client_secret: config.client_secret,
-      }).toString(),
+    // Exchange authorization code for tokens.
+    // Many IdPs (Keycloak, Entra) accept both client_secret_post (creds in
+    // body) and client_secret_basic (creds in Authorization: Basic header),
+    // but some reject one or the other depending on client configuration.
+    // Try POST first; if that fails with a credentials error, retry with
+    // Basic. This covers Keycloak's default (Basic only) without extra
+    // configuration.
+    const tokenParams = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: config.redirect_uri,
+      client_id: config.client_id,
     });
+    // PKCE: frontend generates a code_verifier + code_challenge pair, sends
+    // code_challenge to the authorize endpoint, and passes code_verifier back
+    // here so we can include it in the token exchange. Keycloak (and any IdP
+    // with PKCE enforcement on) rejects the exchange without it.
+    if (code_verifier) {
+      tokenParams.set("code_verifier", code_verifier);
+    }
 
-    if (!tokenRes.ok) return c.json({ error: "Token exchange failed" }, 400);
-    const tokenData = await tokenRes.json() as { access_token: string; id_token?: string };
+    const tryTokenExchange = async (useBasic: boolean): Promise<Response> => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/x-www-form-urlencoded",
+      };
+      const params = new URLSearchParams(tokenParams);
+      if (useBasic) {
+        headers["Authorization"] =
+          "Basic " + btoa(`${config.client_id}:${config.client_secret}`);
+      } else {
+        params.set("client_secret", config.client_secret);
+      }
+      return fetch(config.token_endpoint, {
+        method: "POST",
+        headers,
+        body: params.toString(),
+      });
+    };
+
+    let tokenRes = await tryTokenExchange(false);
+    if (!tokenRes.ok) {
+      const firstErrText = await tokenRes.text();
+      console.warn(
+        `[oidc] client_secret_post failed (${tokenRes.status}): ${firstErrText}. Retrying with client_secret_basic.`
+      );
+      tokenRes = await tryTokenExchange(true);
+      if (!tokenRes.ok) {
+        const secondErrText = await tokenRes.text();
+        console.error(
+          `[oidc] client_secret_basic also failed (${tokenRes.status}): ${secondErrText}`
+        );
+        // Return the IdP's own message so the admin can see what went wrong.
+        let idpMsg = secondErrText;
+        try {
+          const parsed = JSON.parse(secondErrText);
+          idpMsg = parsed.error_description || parsed.error || secondErrText;
+        } catch { /* not JSON */ }
+        return c.json(
+          { error: `Token exchange failed: ${idpMsg}` },
+          400
+        );
+      }
+    }
+
+    const tokenData = (await tokenRes.json()) as { access_token: string; id_token?: string };
 
     // Get user info
     const userInfoRes = await fetch(config.userinfo_endpoint, {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
 
-    if (!userInfoRes.ok) return c.json({ error: "Failed to fetch user info" }, 400);
+    if (!userInfoRes.ok) {
+      const errText = await userInfoRes.text();
+      console.error(`[oidc] userinfo failed (${userInfoRes.status}): ${errText}`);
+      return c.json({ error: `Failed to fetch user info: ${errText}` }, 400);
+    }
     const userInfo = await userInfoRes.json() as { sub: string; email?: string; name?: string };
 
     const { user, needsConsent } = await upsertOidcUser(userInfo, tenant_id, config.consent_required ?? false);
