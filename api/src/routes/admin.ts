@@ -12,6 +12,54 @@ router.delete("/users/:userId", requireAdmin, async (c) => {
   return c.json({ ok: true });
 });
 
+// Diagnostic: does a single INSERT into teams work inside a request handler?
+// Establishes a baseline before we blame the background-task path.
+router.post("/test-insert", requireAdmin, async (c) => {
+  console.error("[test-insert] starting");
+  try {
+    await sql`
+      INSERT INTO public.teams (tla, name, fd_team_id)
+      VALUES ('ZZT', 'Zz Test', -1)
+      ON CONFLICT (tla) DO UPDATE SET updated_at = NOW()
+    `;
+    const rows = (await sql`SELECT COUNT(*)::int AS n FROM public.teams`) as unknown as { n: number }[];
+    console.error("[test-insert] done, count =", rows[0]?.n);
+    return c.json({ ok: true, count: rows[0]?.n ?? 0 });
+  } catch (err) {
+    console.error("[test-insert] error:", err);
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+// Diagnostic: does the same INSERT work when fired via setTimeout
+// (i.e. after the request handler has returned)?
+// Writes result to a module-level holder that /admin/test-bg-status reads.
+let bgTestState: { started?: string; finished?: string; count?: number; error?: string } = {};
+router.post("/test-bg", requireAdmin, async (c) => {
+  bgTestState = { started: new Date().toISOString() };
+  setTimeout(async () => {
+    console.error("[test-bg] starting background work");
+    try {
+      await sql`
+        INSERT INTO public.teams (tla, name, fd_team_id)
+        VALUES ('ZZB', 'Zz Bg Test', -2)
+        ON CONFLICT (tla) DO UPDATE SET updated_at = NOW()
+      `;
+      const rows = (await sql`SELECT COUNT(*)::int AS n FROM public.teams`) as unknown as { n: number }[];
+      bgTestState.finished = new Date().toISOString();
+      bgTestState.count = rows[0]?.n;
+      console.error("[test-bg] done, count =", rows[0]?.n);
+    } catch (err) {
+      bgTestState.finished = new Date().toISOString();
+      bgTestState.error = String(err);
+      console.error("[test-bg] error:", err);
+    }
+  }, 0);
+  return c.json({ status: "started" }, 202);
+});
+
+router.get("/test-bg-status", requireAdmin, async (c) => c.json(bgTestState));
+
 // -----------------------------------------------------------------------------
 // POST /admin/sync-matches
 // Fetches WC 2026 fixtures from Football-Data.org and upserts into live_matches.
