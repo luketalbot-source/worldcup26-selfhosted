@@ -222,7 +222,7 @@ async function runSync(apiKey: string): Promise<void> {
             ${match.utcDate ?? null},
             ${match.venue ?? null},
             ${mapStage(match.stage)},
-            ${match.group ?? null},
+            ${match.group ? match.group.replace(/^GROUP_/, "") : null},
             ${match.status ?? "SCHEDULED"},
             NOW()
           )
