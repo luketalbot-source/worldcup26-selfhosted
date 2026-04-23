@@ -101,15 +101,63 @@ interface OidcDiscoveryDoc {
   issuer?: string;
 }
 
-async function fetchOidcDiscovery(issuer: string): Promise<OidcDiscoveryDoc> {
-  // Normalise: strip trailing slash, append well-known path.
-  const base = issuer.replace(/\/+$/, "");
-  const url = `${base}/.well-known/openid-configuration`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) {
-    throw new Error(`OIDC discovery failed: ${res.status} ${res.statusText} at ${url}`);
+// OAuth/OIDC endpoint-path suffixes that people commonly paste when they
+// mean "the issuer". We strip them in order and retry discovery at the
+// parent path so Keycloak / Entra / Okta / Auth0 auth-endpoint URLs all
+// resolve to the real issuer.
+const ISSUER_PATH_SUFFIXES = [
+  "/protocol/openid-connect/auth",     // Keycloak auth endpoint
+  "/protocol/openid-connect/token",    // Keycloak token endpoint
+  "/protocol/openid-connect/userinfo", // Keycloak userinfo
+  "/protocol/openid-connect",          // Keycloak base
+  "/oauth2/v2.0/authorize",            // Entra v2
+  "/oauth2/v2.0/token",                // Entra v2
+  "/oauth2/authorize",                 // Entra v1, generic OAuth
+  "/oauth2/token",                     // generic OAuth
+  "/oauth/authorize",                  // Auth0
+  "/oauth/token",                      // Auth0
+  "/v1/authorize",                     // Okta
+  "/v1/token",                         // Okta
+  "/authorize",                        // short form
+];
+
+function candidateIssuerUrls(input: string): string[] {
+  const trimmed = input.trim().replace(/\/+$/, "");
+  const set = new Set<string>();
+  set.add(trimmed);
+  for (const suffix of ISSUER_PATH_SUFFIXES) {
+    if (trimmed.toLowerCase().endsWith(suffix)) {
+      set.add(trimmed.slice(0, -suffix.length).replace(/\/+$/, ""));
+    }
   }
-  return (await res.json()) as OidcDiscoveryDoc;
+  return [...set];
+}
+
+async function fetchOidcDiscovery(input: string): Promise<{ doc: OidcDiscoveryDoc; issuer: string }> {
+  const candidates = candidateIssuerUrls(input);
+  const failures: string[] = [];
+
+  for (const base of candidates) {
+    const url = `${base}/.well-known/openid-configuration`;
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) {
+        failures.push(`${res.status} at ${url}`);
+        continue;
+      }
+      const doc = (await res.json()) as OidcDiscoveryDoc;
+      // Prefer the issuer the IdP returns over what we guessed — it's the
+      // canonical value and must match the 'iss' claim on id_tokens.
+      return { doc, issuer: doc.issuer ?? base };
+    } catch (err) {
+      failures.push(`${(err as Error).message} at ${url}`);
+    }
+  }
+
+  throw new Error(
+    `OIDC discovery failed. Tried ${candidates.length} URL(s): ${failures.join("; ")}. ` +
+    `Expected the issuer to serve /.well-known/openid-configuration.`
+  );
 }
 
 router.patch("/:id/oidc-config", requireAdmin, zValidator("json", oidcConfigSchema), async (c) => {
@@ -119,8 +167,11 @@ router.patch("/:id/oidc-config", requireAdmin, zValidator("json", oidcConfigSche
   // Fill in the OIDC endpoints from the IdP's discovery document — unless the
   // admin supplied explicit overrides.
   let discovery: OidcDiscoveryDoc = {};
+  let canonicalIssuer = body.issuer;
   try {
-    discovery = await fetchOidcDiscovery(body.issuer);
+    const result = await fetchOidcDiscovery(body.issuer);
+    discovery = result.doc;
+    canonicalIssuer = result.issuer;
   } catch (err) {
     // If discovery fails but the admin provided all four endpoints manually,
     // that's fine — we'll fall back to those below. Otherwise, 400.
@@ -157,7 +208,7 @@ router.patch("/:id/oidc-config", requireAdmin, zValidator("json", oidcConfigSche
     )
     VALUES (
       gen_random_uuid(), ${tenantId}, ${body.client_id},
-      ${body.client_secret ?? null}, ${body.issuer},
+      ${body.client_secret ?? null}, ${canonicalIssuer},
       ${authorizationEndpoint}, ${tokenEndpoint},
       ${userinfoEndpoint}, ${jwksUri}, ${body.redirect_uri},
       ${body.consent_required ?? false}, NOW()

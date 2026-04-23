@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Key, Save, Loader2, Info } from 'lucide-react';
+import { Key, Save, Loader2, Info, AlertCircle } from 'lucide-react';
 import { api, ApiError } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,7 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
   const [loaded, setLoaded] = useState<OIDCConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const defaultRedirectUri = typeof window !== 'undefined'
     ? `${window.location.origin}/t/${tenantUid}/auth/callback`
@@ -65,8 +66,10 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
   }, [tenantId, defaultRedirectUri]);
 
   const handleSave = async () => {
+    setSaveError(null);
+
     if (!issuer || !clientId || !redirectUri) {
-      toast.error('Issuer, Client ID, and Redirect URI are required');
+      setSaveError('Issuer, Client ID, and Redirect URI are required');
       return;
     }
 
@@ -77,18 +80,25 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
         client_id: clientId.trim(),
         redirect_uri: redirectUri.trim(),
       };
-      // Only send client_secret if the user typed one. Empty string → "keep existing".
       if (clientSecret) body.client_secret = clientSecret;
 
       const saved = await api.patch<OIDCConfigResponse>(`/tenants/${tenantId}/oidc-config`, body);
       setLoaded(saved);
       setHasExistingSecret(!!saved.has_client_secret);
       setClientSecret('');
+      // Sync local inputs to the canonical values the server stored (issuer
+      // may have been normalised to the IdP's self-declared value during
+      // discovery — e.g. /realms/show/protocol/openid-connect/auth →
+      // /realms/show).
+      setIssuer(saved.issuer);
       toast.success('OIDC configuration saved');
     } catch (err) {
       const message = err instanceof ApiError
         ? err.message
-        : 'Failed to save configuration';
+        : err instanceof Error
+          ? err.message
+          : 'Failed to save configuration';
+      setSaveError(message);
       toast.error(message);
     } finally {
       setSaving(false);
@@ -187,6 +197,13 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
             <div><span className="text-muted-foreground">token_endpoint:</span> <code className="break-all">{loaded.token_endpoint}</code></div>
             <div><span className="text-muted-foreground">userinfo_endpoint:</span> <code className="break-all">{loaded.userinfo_endpoint}</code></div>
             <div><span className="text-muted-foreground">jwks_uri:</span> <code className="break-all">{loaded.jwks_uri}</code></div>
+          </div>
+        )}
+
+        {saveError && (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div className="break-words">{saveError}</div>
           </div>
         )}
 
