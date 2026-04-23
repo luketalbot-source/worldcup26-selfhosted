@@ -82,12 +82,12 @@ interface FootballDataMatch {
   venue: string | null;
 }
 
+// Use football-data.org's stable numeric match id as the canonical key.
+// Earlier we derived it from teams + stage + matchday, but for knockouts
+// both teams are "TBD" until the draw — so every quarter-final ended up
+// with the same key and UPSERT collapsed them into one row.
 function generateMatchId(match: FootballDataMatch): string {
-  const homeCode = match.homeTeam.tla || "TBD";
-  const awayCode = match.awayTeam.tla || "TBD";
-  const stage = match.stage || "GROUP";
-  const group = match.group || "";
-  return `${stage}-${group}-${homeCode}-${awayCode}-${match.matchday}`.replace(/\s/g, "");
+  return `fd-${match.id}`;
 }
 
 function mapStage(apiStage: string): string {
