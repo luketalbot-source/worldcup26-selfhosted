@@ -48,17 +48,27 @@ async function storeRefreshToken(userId: string, token: string): Promise<void> {
   `;
 }
 
+// The main tenant app is designed to run inside a cross-site iframe, so the
+// refresh cookie needs SameSite=None (to be sent in cross-site contexts),
+// Secure (required by browsers whenever SameSite=None), and Partitioned
+// (CHIPS — keeps the cookie scoped to the top-level site to satisfy Chrome's
+// third-party cookie restrictions). In non-production we fall back to Lax so
+// the cookie works on plain http://localhost.
+const COOKIE_ATTRS_PROD = "HttpOnly; Path=/; SameSite=None; Secure; Partitioned";
+const COOKIE_ATTRS_DEV = "HttpOnly; Path=/; SameSite=Lax";
+const COOKIE_ATTRS = process.env.NODE_ENV === "production" ? COOKIE_ATTRS_PROD : COOKIE_ATTRS_DEV;
+
 function setRefreshCookie(c: any, token: string): void {
   c.header(
     "Set-Cookie",
-    `${REFRESH_COOKIE}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    `${REFRESH_COOKIE}=${token}; ${COOKIE_ATTRS}; Max-Age=${30 * 24 * 60 * 60}`
   );
 }
 
 function clearRefreshCookie(c: any): void {
   c.header(
     "Set-Cookie",
-    `${REFRESH_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    `${REFRESH_COOKIE}=; ${COOKIE_ATTRS}; Max-Age=0`
   );
 }
 
