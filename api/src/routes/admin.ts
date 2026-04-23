@@ -112,10 +112,12 @@ router.post("/sync-matches", requireAdmin, async (c) => {
   const matches = matchesData.matches ?? [];
 
   // --- Upsert matches ---
-  let updated = 0;
-  for (const match of matches) {
-    try {
-      await sql`
+  // Use Promise.all so postgres.js's connection pool (max:10) can run these
+  // concurrently. Sequential loop tripped Envoy's 10s upstream timeout with
+  // 152 round-trips under load.
+  const matchResults = await Promise.allSettled(
+    matches.map((match) =>
+      sql`
         INSERT INTO public.live_matches (
           match_id, api_match_id, home_team_name, home_team_code,
           away_team_name, away_team_code, home_score, away_score,
@@ -146,12 +148,10 @@ router.post("/sync-matches", requireAdmin, async (c) => {
           group_name     = EXCLUDED.group_name,
           status         = EXCLUDED.status,
           last_updated   = NOW()
-      `;
-      updated++;
-    } catch {
-      // continue on per-row errors
-    }
-  }
+      `
+    )
+  );
+  const updated = matchResults.filter((r) => r.status === "fulfilled").length;
 
   // --- Upsert teams (best-effort; matches still succeed if this fails) ---
   let teamsUpdated = 0;
@@ -160,35 +160,34 @@ router.post("/sync-matches", requireAdmin, async (c) => {
     const teams = teamsData.teams ?? [];
     const groupMap = computeTeamGroups(matches);
 
-    for (const team of teams) {
-      if (!team.tla) continue;
-      const group = groupMap.get(team.tla) ?? null;
-      try {
-        await sql`
-          INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
-          VALUES (
-            gen_random_uuid(),
-            ${team.tla},
-            ${team.name},
-            ${team.shortName ?? team.name},
-            ${team.crest ?? null},
-            ${group},
-            ${team.id},
-            NOW()
-          )
-          ON CONFLICT (tla) DO UPDATE SET
-            name        = EXCLUDED.name,
-            short_name  = EXCLUDED.short_name,
-            crest_url   = EXCLUDED.crest_url,
-            group_name  = EXCLUDED.group_name,
-            fd_team_id  = EXCLUDED.fd_team_id,
-            updated_at  = NOW()
-        `;
-        teamsUpdated++;
-      } catch {
-        // continue on per-row errors
-      }
-    }
+    const teamResults = await Promise.allSettled(
+      teams
+        .filter((t) => !!t.tla)
+        .map((team) => {
+          const group = groupMap.get(team.tla) ?? null;
+          return sql`
+            INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
+            VALUES (
+              gen_random_uuid(),
+              ${team.tla},
+              ${team.name},
+              ${team.shortName ?? team.name},
+              ${team.crest ?? null},
+              ${group},
+              ${team.id},
+              NOW()
+            )
+            ON CONFLICT (tla) DO UPDATE SET
+              name        = EXCLUDED.name,
+              short_name  = EXCLUDED.short_name,
+              crest_url   = EXCLUDED.crest_url,
+              group_name  = EXCLUDED.group_name,
+              fd_team_id  = EXCLUDED.fd_team_id,
+              updated_at  = NOW()
+          `;
+        })
+    );
+    teamsUpdated = teamResults.filter((r) => r.status === "fulfilled").length;
   }
 
   return c.json({
