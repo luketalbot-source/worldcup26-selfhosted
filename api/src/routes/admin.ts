@@ -91,15 +91,19 @@ function generateMatchId(match: FootballDataMatch): string {
 }
 
 function mapStage(apiStage: string): string {
+  // WC 2026 adds a round of 32 because 48 teams qualify. Earlier tournaments
+  // went straight to round of 16. Default-casing to 'group' used to silently
+  // miscategorise LAST_32 fixtures.
   const m: Record<string, string> = {
     GROUP_STAGE: "group",
+    LAST_32: "round32",
     LAST_16: "round16",
     QUARTER_FINALS: "quarter",
     SEMI_FINALS: "semi",
     THIRD_PLACE: "third",
     FINAL: "final",
   };
-  return m[apiStage] ?? "group";
+  return m[apiStage] ?? apiStage.toLowerCase();
 }
 
 // Football-Data.org /competitions/WC/teams response. Populated once FIFA
