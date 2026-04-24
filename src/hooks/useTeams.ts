@@ -97,16 +97,47 @@ async function load(): Promise<void> {
  * FIFA World Cup 2026 team roster, served by the API and populated by
  * sync-matches from football-data.org. Same shape as the legacy
  * static teams.ts so consumer components don't need to change type-wise.
+ *
+ * The backend's GET /api/wc2026/teams route fires a background sync
+ * automatically when the table is empty or stale, so a first page load on
+ * a fresh DB will eventually get populated without any admin intervention.
+ * This hook polls every 3s while the roster is empty to pick that up.
  */
 export const useTeams = () => {
   const [, force] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const fetchOnce = async () => {
+      // Reset cache on each poll so load() re-runs.
+      cache = null;
+      try { await load(); } catch { /* keep polling */ }
+      if (!cancelled) force((n) => n + 1);
+    };
+
     if (!cache) {
-      void load().then(() => { if (!cancelled) force((n) => n + 1); });
+      void load().then(() => {
+        if (cancelled) return;
+        force((n) => n + 1);
+        // If the initial load came back empty, poll every 3s until populated
+        // — the backend is running a background sync in the meantime.
+        if (cache && cache.teams.length === 0) {
+          pollTimer = setInterval(async () => {
+            await fetchOnce();
+            if (cache && cache.teams.length > 0 && pollTimer) {
+              clearInterval(pollTimer);
+              pollTimer = null;
+            }
+          }, 3000);
+        }
+      });
     }
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, []);
 
   const getTeamByCode = useCallback((code: string): Team | undefined => {

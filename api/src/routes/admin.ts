@@ -316,6 +316,39 @@ router.get("/sync-status", requireAdmin, async (c) => {
   return c.json(syncState);
 });
 
+// Fire a background sync if (a) the teams table is empty, or (b) the newest
+// row is older than STALE_AFTER_MS. Called from public routes like GET
+// /api/wc2026/teams so the app self-heals on first load without requiring
+// an admin to hit the sync button. No-op when a sync is already running or
+// data is fresh.
+const STALE_AFTER_MS = 6 * 60 * 60 * 1000;  // 6 hours
+
+export async function maybeTriggerBackgroundSync(
+  rows: Array<{ updated_at: string | Date }>
+): Promise<void> {
+  if (syncState.status === "running") return;
+  if (!process.env.FOOTBALL_DATA_API_KEY) return;
+
+  const newest = rows
+    .map((r) => new Date(r.updated_at).getTime())
+    .filter((t) => !Number.isNaN(t))
+    .sort((a, b) => b - a)[0];
+
+  const isEmpty = rows.length === 0;
+  const isStale = newest !== undefined && Date.now() - newest > STALE_AFTER_MS;
+
+  if (!isEmpty && !isStale) return;
+
+  console.log(
+    `[sync-matches] auto-triggering (isEmpty=${isEmpty}, isStale=${isStale})`
+  );
+  setTimeout(() => {
+    runSync(process.env.FOOTBALL_DATA_API_KEY!).catch((err) =>
+      console.error("[sync-matches] auto-trigger failed:", err)
+    );
+  }, 0);
+}
+
 // -----------------------------------------------------------------------------
 // POST /admin/seed-demo-matches
 // Seeds a handful of plausible WC 2026 group-stage matches so the app has
@@ -380,8 +413,11 @@ router.post(
 
     const prompt = `Generate a vivid, eye-catching sports prediction image for a World Cup 2026 boost award. Title: "${body.title}"${body.description ? `. Description: "${body.description}"` : ""}. Style: modern, energetic, football/soccer themed.`;
 
+    // imagen-3.0-generate-002 was removed from the v1beta API. imagen-4.0-fast
+    // is the current generally-available replacement on the same :predict
+    // endpoint — same request/response shape, so only the model name changes.
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -395,7 +431,13 @@ router.post(
     if (!res.ok) {
       const errText = await res.text();
       console.error("Imagen API error:", errText);
-      return c.json({ error: "Image generation failed" }, 502);
+      // Surface the actual IdP error so the admin UI can show what went wrong.
+      let msg = errText;
+      try {
+        const parsed = JSON.parse(errText);
+        msg = parsed.error?.message || errText;
+      } catch { /* not JSON */ }
+      return c.json({ error: `Image generation failed: ${msg}` }, 502);
     }
 
     const data = (await res.json()) as any;

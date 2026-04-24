@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { sql } from "../db";
 import { type AuthEnv } from "../auth/middleware";
+import { maybeTriggerBackgroundSync } from "./admin";
 
 // WC2026 static-data-ish endpoints — teams roster, driven by the public.teams
 // table that POST /api/admin/sync-matches populates from football-data.org.
@@ -24,12 +25,19 @@ interface TeamRow {
 // Returns all 48 teams as a flat array, plus a group breakdown for UI
 // convenience. Teams without a group_name (rare — pre-sync) are placed in
 // `ungrouped`.
+//
+// Side effect: if the table is empty OR the most recent row is more than
+// STALE_AFTER_MS old, fire a background sync so the next page load gets
+// fresh data. Non-blocking — we return whatever we currently have.
 router.get("/teams", async (c) => {
   const rows = (await sql`
     SELECT id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at
     FROM public.teams
     ORDER BY group_name NULLS LAST, name
   `) as unknown as TeamRow[];
+
+  // Kick off a background refresh if data is missing or stale. Best-effort.
+  void maybeTriggerBackgroundSync(rows);
 
   const groups: Record<string, TeamRow[]> = {};
   const ungrouped: TeamRow[] = [];

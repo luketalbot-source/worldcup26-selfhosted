@@ -30,12 +30,16 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
 });
+// `shortOffset` renders as "GMT+1", "GMT-4", "GMT+5:30" — unambiguous
+// regardless of the user's locale. Browser-driven `short` output gives
+// regional abbrevs like "BST"/"EDT"/"CEST", but also obscure ones like
+// "WEST" (Western European Summer Time) that baffle most users.
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   timeZone: USER_TZ,
   hour: '2-digit',
   minute: '2-digit',
   hour12: false,
-  timeZoneName: 'short',  // "BST", "EDT", "CEST", "GMT+9"
+  timeZoneName: 'shortOffset',
 });
 
 /**
