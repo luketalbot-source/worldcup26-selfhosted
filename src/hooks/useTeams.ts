@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/apiClient';
 import type { Team } from '@/types/match';
 
@@ -30,32 +30,38 @@ const FLAG_OVERRIDES: Record<string, string> = {
 };
 function tlaToFlag(tla: string): string {
   if (FLAG_OVERRIDES[tla]) return FLAG_OVERRIDES[tla]!;
-  // Map TLA to 2-letter ISO where we can. FIFA uses mostly ISO-3, and
-  // unicode flag emojis only work with ISO-2. We accept a rough mapping of
-  // common ones; for everything else fall back to a white flag.
-  const iso2: Record<string, string> = {
-    MEX: 'MX', USA: 'US', CAN: 'CA', BRA: 'BR', ARG: 'AR', GER: 'DE', FRA: 'FR',
-    ESP: 'ES', POR: 'PT', NED: 'NL', BEL: 'BE', ITA: 'IT', CRO: 'HR', URU: 'UY',
-    COL: 'CO', JPN: 'JP', KOR: 'KR', AUS: 'AU', QAT: 'QA', SUI: 'CH', DEN: 'DK',
-    SWE: 'SE', NOR: 'NO', AUT: 'AT', CZE: 'CZ', TUR: 'TR', POL: 'PL', UKR: 'UA',
-    RUS: 'RU', IRN: 'IR', IRQ: 'IQ', KSA: 'SA', JOR: 'JO', EGY: 'EG', MAR: 'MA',
-    ALG: 'DZ', TUN: 'TN', SEN: 'SN', CIV: 'CI', GHA: 'GH', CPV: 'CV', RSA: 'ZA',
-    PAR: 'PY', ECU: 'EC', CUR: 'CW', HAI: 'HT', CRC: 'CR', PAN: 'PA', NZL: 'NZ',
-    JAM: 'JM', VEN: 'VE', PER: 'PE', BOL: 'BO', CHI: 'CL', SCO: 'GB', ENG: 'GB',
-    WAL: 'GB', NIR: 'GB', IRL: 'IE', HUN: 'HU', SVK: 'SK', SVN: 'SI', SRB: 'RS',
-    ROU: 'RO', BUL: 'BG', GRE: 'GR', BIH: 'BA', MKD: 'MK', ALB: 'AL', MNE: 'ME',
-    KOS: 'XK', ISR: 'IL', UAE: 'AE', YEM: 'YE', OMA: 'OM', KUW: 'KW', LBN: 'LB',
-    SYR: 'SY', UZB: 'UZ', TKM: 'TM', KAZ: 'KZ', KGZ: 'KG', TJK: 'TJ', CHN: 'CN',
-    THA: 'TH', VIE: 'VN', IDN: 'ID', MAS: 'MY', SIN: 'SG', PHI: 'PH', NEP: 'NP',
-    BAN: 'BD', PAK: 'PK', IND: 'IN', SRI: 'LK', COD: 'CD', CMR: 'CM', NGA: 'NG',
-    ANG: 'AO', MLI: 'ML', BFA: 'BF', ZAM: 'ZM', ZIM: 'ZW', KEN: 'KE', UGA: 'UG',
-    TAN: 'TZ', ETH: 'ET', SUD: 'SD', LBY: 'LY',
-  };
-  const code = iso2[tla];
-  if (!code) return '🏳️';
-  const base = 0x1f1e6 - 65; // regional indicator 'A'
-  return String.fromCodePoint(base + code.charCodeAt(0), base + code.charCodeAt(1));
+  const iso2 = TLA_TO_ISO2[tla];
+  if (!iso2) return '🏳️';
+  const base = 0x1f1e6 - 65;
+  return String.fromCodePoint(base + iso2.charCodeAt(0), base + iso2.charCodeAt(1));
 }
+
+// FIFA-TLA → ISO 3166-1 alpha-2 map. Used for both emoji and CDN flag URLs.
+// Exported so flagUtils.ts can stay in sync with a single source of truth.
+export const TLA_TO_ISO2: Record<string, string> = {
+  // Americas
+  MEX: 'MX', USA: 'US', CAN: 'CA', BRA: 'BR', ARG: 'AR', URU: 'UY', PAR: 'PY',
+  COL: 'CO', ECU: 'EC', CHI: 'CL', BOL: 'BO', PER: 'PE', VEN: 'VE',
+  HAI: 'HT', JAM: 'JM', CRC: 'CR', PAN: 'PA', CUR: 'CW', // CUR is FD's TLA for Curaçao
+  // Europe
+  GER: 'DE', FRA: 'FR', ESP: 'ES', POR: 'PT', ITA: 'IT', NED: 'NL', BEL: 'BE',
+  SUI: 'CH', AUT: 'AT', DEN: 'DK', SWE: 'SE', NOR: 'NO', FIN: 'FI', ISL: 'IS',
+  POL: 'PL', CZE: 'CZ', SVK: 'SK', HUN: 'HU', SVN: 'SI', CRO: 'HR', BIH: 'BA',
+  SRB: 'RS', MNE: 'ME', MKD: 'MK', ALB: 'AL', KOS: 'XK', BUL: 'BG', ROU: 'RO',
+  GRE: 'GR', TUR: 'TR', UKR: 'UA', RUS: 'RU', IRL: 'IE',
+  // Africa
+  MAR: 'MA', EGY: 'EG', TUN: 'TN', ALG: 'DZ', CIV: 'CI', GHA: 'GH', SEN: 'SN',
+  CMR: 'CM', NGA: 'NG', RSA: 'ZA', CPV: 'CV', COD: 'CD', ANG: 'AO', MLI: 'ML',
+  BFA: 'BF', ZAM: 'ZM', ZIM: 'ZW', KEN: 'KE', UGA: 'UG', TAN: 'TZ', ETH: 'ET',
+  SUD: 'SD', LBY: 'LY',
+  // Asia / Oceania / Middle East
+  JPN: 'JP', KOR: 'KR', PRK: 'KP', CHN: 'CN', AUS: 'AU', NZL: 'NZ',
+  QAT: 'QA', KSA: 'SA', UAE: 'AE', IRN: 'IR', IRQ: 'IQ', JOR: 'JO', LBN: 'LB',
+  SYR: 'SY', ISR: 'IL', YEM: 'YE', OMA: 'OM', KUW: 'KW', BHR: 'BH',
+  UZB: 'UZ', TKM: 'TM', KAZ: 'KZ', KGZ: 'KG', TJK: 'TJ',
+  THA: 'TH', VIE: 'VN', IDN: 'ID', MAS: 'MY', SIN: 'SG', PHI: 'PH',
+  IND: 'IN', PAK: 'PK', BAN: 'BD', NEP: 'NP', SRI: 'LK',
+};
 
 function toAppTeam(t: ApiTeam): Team {
   return {
@@ -67,104 +73,94 @@ function toAppTeam(t: ApiTeam): Team {
   };
 }
 
-// Module-scope cache. Mounts multiple (GroupTabs, GroupStandings, MatchCard)
-// all want the same data; sharing avoids redundant requests during a render.
-let cache: { teams: Team[]; groups: Record<string, Team[]> } | null = null;
-let inflight: Promise<void> | null = null;
+// -----------------------------------------------------------------------------
+// Module-scope state + de-duped loader.
+// Multiple hook mounts (GroupTabs, GroupStandings, MatchCard) all want the
+// same roster — sharing the in-flight promise avoids redundant fetches
+// during a single render cycle.
+// -----------------------------------------------------------------------------
 
-async function load(): Promise<void> {
-  if (cache) return;
-  if (inflight) return inflight;
-  inflight = (async () => {
-    const resp = await api.get<ApiTeamsResponse>('/wc2026/teams');
-    const teams = (resp?.teams ?? []).map(toAppTeam);
-    const groups: Record<string, Team[]> = {};
-    for (const t of teams) {
-      if (!t.group) continue;
-      if (!groups[t.group]) groups[t.group] = [];
-      groups[t.group]!.push(t);
-    }
-    cache = { teams, groups };
-  })();
-  try {
-    await inflight;
-  } finally {
+type TeamsCache = { teams: Team[]; groups: Record<string, Team[]> };
+
+let cache: TeamsCache | null = null;
+let inflight: Promise<TeamsCache> | null = null;
+
+async function load(): Promise<TeamsCache> {
+  const resp = await api.get<ApiTeamsResponse>('/wc2026/teams');
+  const teams = (resp?.teams ?? []).map(toAppTeam);
+  const groups: Record<string, Team[]> = {};
+  for (const t of teams) {
+    if (!t.group) continue;
+    (groups[t.group] ??= []).push(t);
+  }
+  return { teams, groups };
+}
+
+async function ensureLoad(force = false): Promise<TeamsCache> {
+  if (force) {
+    cache = null;
     inflight = null;
   }
+  if (cache) return cache;
+  if (!inflight) {
+    inflight = load()
+      .then((result) => {
+        cache = result;
+        return result;
+      })
+      .finally(() => {
+        inflight = null;
+      });
+  }
+  return inflight;
 }
 
 /**
- * FIFA World Cup 2026 team roster, served by the API and populated by
- * sync-matches from football-data.org. Same shape as the legacy
- * static teams.ts so consumer components don't need to change type-wise.
- *
- * The backend's GET /api/wc2026/teams route fires a background sync
- * automatically when the table is empty or stale, so a first page load on
- * a fresh DB will eventually get populated without any admin intervention.
- * This hook polls every 3s while the roster is empty to pick that up.
+ * FIFA World Cup 2026 team roster. Populated by the backend's sync-matches
+ * job; auto-fetched on mount with a 3s poll while the list is empty so the
+ * page self-populates when the backend's own auto-sync finishes in the
+ * background.
  */
 export const useTeams = () => {
-  const [, force] = useState(0);
+  const [data, setData] = useState<TeamsCache | null>(cache);
 
   useEffect(() => {
     let cancelled = false;
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-    const fetchOnce = async () => {
-      // Reset cache on each poll so load() re-runs.
-      cache = null;
-      try { await load(); } catch { /* keep polling */ }
-      if (!cancelled) force((n) => n + 1);
-    };
+    // First load (or reuse cache if already warm).
+    ensureLoad().then((d) => {
+      if (!cancelled) setData(d);
+    }).catch(() => {
+      // keep data as-is; polling below will retry
+    });
 
-    if (!cache) {
-      void load().then(() => {
-        if (cancelled) return;
-        force((n) => n + 1);
-        // If the initial load came back empty, poll every 3s until populated
-        // — the backend is running a background sync in the meantime.
-        if (cache && cache.teams.length === 0) {
-          pollTimer = setInterval(async () => {
-            await fetchOnce();
-            if (cache && cache.teams.length > 0 && pollTimer) {
-              clearInterval(pollTimer);
-              pollTimer = null;
-            }
-          }, 3000);
-        }
-      });
-    }
-    return () => {
-      cancelled = true;
-      if (pollTimer) clearInterval(pollTimer);
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  const getTeamByCode = useCallback((code: string): Team | undefined => {
-    if (!cache) return undefined;
-    const normalised = code.toUpperCase();
-    return cache.teams.find((t) => t.code === normalised);
-  }, []);
+  // Retry every 3s while the roster is empty (backend is probably mid-sync).
+  useEffect(() => {
+    if (data && data.teams.length > 0) return;
+    const id = setInterval(() => {
+      ensureLoad(true).then(setData).catch(() => { /* ignore */ });
+    }, 3000);
+    return () => clearInterval(id);
+  }, [data]);
 
-  const getTeamById = useCallback((id: string): Team | undefined => {
-    if (!cache) return undefined;
-    const normalised = id.toLowerCase();
-    return cache.teams.find((t) => t.id === normalised);
-  }, []);
+  const getTeamByCode = (code: string): Team | undefined =>
+    data?.teams.find((t) => t.code === code.toUpperCase());
 
-  const getTeamsByGroup = useCallback((group: string): Team[] => {
-    return cache?.groups[group] ?? [];
-  }, []);
+  const getTeamById = (id: string): Team | undefined =>
+    data?.teams.find((t) => t.id === id.toLowerCase());
 
-  return useMemo(
-    () => ({
-      teams: cache?.teams ?? [],
-      groups: cache?.groups ?? {},
-      loading: cache === null,
-      getTeamByCode,
-      getTeamById,
-      getTeamsByGroup,
-    }),
-    [getTeamByCode, getTeamById, getTeamsByGroup]
-  );
+  const getTeamsByGroup = (group: string): Team[] =>
+    data?.groups[group] ?? [];
+
+  return {
+    teams: data?.teams ?? [],
+    groups: data?.groups ?? {},
+    loading: !data,
+    getTeamByCode,
+    getTeamById,
+    getTeamsByGroup,
+  };
 };

@@ -157,10 +157,12 @@ export const KnockoutMatchCard = ({
               <Clock className="w-3 h-3" />
               <span>{localDate} {localTime}</span>
             </div>
-            <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
-              <MapPin className="w-3 h-3" />
-              <span>{match.city}</span>
-            </div>
+            {(match.city || match.venue) && (
+              <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+                <MapPin className="w-3 h-3" />
+                <span>{match.city || match.venue}</span>
+              </div>
+            )}
           </div>
           
           {(isLive || isFinished) && (

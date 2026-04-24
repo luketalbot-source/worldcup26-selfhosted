@@ -149,10 +149,15 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
               <Clock className="w-3 h-3" />
               <span>{localDate} {localTime}</span>
             </div>
-            <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
-              <MapPin className="w-3 h-3" />
-              <span>{match.city}</span>
-            </div>
+            {/* Location badge only when we actually have a venue/city —
+                football-data.org often returns null for venue on WC2026
+                fixtures, and showing an empty pin looks broken. */}
+            {(match.city || match.venue) && (
+              <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+                <MapPin className="w-3 h-3" />
+                <span>{match.city || match.venue}</span>
+              </div>
+            )}
             {showGroup && match.group && (
               <div className="bg-primary/90 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs font-semibold">
                 {t('matches.group', { letter: match.group })}
