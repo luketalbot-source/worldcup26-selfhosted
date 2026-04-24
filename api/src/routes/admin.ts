@@ -413,25 +413,27 @@ router.post(
 
     const prompt = `Generate a vivid, eye-catching sports prediction image for a World Cup 2026 boost award. Title: "${body.title}"${body.description ? `. Description: "${body.description}"` : ""}. Style: modern, energetic, football/soccer themed.`;
 
-    // imagen-3.0-generate-002 was removed from the v1beta API. imagen-4.0-fast
-    // is the current generally-available replacement on the same :predict
-    // endpoint — same request/response shape, so only the model name changes.
+    // Imagen 4 requires a paid Gemini plan. gemini-2.5-flash-image is a
+    // Gemini-native image model available on the free tier and uses the
+    // standard generateContent API. Response returns an inline base64 image
+    // in the candidates[].content.parts[] array alongside any text parts.
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount: 1, aspectRatio: "1:1" },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseModalities: ["IMAGE"],
+          },
         }),
       }
     );
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error("Imagen API error:", errText);
-      // Surface the actual IdP error so the admin UI can show what went wrong.
+      console.error("Gemini image API error:", errText);
       let msg = errText;
       try {
         const parsed = JSON.parse(errText);
@@ -440,11 +442,21 @@ router.post(
       return c.json({ error: `Image generation failed: ${msg}` }, 502);
     }
 
-    const data = (await res.json()) as any;
-    const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) return c.json({ error: "No image returned" }, 502);
+    const data = (await res.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> };
+      }>;
+    };
+    const parts = data.candidates?.[0]?.content?.parts ?? [];
+    const imagePart = parts.find((p) => p.inlineData);
+    const b64 = imagePart?.inlineData?.data;
+    const mime = imagePart?.inlineData?.mimeType ?? "image/png";
+    if (!b64) {
+      console.error("Gemini image API returned no inline image:", JSON.stringify(data).slice(0, 400));
+      return c.json({ error: "No image returned" }, 502);
+    }
 
-    const imageUrl = `data:image/png;base64,${b64}`;
+    const imageUrl = `data:${mime};base64,${b64}`;
 
     await sql`
       UPDATE tenant_custom_boosts SET image_url = ${imageUrl}, updated_at = NOW()
