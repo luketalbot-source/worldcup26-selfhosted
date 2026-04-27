@@ -90,12 +90,17 @@ router.get("/", async (c) => {
         lu.is_creator,
         COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) AS points,
         COALESCE(mp.pred_count, 0) AS total_predictions,
-        RANK() OVER (ORDER BY COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) DESC) AS rank
+        -- Tiebreak: more match predictions wins. Encourages engagement and
+        -- makes "I called more games" the next-best signal after raw points.
+        RANK() OVER (
+          ORDER BY COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) DESC,
+                   COALESCE(mp.pred_count, 0) DESC
+        ) AS rank
       FROM league_users lu
       LEFT JOIN match_pts mp ON mp.user_id = lu.user_id
       LEFT JOIN boost_pts bp ON bp.user_id = lu.user_id
       LEFT JOIN custom_pts cp ON cp.user_id = lu.user_id
-      ORDER BY points DESC, lu.display_name ASC
+      ORDER BY points DESC, total_predictions DESC, lu.display_name ASC
     `;
     return c.json(rows);
   }
@@ -177,12 +182,16 @@ router.get("/", async (c) => {
       tu.avatar_emoji,
       COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) AS points,
       COALESCE(mp.pred_count, 0) AS total_predictions,
-      RANK() OVER (ORDER BY COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) DESC) AS rank
+      -- Tiebreak: more match predictions wins (see league query above).
+      RANK() OVER (
+        ORDER BY COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) DESC,
+                 COALESCE(mp.pred_count, 0) DESC
+      ) AS rank
     FROM tenant_users tu
     LEFT JOIN match_pts mp ON mp.user_id = tu.user_id
     LEFT JOIN boost_pts bp ON bp.user_id = tu.user_id
     LEFT JOIN custom_pts cp ON cp.user_id = tu.user_id
-    ORDER BY points DESC, tu.display_name ASC
+    ORDER BY points DESC, total_predictions DESC, tu.display_name ASC
   `;
   return c.json(rows);
 });
