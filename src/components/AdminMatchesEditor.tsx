@@ -55,16 +55,19 @@ interface AdminMatch {
   last_updated: string;
 }
 
-// FD's full status enum + a couple of useful synonyms.
-const STATUS_OPTIONS = [
-  'SCHEDULED',
-  'TIMED',
-  'IN_PLAY',
-  'PAUSED',
-  'FINISHED',
-  'POSTPONED',
-  'CANCELLED',
-  'SUSPENDED',
+// FD's status enum, paired with a one-line plain-English gloss so admins
+// don't have to remember what "TIMED" vs "SCHEDULED" means at 02:00 during
+// a live match. The raw enum value is what we send to the API; the gloss
+// is purely cosmetic (rendered alongside the value in the dropdown).
+const STATUS_OPTIONS: Array<{ value: string; gloss: string }> = [
+  { value: 'SCHEDULED', gloss: 'fixture exists, kick-off time not yet confirmed' },
+  { value: 'TIMED',     gloss: 'kick-off confirmed, not yet started' },
+  { value: 'IN_PLAY',   gloss: 'match is live' },
+  { value: 'PAUSED',    gloss: 'half-time / VAR / in-game break' },
+  { value: 'FINISHED',  gloss: 'full-time, final score recorded' },
+  { value: 'POSTPONED', gloss: 'deferred to a later date' },
+  { value: 'CANCELLED', gloss: 'called off, no replay' },
+  { value: 'SUSPENDED', gloss: 'abandoned mid-game' },
 ];
 
 type FilterMode = 'all' | 'today' | 'live' | 'overridden';
@@ -397,13 +400,17 @@ export const AdminMatchesEditor = () => {
             <div className="space-y-4 py-2">
               {/* Kickoff */}
               <div className="space-y-1.5">
-                <Label htmlFor="match_date">Kickoff (your local time)</Label>
+                <Label htmlFor="match_date">Kickoff</Label>
                 <Input
                   id="match_date"
                   type="datetime-local"
                   value={isoToLocalInput(draft.match_date ?? editing.match_date)}
                   onChange={(e) => updateDraft('match_date', localInputToIso(e.target.value))}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Shown in <strong>your local time zone</strong> ({Intl.DateTimeFormat().resolvedOptions().timeZone}),
+                  not the venue's. Stored as UTC and displayed to each user in their own time zone.
+                </p>
               </div>
 
               {/* Teams */}
@@ -470,7 +477,9 @@ export const AdminMatchesEditor = () => {
                 </div>
               </div>
 
-              {/* Status */}
+              {/* Status. SelectValue mirrors only the raw enum (matches the
+                  list view's Badge), but each open option shows the friendly
+                  gloss so admins don't have to remember the FD vocabulary. */}
               <div className="space-y-1.5">
                 <Label>Status</Label>
                 <Select
@@ -482,7 +491,14 @@ export const AdminMatchesEditor = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s.value} value={s.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{s.value}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {s.gloss}
+                          </span>
+                        </div>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
