@@ -97,6 +97,11 @@ export async function buildAuthorizationUrl(
   url.searchParams.set('state', state);
   url.searchParams.set('code_challenge', codeChallenge);
   url.searchParams.set('code_challenge_method', 'S256');
+  // Force Keycloak to put code+state in the query string, not the fragment.
+  // Some Keycloak client configurations default to response_mode=fragment
+  // which strands the params in the URL hash where React Router can't read
+  // them — the callback would always see "Missing authorization code or state".
+  url.searchParams.set('response_mode', 'query');
 
   return url.toString();
 }

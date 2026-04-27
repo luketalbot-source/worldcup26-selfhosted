@@ -24,19 +24,35 @@ const OIDCCallback = () => {
     if (processedRef.current) return;
     processedRef.current = true;
 
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
-    const errorParam = searchParams.get('error');
-    const errorDescription = searchParams.get('error_description');
+    // Read OIDC params from BOTH the query string and the URL fragment.
+    // Most IdPs use ?code=... for response_type=code (we also force
+    // response_mode=query in the auth URL), but Keycloak can be configured
+    // to fragmentise on the client side — and tampering with that during
+    // a deploy would silently break sign-in for everyone. Reading both is
+    // cheap and bullet-proof.
+    const queryParams = searchParams;
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const pick = (key: string) => queryParams.get(key) ?? hashParams.get(key);
 
-    // Handle IDP errors
+    const code = pick('code');
+    const state = pick('state');
+    const errorParam = pick('error');
+    const errorDescription = pick('error_description');
+
+    // Handle IDP errors (both error= styles).
     if (errorParam) {
+      console.error('[oidc-callback] IdP returned error:', errorParam, errorDescription);
       setError(errorDescription || errorParam);
       setStep('error');
       return;
     }
 
     if (!code || !state) {
+      // Log everything we know so the cause is visible in DevTools — the
+      // most useful field is the actual landing URL since some hosts strip
+      // params during redirects.
+      console.error('[oidc-callback] missing code/state. URL =', window.location.href);
+      console.error('[oidc-callback] search =', window.location.search, 'hash =', window.location.hash);
       setError('Missing authorization code or state');
       setStep('error');
       return;
