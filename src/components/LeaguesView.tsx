@@ -59,18 +59,27 @@ const getRankDisplay = (rank: number) => {
 };
 
 // Expandable League Card Component
-const ExpandableLeagueCard = ({ 
-  league, 
-  isExpanded, 
+const ExpandableLeagueCard = ({
+  league,
+  isExpanded,
   onToggle,
   isEveryone = false,
   isDevMode = false,
-}: { 
-  league: League; 
-  isExpanded: boolean; 
+  onChanged,
+}: {
+  league: League;
+  isExpanded: boolean;
   onToggle: () => void;
   isEveryone?: boolean;
   isDevMode?: boolean;
+  /**
+   * Fired after the card successfully mutates the league (delete / leave /
+   * edit). The parent owns the canonical list state — without this, each
+   * card's local useLeagues snapshot would refresh but the parent's array
+   * (which renders the cards) would still include the deleted/changed
+   * league, so the UI looks stale until a manual refresh.
+   */
+  onChanged?: () => void;
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -177,10 +186,11 @@ const ExpandableLeagueCard = ({
 
   const handleConfirmLeaveLeague = async () => {
     if (!user) return;
-    
+
     const success = await leaveLeague(league.id);
     if (success) {
       refetch();
+      onChanged?.();
     }
     setShowLeaveDialog(false);
   };
@@ -205,6 +215,7 @@ const ExpandableLeagueCard = ({
     const success = await deleteLeague(league.id);
     if (success) {
       refetch();
+      onChanged?.();
     }
     setShowDeleteDialog(false);
   };
@@ -215,10 +226,11 @@ const ExpandableLeagueCard = ({
     setSaving(true);
     const success = await updateLeague(league.id, editName.trim(), editEmoji);
     setSaving(false);
-    
+
     if (success) {
       setShowEditDialog(false);
       refetch();
+      onChanged?.();
     }
   };
 
@@ -782,6 +794,7 @@ export const LeaguesView = () => {
               league={league}
               isExpanded={expandedLeagueId === league.id}
               onToggle={() => toggleLeague(league.id)}
+              onChanged={refetch}
             />
           ))}
         </div>

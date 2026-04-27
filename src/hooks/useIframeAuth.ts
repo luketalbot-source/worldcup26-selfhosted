@@ -190,16 +190,32 @@ export const useIframeAuth = ({
     };
   }, []); // Empty deps - refs handle updates
 
-  // Send ready message to parent when mounted
+  // Send ready message to parent when mounted.
+  //
+  // We deliberately always claim isLoggedIn: false here, even when the
+  // iframe has a cached session from a previous Flip user. Reason: when
+  // a host user signs out and back in as someone else, the iframe still
+  // holds the previous user's httpOnly refresh cookie + sessionStorage
+  // — auto-restore would silently keep us as that stale user. Telling
+  // the parent "I need auth" forces it to post the current OIDC_TOKEN,
+  // which authenticateWithToken exchanges for a new app session
+  // (replacing both the access token and the refresh cookie via
+  // /auth/oidc/token-auth). If the parent posts the same user's token,
+  // it's a harmless no-op refresh; if a different user, the session
+  // switches cleanly.
+  //
+  // We send only on initial mount + tenant change — re-sending on every
+  // user state change would loop (token arrives → user updates → effect
+  // re-fires → token arrives again …).
   useEffect(() => {
     const isInIframe = window.parent !== window;
     if (isInIframe) {
       window.parent.postMessage({
         type: 'IFRAME_AUTH_READY',
-        payload: { tenantUid, isLoggedIn: !!user },
+        payload: { tenantUid, isLoggedIn: false },
       }, '*');
     }
-  }, [tenantUid, user]);
+  }, [tenantUid]);
 
   return {
     isInIframe: window.parent !== window,
