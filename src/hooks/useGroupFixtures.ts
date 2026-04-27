@@ -1,26 +1,7 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { api } from '@/lib/apiClient';
+import { useCallback, useMemo } from 'react';
 import type { Match, Team } from '@/types/match';
 import { useTeams } from './useTeams';
-
-// API row — `GET /api/matches?stage=group`. One-for-one with the
-// live_matches table the sync-matches job populates.
-interface ApiMatch {
-  match_id: string;
-  api_match_id: number | null;
-  home_team_name: string;
-  home_team_code: string;
-  away_team_name: string;
-  away_team_code: string;
-  home_score: number | null;
-  away_score: number | null;
-  match_date: string; // ISO UTC
-  venue: string | null;
-  city: string | null;
-  stage: string;
-  group_name: string | null;
-  status: string;
-}
+import { useLiveMatchesContext, type LiveMatch } from '@/contexts/LiveMatchesContext';
 
 /**
  * Convert FD-style status strings to the UI's simpler enum.
@@ -39,7 +20,7 @@ function mapStatus(s: string): Match['status'] {
   }
 }
 
-function toMatch(row: ApiMatch, getTeam: (code: string) => Team | undefined): Match {
+function toMatch(row: LiveMatch, getTeam: (code: string) => Team | undefined): Match {
   // Fallback team when the roster hasn't been synced yet or the TLA doesn't
   // match (rare — FD is usually consistent). Keeps the UI rendering instead
   // of blowing up.
@@ -54,8 +35,8 @@ function toMatch(row: ApiMatch, getTeam: (code: string) => Team | undefined): Ma
     id: row.match_id,
     homeTeam: getTeam(row.home_team_code) ?? fallback(row.home_team_code, row.home_team_name),
     awayTeam: getTeam(row.away_team_code) ?? fallback(row.away_team_code, row.away_team_name),
-    date: row.match_date,       // Filled with ISO for legacy callers that haven't switched to dateIso yet.
-    time: '',                   // Legacy field unused when dateIso is present.
+    date: row.match_date,
+    time: '',
     dateIso: row.match_date,
     venue: row.venue ?? '',
     city: row.city ?? '',
@@ -68,47 +49,26 @@ function toMatch(row: ApiMatch, getTeam: (code: string) => Team | undefined): Ma
 }
 
 /**
- * Group-stage fixtures, live from the DB. Matches are shared across users;
- * one fetch per mount is fine — no per-tenant filtering, no pagination.
- * Refresh by calling refetch() (used after the admin runs sync-matches).
+ * Group-stage fixtures, live from the shared LiveMatchesProvider context.
+ * Reads through the provider so the SSE-driven score updates flow through
+ * automatically — the previous implementation owned its own fetch and so
+ * never saw push updates after mount.
  */
 export const useGroupFixtures = () => {
   const { getTeamByCode } = useTeams();
-  const [rows, setRows] = useState<ApiMatch[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { matches: rows, loading, refetch } = useLiveMatchesContext();
 
-  // Fetch matches in parallel with /wc2026/teams. The team lookup is just a
-  // best-effort enrichment — toMatch falls back to a placeholder Team built
-  // from the API row's TLA + name when teams haven't landed yet, and once
-  // useTeams resolves the next render picks up the real Team objects via
-  // getTeamByCode below.
-  const fetch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.get<ApiMatch[]>('/matches', { stage: 'group' });
-      setRows(data ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const groupRows = useMemo(() => rows.filter((r) => r.stage === 'group'), [rows]);
 
-  useEffect(() => { void fetch(); }, [fetch]);
-
-  // Re-derive Match objects whenever the team roster updates, so flags +
-  // proper Team metadata appear without a second network round-trip.
   const matches = useMemo<Match[]>(
-    () => (rows ?? []).map((r) => toMatch(r, getTeamByCode)),
-    [rows, getTeamByCode]
+    () => groupRows.map((r) => toMatch(r, getTeamByCode)),
+    [groupRows, getTeamByCode],
   );
 
   const getMatchesByGroup = useCallback(
     (group: string): Match[] => matches.filter((m) => m.group === group),
-    [matches]
+    [matches],
   );
 
-  return { matches, loading, error, refetch: fetch, getMatchesByGroup };
+  return { matches, loading, error: null, refetch, getMatchesByGroup };
 };

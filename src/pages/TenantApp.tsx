@@ -5,8 +5,10 @@ import { MatchesView } from '@/components/MatchesView';
 import { BoostView } from '@/components/BoostView';
 import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
+import { GoalCelebration } from '@/components/GoalCelebration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { api } from '@/lib/apiClient';
 import { Loader2 } from 'lucide-react';
@@ -126,13 +128,22 @@ const TenantApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <main className="container py-4">
-        {renderContent()}
-      </main>
+    // LiveMatchesProvider wraps the whole tenant shell so every view (Today,
+    // Groups, Knockout, plus the global GoalCelebration overlay) shares a
+    // single SSE connection and a single source of match-state truth.
+    <LiveMatchesProvider>
+      <div className="min-h-screen bg-background pb-24">
+        <main className="container py-4">
+          {renderContent()}
+        </main>
 
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
-    </div>
+        <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+        {/* Global goal celebration overlay — pointer-events: none so it
+            never blocks interaction. Renders only while a goal is active. */}
+        <GoalCelebration />
+      </div>
+    </LiveMatchesProvider>
   );
 };
 

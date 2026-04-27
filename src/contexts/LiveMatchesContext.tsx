@@ -1,0 +1,297 @@
+// Single source of truth for live_matches data on the client.
+//
+// Why a context (vs. each hook owning its own state)? Three views need the
+// same data:
+//   - Today: full live_matches list, filtered to today's calendar day
+//   - Groups: live_matches with stage='group', merged onto static fixtures
+//   - Knockout: live_matches with stage<>'group', merged onto bracket
+// Plus a fourth, the global GoalCelebration overlay, needs to react to
+// score increases regardless of which screen the user is on.
+//
+// Before this provider, each hook ran its own fetch + EventSource and the
+// SSE updates only flowed into the Today path. Centralising the state
+// here gives every consumer the same push-driven data — and lets the
+// goal-detection logic live in one place where we can compare prev→new
+// scores accurately.
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { api, ApiError } from '@/lib/apiClient';
+
+export interface LiveMatch {
+  id: string;
+  match_id: string;
+  api_match_id?: number | null;
+  home_team_name: string;
+  home_team_code: string;
+  away_team_name: string;
+  away_team_code: string;
+  home_score: number | null;
+  away_score: number | null;
+  match_date: string;
+  venue: string | null;
+  city: string | null;
+  stage: string;
+  group_name: string | null;
+  status: string;
+  last_updated: string;
+}
+
+export interface GoalEvent {
+  // Monotonically incremented so consumers can use it as a React key —
+  // re-mounting their animation even when the same match scores twice.
+  id: number;
+  matchId: string;
+  scoredBy: 'home' | 'away';
+  homeTeam: { name: string; code: string };
+  awayTeam: { name: string; code: string };
+  homeScore: number;
+  awayScore: number;
+}
+
+const SYNC_COOLDOWN_SECONDS = 60;
+const STREAM_URL =
+  ((import.meta.env.VITE_API_URL as string | undefined) ?? '/api') + '/matches/stream';
+
+interface ContextValue {
+  matches: LiveMatch[];
+  loading: boolean;
+  lastSync: Date | null;
+  syncing: boolean;
+  cooldownRemaining: number;
+  canSync: () => boolean;
+  syncMatches: (
+    force?: boolean,
+  ) => Promise<{
+    skipped?: boolean;
+    success?: boolean;
+    reason?: string;
+    data?: unknown;
+    error?: unknown;
+  }>;
+  refetch: () => Promise<Date | null>;
+  goalEvent: GoalEvent | null;
+}
+
+const Ctx = createContext<ContextValue | null>(null);
+
+const LIVE_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'LIVE']);
+
+export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
+  const [matches, setMatches] = useState<LiveMatch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [goalEvent, setGoalEvent] = useState<GoalEvent | null>(null);
+
+  // The SSE handler closes over state. Without a ref, every event's
+  // "compare to previous score" check would see the initial empty array.
+  const matchesRef = useRef<LiveMatch[]>([]);
+  matchesRef.current = matches;
+
+  const goalSeqRef = useRef(0);
+  const hasAutoSynced = useRef(false);
+
+  const fetchLiveMatches = useCallback(async (): Promise<Date | null> => {
+    try {
+      const data = await api.get<LiveMatch[]>('/matches');
+      if (data) {
+        const sorted = [...data].sort(
+          (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime(),
+        );
+        setMatches(sorted);
+        if (sorted.length > 0) {
+          const mostRecent = sorted.reduce((latest, m) => {
+            const d = new Date(m.last_updated);
+            return d > latest ? d : latest;
+          }, new Date(0));
+          setLastSync(mostRecent);
+          return mostRecent;
+        }
+      }
+    } catch (err) {
+      console.error('[LiveMatchesContext] fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+    return null;
+  }, []);
+
+  const canSync = useCallback(() => {
+    if (!lastSync) return true;
+    const elapsed = (Date.now() - lastSync.getTime()) / 1000;
+    return elapsed >= SYNC_COOLDOWN_SECONDS;
+  }, [lastSync]);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (!lastSync) {
+      setCooldownRemaining(0);
+      return;
+    }
+    const tick = () => {
+      const elapsed = (Date.now() - lastSync.getTime()) / 1000;
+      setCooldownRemaining(Math.max(0, Math.ceil(SYNC_COOLDOWN_SECONDS - elapsed)));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lastSync]);
+
+  const syncMatches = useCallback(
+    async (force = false) => {
+      if (!force && !canSync()) {
+        return { skipped: true, reason: 'cooldown' as const };
+      }
+      setSyncing(true);
+      try {
+        const data = await api.post('/admin/sync-matches');
+        await fetchLiveMatches();
+        return { success: true, data };
+      } catch (err) {
+        const isForbidden = err instanceof ApiError && err.status === 403;
+        if (isForbidden) {
+          console.debug('[sync-matches] forbidden — skipping (likely unauthenticated)');
+        } else {
+          console.error('Failed to sync:', err);
+        }
+        return { success: false, error: err };
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [fetchLiveMatches, canSync],
+  );
+
+  // Initial fetch + auto-sync once per session
+  useEffect(() => {
+    const init = async () => {
+      const lastSyncTime = await fetchLiveMatches();
+      setLoading(false);
+      if (hasAutoSynced.current) return;
+      hasAutoSynced.current = true;
+      if (!lastSyncTime) {
+        await syncMatches(true);
+      } else {
+        const elapsed = (Date.now() - lastSyncTime.getTime()) / 1000;
+        if (elapsed >= SYNC_COOLDOWN_SECONDS) {
+          await syncMatches(true);
+        }
+      }
+    };
+    void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // SSE stream — single connection per browser tab. All consumers downstream
+  // see the same updates, and goal detection has a single comparison point.
+  useEffect(() => {
+    const es = new EventSource(STREAM_URL);
+
+    es.addEventListener('match-update', (ev) => {
+      try {
+        const incoming = JSON.parse((ev as MessageEvent).data) as LiveMatch;
+        const prev = matchesRef.current.find((m) => m.match_id === incoming.match_id);
+
+        // Goal detection. Two guard rails matter:
+        //   1) Only when status is in a "live" state — avoids replaying the
+        //      goals embedded in a FINISHED row when the admin first lands
+        //      on the page and a match-update event re-arrives.
+        //   2) Only when we have a prior snapshot — first-time arrival has
+        //      nothing to compare against (could be initial fetch race or
+        //      a brand new fixture).
+        // Score going DOWN (VAR disallowed goal) is a no-op.
+        if (prev && LIVE_STATUSES.has(incoming.status)) {
+          const prevHome = prev.home_score ?? 0;
+          const prevAway = prev.away_score ?? 0;
+          const newHome = incoming.home_score ?? 0;
+          const newAway = incoming.away_score ?? 0;
+          if (newHome > prevHome) {
+            setGoalEvent({
+              id: ++goalSeqRef.current,
+              matchId: incoming.match_id,
+              scoredBy: 'home',
+              homeTeam: { name: incoming.home_team_name, code: incoming.home_team_code },
+              awayTeam: { name: incoming.away_team_name, code: incoming.away_team_code },
+              homeScore: newHome,
+              awayScore: newAway,
+            });
+          } else if (newAway > prevAway) {
+            setGoalEvent({
+              id: ++goalSeqRef.current,
+              matchId: incoming.match_id,
+              scoredBy: 'away',
+              homeTeam: { name: incoming.home_team_name, code: incoming.home_team_code },
+              awayTeam: { name: incoming.away_team_name, code: incoming.away_team_code },
+              homeScore: newHome,
+              awayScore: newAway,
+            });
+          }
+        }
+
+        setMatches((rows) => {
+          const idx = rows.findIndex((r) => r.match_id === incoming.match_id);
+          if (idx === -1) {
+            const next = [...rows, incoming];
+            next.sort(
+              (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime(),
+            );
+            return next;
+          }
+          const next = [...rows];
+          next[idx] = incoming;
+          return next;
+        });
+        setLastSync(new Date(incoming.last_updated));
+      } catch (err) {
+        console.error('[match-stream] parse error:', err);
+      }
+    });
+
+    es.addEventListener('error', () => {
+      // EventSource auto-reconnects unless CLOSED, which usually means the
+      // endpoint is genuinely unreachable (404 / CORS / wrong origin).
+      if (es.readyState === EventSource.CLOSED) {
+        console.warn('[match-stream] connection closed permanently');
+      }
+    });
+
+    return () => es.close();
+  }, []);
+
+  return (
+    <Ctx.Provider
+      value={{
+        matches,
+        loading,
+        lastSync,
+        syncing,
+        cooldownRemaining,
+        canSync,
+        syncMatches,
+        refetch: fetchLiveMatches,
+        goalEvent,
+      }}
+    >
+      {children}
+    </Ctx.Provider>
+  );
+};
+
+export const useLiveMatchesContext = (): ContextValue => {
+  const v = useContext(Ctx);
+  if (!v) {
+    throw new Error('useLiveMatchesContext must be used within <LiveMatchesProvider>');
+  }
+  return v;
+};
+
+export const useGoalEvent = (): GoalEvent | null => useLiveMatchesContext().goalEvent;

@@ -3,13 +3,28 @@ import { useLiveMatches } from './useLiveMatches';
 import { Match, GroupStanding } from '@/types/match';
 import { KnockoutMatch } from '@/data/knockoutMatches';
 import { groupStageMatches } from '@/data/matches';
-import { 
-  calculateGroupStandings, 
-  getQualifiedTeams, 
+import {
+  calculateGroupStandings,
+  getQualifiedTeams,
   populateKnockoutMatches,
   getKnockoutMatchResult,
-  QualifiedTeams 
+  QualifiedTeams
 } from '@/lib/knockoutCalculator';
+
+// FD status → UI status. Same logic as in useLiveMatches but local to this
+// hook so we don't re-import an internal helper.
+function mapApiStatus(apiStatus: string): 'upcoming' | 'live' | 'finished' {
+  switch (apiStatus) {
+    case 'FINISHED':
+      return 'finished';
+    case 'IN_PLAY':
+    case 'PAUSED':
+    case 'LIVE':
+      return 'live';
+    default:
+      return 'upcoming';
+  }
+}
 
 export const useDynamicKnockout = () => {
   const { liveMatches, loading, getGroupMatches } = useLiveMatches();
@@ -74,21 +89,73 @@ export const useDynamicKnockout = () => {
     return populateKnockoutMatches(qualifiedTeams, knockoutResults);
   }, [qualifiedTeams, knockoutResults]);
 
-  // Get matches by knockout stage
+  // Merge in-play live data (scores, status, real team codes/names) onto
+  // each populated bracket entry. Without this, the KO view shows only the
+  // static fixture data — so admin overrides and FD live scores never
+  // appeared during a knockout match.
+  //
+  // Match strategy, in priority order:
+  //   1. Bracket id `M{n}` → live row with `api_match_id = n` (FD's stable
+  //      match number — works as soon as FD publishes the bracket).
+  //   2. Both team codes match (after the draw, when bracket positions
+  //      have been resolved to real teams).
+  // The first wins because it survives team-code mismatches and admin
+  // edits to the bracket.
+  const mergeLiveOntoBracket = useMemo(() => {
+    return (matches: KnockoutMatch[]): KnockoutMatch[] => matches.map((m) => {
+      const apiNumber =
+        typeof m.id === 'string' && /^M\d+$/.test(m.id) ? Number(m.id.slice(1)) : NaN;
+
+      const live =
+        liveMatches.find(
+          (lm) => lm.stage !== 'group' && lm.api_match_id === apiNumber,
+        ) ??
+        liveMatches.find(
+          (lm) =>
+            lm.stage !== 'group' &&
+            lm.home_team_code === m.homeTeam.code &&
+            lm.away_team_code === m.awayTeam.code,
+        );
+
+      if (!live) return m;
+
+      return {
+        ...m,
+        // Surface live team metadata once the bracket resolves (e.g. R32
+        // populated with real team codes after group stage finishes).
+        homeTeam: {
+          ...m.homeTeam,
+          name: live.home_team_name || m.homeTeam.name,
+          code: live.home_team_code || m.homeTeam.code,
+        },
+        awayTeam: {
+          ...m.awayTeam,
+          name: live.away_team_name || m.awayTeam.name,
+          code: live.away_team_code || m.awayTeam.code,
+        },
+        homeScore: live.home_score ?? m.homeScore,
+        awayScore: live.away_score ?? m.awayScore,
+        status: mapApiStatus(live.status),
+      };
+    });
+  }, [liveMatches]);
+
+  // Get matches by knockout stage. Always pass through mergeLiveOntoBracket
+  // so the consumer sees live scores without any extra wiring on its end.
   const getKnockoutStageMatches = (stage: string): KnockoutMatch[] => {
     switch (stage) {
       case 'round32':
-        return knockoutBracket.round32;
+        return mergeLiveOntoBracket(knockoutBracket.round32);
       case 'round16':
-        return knockoutBracket.round16;
+        return mergeLiveOntoBracket(knockoutBracket.round16);
       case 'quarter':
-        return knockoutBracket.quarterFinals;
+        return mergeLiveOntoBracket(knockoutBracket.quarterFinals);
       case 'semi':
-        return knockoutBracket.semiFinals;
+        return mergeLiveOntoBracket(knockoutBracket.semiFinals);
       case 'third':
-        return [knockoutBracket.thirdPlace];
+        return mergeLiveOntoBracket([knockoutBracket.thirdPlace]);
       case 'final':
-        return [knockoutBracket.final];
+        return mergeLiveOntoBracket([knockoutBracket.final]);
       default:
         return [];
     }
