@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { api } from '@/lib/apiClient';
+import { api, ApiError } from '@/lib/apiClient';
 import { Match } from '@/types/match';
 import { groupStageMatches } from '@/data/matches';
 import { getAllKnockoutMatches, KnockoutMatch } from '@/data/knockoutMatches';
@@ -93,11 +93,19 @@ export const useLiveMatches = () => {
     setSyncing(true);
     try {
       const data = await api.post('/admin/sync-matches');
-      console.log('Sync result:', data);
       await fetchLiveMatches();
       return { success: true, data };
     } catch (err) {
-      console.error('Failed to sync:', err);
+      // 403 happens for unauthenticated requests against the sync route — a
+      // benign failure when called automatically (e.g. by the matches view's
+      // initial useEffect for a logged-out viewer). Log it as a debug-level
+      // signal rather than a console.error stack trace.
+      const isForbidden = err instanceof ApiError && err.status === 403;
+      if (isForbidden) {
+        console.debug('[sync-matches] forbidden — skipping (likely unauthenticated)');
+      } else {
+        console.error('Failed to sync:', err);
+      }
       return { success: false, error: err };
     } finally {
       setSyncing(false);

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { sql } from "../db";
-import { requireAdmin, type AuthEnv } from "../auth/middleware";
+import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 
 const router = new Hono<AuthEnv>();
 
@@ -293,7 +293,14 @@ async function runSync(apiKey: string): Promise<void> {
   }
 }
 
-router.post("/sync-matches", requireAdmin, async (c) => {
+// POST /admin/sync-matches — open to any authenticated tenant user, not
+// just admins. Match score refresh is safe to expose: the action is
+// idempotent (UPSERT on stable football-data.org match ids), the
+// in-memory `syncState.status === "running"` guard collapses concurrent
+// requests into one, and football-data.org's own rate limit caps abuse.
+// Was previously gated behind requireAdmin, which 403'd every regular
+// tenant user when useLiveMatches auto-fired this on the matches view.
+router.post("/sync-matches", requireAuth, async (c) => {
   const apiKey = process.env.FOOTBALL_DATA_API_KEY;
   if (!apiKey) return c.json({ error: "FOOTBALL_DATA_API_KEY not configured" }, 500);
 
@@ -312,7 +319,9 @@ router.post("/sync-matches", requireAdmin, async (c) => {
   return c.json({ status: "started", startedAt: new Date().toISOString() }, 202);
 });
 
-router.get("/sync-status", requireAdmin, async (c) => {
+// Sync status is also useful for the admin to see progress, but no reason
+// regular users shouldn't see it either — it's just job state.
+router.get("/sync-status", requireAuth, async (c) => {
   return c.json(syncState);
 });
 
