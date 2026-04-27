@@ -13,11 +13,10 @@ const FLAGCDN_OVERRIDES: Record<string, string> = {
   NIR: 'gb-nir',
 };
 
-// w160 is plenty for the small backdrop we render at <50% opacity behind
-// each MatchCard half. w640 was 7-10x larger for no visible quality gain —
-// dropped it because the matches view loads ~12 flags at once and bandwidth
-// dominated initial render time.
-const FLAGCDN_SIZE = 'w160';
+// w320 is the sweet spot — sharp on retina (the MatchCard half is ~180px
+// wide so we need ~360 device pixels at 2x DPR) and still ~3x smaller than
+// w640. w160 was visibly pixelated on retina screens.
+const FLAGCDN_SIZE = 'w320';
 
 export const getFlagUrl = (teamCode: string): string | null => {
   if (!teamCode || teamCode === 'TBD') return null;

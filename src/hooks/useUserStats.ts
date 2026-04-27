@@ -84,101 +84,88 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
       ? { tenant_id: tenantId }
       : {};
 
-    // Fetch all data in parallel
-    const [
-      predictionsRes,
-      matchesRes,
-      awardsRes,
-      boostPredictionsRes,
-      boostResultsRes,
-      customAwardsRes,
-      customPredictionsRes,
-      customResultsRes,
-    ] = await Promise.all([
-      api.get<ApiPrediction[]>('/predictions', tenantParam),
-      api.get<ApiLiveMatch[]>('/matches'),
-      api.get<ApiBoostAward[]>('/boosts/awards'),
-      api.get<ApiBoostPrediction[]>('/boosts/predictions', tenantParam),
-      api.get<ApiBoostResult[]>('/boosts/results'),
-      api.get<ApiCustomBoostAward[]>('/custom-boosts', tenantParam),
-      api.get<ApiCustomBoostPrediction[]>('/custom-boosts/predictions', tenantParam),
-      api.get<ApiCustomBoostResult[]>('/custom-boosts/results', tenantParam),
-    ]);
+    // The apiClient now throws on error and returns T directly (no
+    // {data, error} wrapper). This hook predates that refactor and was
+    // reading .data on raw arrays — meaning predictions/awards always
+    // came back as `undefined` and totalPredictions stuck at 0.
+    let predictions: ApiPrediction[] = [];
+    let finishedMatches: ApiLiveMatch[] = [];
+    let awards: ApiBoostAward[] = [];
+    let boostPredictions: ApiBoostPrediction[] = [];
+    let boostResults: ApiBoostResult[] = [];
+    let customAwards: ApiCustomBoostAward[] = [];
+    let customPredictions: ApiCustomBoostPrediction[] = [];
+    let customResults: ApiCustomBoostResult[] = [];
 
-    if (predictionsRes.error) {
-      console.error('Error fetching predictions:', predictionsRes.error);
+    try {
+      const [
+        predictionsResp,
+        matchesResp,
+        awardsResp,
+        boostPredictionsResp,
+        boostResultsResp,
+        customAwardsResp,
+        customPredictionsResp,
+        customResultsResp,
+      ] = await Promise.all([
+        api.get<ApiPrediction[]>('/predictions', tenantParam),
+        api.get<ApiLiveMatch[]>('/matches'),
+        api.get<ApiBoostAward[]>('/boosts/awards'),
+        api.get<ApiBoostPrediction[]>('/boosts/predictions', tenantParam),
+        api.get<ApiBoostResult[]>('/boosts/results'),
+        api.get<ApiCustomBoostAward[]>('/custom-boosts', tenantParam),
+        api.get<ApiCustomBoostPrediction[]>('/custom-boosts/predictions', tenantParam),
+        api.get<ApiCustomBoostResult[]>('/custom-boosts/results', tenantParam),
+      ]);
+
+      predictions = predictionsResp ?? [];
+      finishedMatches = (matchesResp ?? []).filter((m) =>
+        ['FINISHED', 'FT', 'AET', 'PEN'].includes(m.status)
+      );
+      awards = awardsResp ?? [];
+      boostPredictions = boostPredictionsResp ?? [];
+      boostResults = boostResultsResp ?? [];
+      customAwards = customAwardsResp ?? [];
+      customPredictions = customPredictionsResp ?? [];
+      customResults = customResultsResp ?? [];
+    } catch (err) {
+      console.error('useUserStats: fetch failed:', err);
       setLoading(false);
       return;
     }
 
-    if (matchesRes.error) {
-      console.error('Error fetching matches:', matchesRes.error);
-      setLoading(false);
-      return;
-    }
-
-    const predictions = predictionsRes.data || [];
-    const finishedMatches = (matchesRes.data || []).filter(m =>
-      ['FINISHED', 'FT', 'AET', 'PEN'].includes(m.status)
-    );
-
-    // Calculate boost points and prediction counts
-    let boostPredictionCount = boostPredictionsRes.data?.length || 0;
+    // Boost points + prediction count
+    const boostPredictionCount = boostPredictions.length;
     let boostPoints = 0;
-    if (awardsRes.data && boostPredictionsRes.data && boostResultsRes.data) {
-      const awards = awardsRes.data;
-      const boostPredictions = boostPredictionsRes.data;
-      const results = boostResultsRes.data;
-
-      for (const prediction of boostPredictions) {
-        const result = results.find(r => r.award_id === prediction.award_id);
-        const award = awards.find(a => a.id === prediction.award_id);
-
-        if (result && award) {
-          if (award.prediction_type === 'team') {
-            if (prediction.predicted_team_code === result.result_team_code) {
-              boostPoints += award.points_value;
-            }
-          } else {
-            if (prediction.predicted_player_name === result.result_player_name) {
-              boostPoints += award.points_value;
-            }
+    for (const prediction of boostPredictions) {
+      const result = boostResults.find((r) => r.award_id === prediction.award_id);
+      const award = awards.find((a) => a.id === prediction.award_id);
+      if (result && award) {
+        if (award.prediction_type === 'team') {
+          if (prediction.predicted_team_code === result.result_team_code) {
+            boostPoints += award.points_value;
           }
+        } else if (prediction.predicted_player_name === result.result_player_name) {
+          boostPoints += award.points_value;
         }
       }
     }
 
-    // Calculate custom boost points - only count predictions for boosts that still exist
+    // Custom boost points — only count predictions for boosts that still exist
     let customBoostPredictionCount = 0;
-    if (customAwardsRes.data && customPredictionsRes.data && customResultsRes.data) {
-      const customAwards = customAwardsRes.data;
-      const customPredictions = customPredictionsRes.data;
-      const customResults = customResultsRes.data;
-
-      // Create a set of existing custom boost IDs
-      const existingBoostIds = new Set(customAwards.map(a => a.id));
-
-      for (const prediction of customPredictions) {
-        // Only count predictions for boosts that still exist (not deleted)
-        if (!existingBoostIds.has(prediction.custom_boost_id)) {
-          continue;
-        }
-
-        customBoostPredictionCount++;
-
-        const result = customResults.find(r => r.custom_boost_id === prediction.custom_boost_id);
-        const award = customAwards.find(a => a.id === prediction.custom_boost_id);
-
-        if (result && award) {
-          if (award.prediction_type === 'team') {
-            if (prediction.predicted_team_code === result.result_team_code) {
-              boostPoints += award.points_value;
-            }
-          } else {
-            if (prediction.predicted_player_name === result.result_player_name) {
-              boostPoints += award.points_value;
-            }
+    const existingBoostIds = new Set(customAwards.map((a) => a.id));
+    for (const prediction of customPredictions) {
+      if (!existingBoostIds.has(prediction.custom_boost_id)) continue;
+      customBoostPredictionCount++;
+      const result = customResults.find((r) => r.custom_boost_id === prediction.custom_boost_id);
+      const award = customAwards.find((a) => a.id === prediction.custom_boost_id);
+      if (result && award) {
+        if (award.prediction_type === 'team') {
+          if (prediction.predicted_team_code === result.result_team_code) {
+            boostPoints += award.points_value;
           }
+        } else if (prediction.predicted_player_name === result.result_player_name) {
+          boostPoints += award.points_value;
         }
       }
     }

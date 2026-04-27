@@ -35,10 +35,20 @@ router.get("/", requireAuth, async (c) => {
 router.post(
   "/",
   requireAuth,
-  zValidator("json", z.object({ name: z.string().min(1).max(100), tenant_id: z.string().uuid() })),
+  zValidator(
+    "json",
+    z.object({
+      name: z.string().min(1).max(100),
+      tenant_id: z.string().uuid(),
+      // The frontend EmojiPicker lets users choose any emoji as the league
+      // avatar — persist it so the success card and league list both render
+      // it. Optional with a sensible default trophy.
+      avatar_emoji: z.string().min(1).max(16).optional(),
+    })
+  ),
   async (c) => {
     const user = c.get("user");
-    const { name, tenant_id } = c.req.valid("json");
+    const { name, tenant_id, avatar_emoji } = c.req.valid("json");
 
     const league = await withUser(user.sub, async (tx) => {
       let joinCode = generateJoinCode();
@@ -50,8 +60,8 @@ router.post(
       }
 
       const [created] = await tx`
-        INSERT INTO leagues (id, name, join_code, creator_id, tenant_id, created_at)
-        VALUES (gen_random_uuid(), ${name}, ${joinCode}, ${user.sub}, ${tenant_id}, NOW())
+        INSERT INTO leagues (id, name, avatar_emoji, join_code, creator_id, tenant_id, created_at)
+        VALUES (gen_random_uuid(), ${name}, ${avatar_emoji ?? "🏆"}, ${joinCode}, ${user.sub}, ${tenant_id}, NOW())
         RETURNING *
       `;
 

@@ -66,7 +66,11 @@ export const useLeagues = (tenantId?: string | null) => {
     try {
       const joinCode = generateJoinCode();
 
-      const data = await api.post<{ id: string }>('/leagues', {
+      // The backend returns the full inserted row — use that directly.
+      // Previous code did `leagues.find(...)` over a stale closure, which
+      // returned null and prevented the modal from advancing to the
+      // success state, so users could spam-create duplicates.
+      const created = await api.post<League>('/leagues', {
         name,
         avatar_emoji: avatarEmoji,
         join_code: joinCode,
@@ -76,7 +80,7 @@ export const useLeagues = (tenantId?: string | null) => {
       toast.success(t('leagues.created'));
       await fetchLeagues();
 
-      return leagues.find(l => l.id === data?.id) || null;
+      return created ?? null;
     } catch (error) {
       console.error('Error creating league:', error);
       toast.error(t('leagues.createError'));
