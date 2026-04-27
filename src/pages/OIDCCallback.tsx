@@ -48,13 +48,24 @@ const OIDCCallback = () => {
     }
 
     if (!code || !state) {
-      // Log everything we know so the cause is visible in DevTools — the
-      // most useful field is the actual landing URL since some hosts strip
-      // params during redirects.
-      console.error('[oidc-callback] missing code/state. URL =', window.location.href);
-      console.error('[oidc-callback] search =', window.location.search, 'hash =', window.location.hash);
-      setError('Missing authorization code or state');
-      setStep('error');
+      // No OIDC params at all? This page should only be reached as a
+      // Keycloak redirect-back, but a misconfigured embed (e.g. the Flip
+      // iframe src pointing at /auth/callback instead of /t/{uid}) can
+      // land us here cold. Bail to the tenant root and let the embedded
+      // postMessage auth flow (useIframeAuth) take over rather than
+      // showing a confusing "Missing code/state" error.
+      console.warn(
+        '[oidc-callback] no OIDC params on landing — redirecting to tenant root.',
+        'URL =', window.location.href,
+        'search =', window.location.search,
+        'hash =', window.location.hash
+      );
+      if (tenantUid) {
+        navigate(`/t/${tenantUid}`, { replace: true });
+      } else {
+        setError('Missing authorization code or state');
+        setStep('error');
+      }
       return;
     }
 
