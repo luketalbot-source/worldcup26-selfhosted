@@ -8,6 +8,11 @@ import { useTeams } from './useTeams';
 // Global cooldown in seconds
 const SYNC_COOLDOWN_SECONDS = 60;
 
+// Same-origin SSE endpoint. EventSource doesn't support custom headers so
+// we couldn't auth this with our Bearer token anyway; the stream is open
+// to read access (matches the public GET /api/matches contract).
+const STREAM_URL = (import.meta.env.VITE_API_URL as string | undefined ?? '/api') + '/matches/stream';
+
 interface LiveMatch {
   id: string;
   match_id: string;
@@ -142,6 +147,54 @@ export const useLiveMatches = () => {
     };
 
     initializeAndSync();
+  }, []);
+
+  // Live push: subscribe to the SSE stream so admin overrides and FD-driven
+  // sync updates appear in this hook's state without waiting for a refetch.
+  // Critical for live matches — users should see goals as soon as the score
+  // hits the DB, not on the next page reload.
+  useEffect(() => {
+    const es = new EventSource(STREAM_URL);
+
+    es.addEventListener('match-update', (ev) => {
+      try {
+        const incoming = JSON.parse((ev as MessageEvent).data) as LiveMatch;
+        setLiveMatches((rows) => {
+          const idx = rows.findIndex((r) => r.match_id === incoming.match_id);
+          if (idx === -1) {
+            // New row (e.g. a fixture only just appeared in FD's feed).
+            // Re-sort so the new row lands in chronological order.
+            const next = [...rows, incoming];
+            next.sort((a, b) =>
+              new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+            );
+            return next;
+          }
+          const next = [...rows];
+          next[idx] = incoming;
+          return next;
+        });
+        // Bump lastSync so the cooldown timer reflects the most recent
+        // server-side write — otherwise the user might smash the manual
+        // sync button right after a goal lands via push.
+        setLastSync(new Date(incoming.last_updated));
+      } catch (err) {
+        console.error('[match-stream] failed to parse event:', err);
+      }
+    });
+
+    es.addEventListener('error', () => {
+      // EventSource auto-reconnects on transient errors. Just log so we
+      // notice if the endpoint is genuinely down. readyState === CLOSED
+      // (2) means the browser gave up — usually CORS / 404 / wrong origin.
+      if (es.readyState === EventSource.CLOSED) {
+        console.warn('[match-stream] connection closed, will not retry');
+      }
+    });
+
+    return () => {
+      es.close();
+    };
   }, []);
 
   // Merge live data with local static data

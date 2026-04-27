@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
+import { emitMatchEvent, type LiveMatchEvent } from "../lib/matchEvents";
 
 const router = new Hono<AuthEnv>();
 
@@ -205,7 +206,7 @@ async function runSync(apiKey: string): Promise<void> {
           match.awayTeam?.tla ||
           match.awayTeam?.shortName?.substring(0, 3).toUpperCase() ||
           "TBD";
-        await sql`
+        const upserted = await sql`
           INSERT INTO public.live_matches (
             match_id, api_match_id, home_team_name, home_team_code,
             away_team_name, away_team_code, home_score, away_score,
@@ -248,8 +249,16 @@ async function runSync(apiKey: string): Promise<void> {
             status         = EXCLUDED.status,
             last_updated   = NOW()
           WHERE NOT public.live_matches.manual_override
+          RETURNING *
         `;
         syncState.matchesUpdated++;
+        // RETURNING is empty when ON CONFLICT's WHERE clause fails (i.e. the
+        // row had manual_override=true and the update was skipped). Only
+        // push to SSE clients on rows that actually changed — otherwise
+        // we'd flood the stream every minute with no-ops.
+        if (upserted && upserted.length > 0) {
+          emitMatchEvent(upserted[0] as unknown as LiveMatchEvent);
+        }
       } catch (err) {
         console.error(`[sync-matches] match ${match.id} failed:`, err);
       }
@@ -428,6 +437,10 @@ router.patch(
     if (!updated || updated.length === 0) {
       return c.json({ error: "Match not found" }, 404);
     }
+    // Push to any SSE subscribers so live UIs reflect this edit immediately
+    // — no refresh required. The cast is safe: the column list matches
+    // LiveMatchEvent's shape (we SELECT * via RETURNING).
+    emitMatchEvent(updated[0] as unknown as LiveMatchEvent);
     return c.json(updated[0]);
   }
 );
@@ -442,6 +455,10 @@ router.delete("/matches/:matchId/override", requireAdmin, async (c) => {
     RETURNING *
   `;
   if (rows.length === 0) return c.json({ error: "Match not found" }, 404);
+  // Tell live clients the lock dropped so the UI can update accordingly.
+  // The follow-up sync (admin's "Release & sync" action) will emit a
+  // second event with the FD values that overwrote the manual ones.
+  emitMatchEvent(rows[0] as unknown as LiveMatchEvent);
   return c.json(rows[0]);
 });
 
