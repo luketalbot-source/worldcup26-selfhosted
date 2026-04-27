@@ -212,6 +212,9 @@ export const AdminMatchesEditor = () => {
       const updated = await api.delete<AdminMatch>(`/admin/matches/${encodeURIComponent(match.match_id)}/override`);
       setMatches((rows) => rows.map((r) => (r.match_id === updated.match_id ? updated : r)));
       toast.success('Override released — next sync will refresh this row');
+      // Close the modal — otherwise it keeps showing the pre-release state
+      // (lock icon + "Release to sync" button) and the click looks like a no-op.
+      closeEdit();
     } catch (err) {
       toast.error('Failed to release override');
       console.error(err);
