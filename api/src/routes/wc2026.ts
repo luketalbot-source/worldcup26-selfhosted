@@ -51,6 +51,11 @@ router.get("/teams", async (c) => {
     }
   }
 
+  // Cache for 5 minutes. The roster only changes when the admin runs
+  // sync-matches; first paint should hit cache after the first page load
+  // of a session. stale-while-revalidate lets the next call use the cached
+  // copy immediately while the browser refreshes in the background.
+  c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
   return c.json({
     teams: rows,
     groups,

@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import Picker from '@emoji-mart/react';
-import data from '@emoji-mart/data';
+import { Suspense, lazy, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import {
   Dialog,
@@ -10,6 +9,32 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
+// emoji-mart is ~200KB gzipped — only load it when the user actually opens
+// the picker. Keeps it out of the initial bundle so the matches view loads
+// faster on first visit.
+const EmojiMartPicker = lazy(async () => {
+  const [{ default: data }, mod] = await Promise.all([
+    import('@emoji-mart/data'),
+    import('@emoji-mart/react'),
+  ]);
+  // Wrapper that already has the data + sensible defaults applied so the
+  // outer Suspense boundary doesn't need to know about the emoji-mart shape.
+  return {
+    default: (props: { onSelect: (emoji: { native: string }) => void; theme: 'light' | 'dark' }) => {
+      const Picker = mod.default;
+      return (
+        <Picker
+          data={data}
+          onEmojiSelect={props.onSelect}
+          theme={props.theme}
+          previewPosition="none"
+          skinTonePosition="search"
+        />
+      );
+    },
+  };
+});
+
 interface EmojiPickerProps {
   /** Current selection, rendered as the trigger label. */
   value: string;
@@ -18,9 +43,8 @@ interface EmojiPickerProps {
 }
 
 // Thin wrapper around @emoji-mart/react. Preserves the { value, onChange }
-// contract the old hand-rolled picker used, so ProfileView and any other
-// consumer works unchanged. Picks up the app's light/dark theme so the
-// picker's chrome doesn't clash with the surrounding card.
+// contract the old hand-rolled picker used. Picks up the app's light/dark
+// theme so the picker's chrome doesn't clash with the surrounding card.
 export const EmojiPicker = ({ value, onChange }: EmojiPickerProps) => {
   const [open, setOpen] = useState(false);
   const { resolvedTheme } = useTheme();
@@ -42,18 +66,27 @@ export const EmojiPicker = ({ value, onChange }: EmojiPickerProps) => {
         </button>
       </DialogTrigger>
 
-      {/* Override DialogContent padding so the picker extends edge-to-edge. */}
       <DialogContent className="p-0 bg-transparent border-0 shadow-none max-w-fit w-auto">
         <DialogHeader className="sr-only">
           <DialogTitle>Choose an avatar emoji</DialogTitle>
         </DialogHeader>
-        <Picker
-          data={data}
-          onEmojiSelect={handleSelect}
-          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-          previewPosition="none"
-          skinTonePosition="search"
-        />
+        {/* Suspense boundary covers the lazy chunk download — shows a small
+            spinner while the ~200KB emoji-mart bundle streams in on first
+            open. Cached after that, so subsequent opens are instant. */}
+        <Suspense
+          fallback={
+            <div className="bg-popover text-popover-foreground rounded-lg w-[352px] h-[420px] flex items-center justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          }
+        >
+          {open && (
+            <EmojiMartPicker
+              onSelect={handleSelect}
+              theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+            />
+          )}
+        </Suspense>
       </DialogContent>
     </Dialog>
   );

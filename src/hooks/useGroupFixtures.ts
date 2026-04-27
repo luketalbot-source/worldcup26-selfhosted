@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/apiClient';
 import type { Match, Team } from '@/types/match';
 import { useTeams } from './useTeams';
@@ -73,35 +73,42 @@ function toMatch(row: ApiMatch, getTeam: (code: string) => Team | undefined): Ma
  * Refresh by calling refetch() (used after the admin runs sync-matches).
  */
 export const useGroupFixtures = () => {
-  const { getTeamByCode, loading: teamsLoading } = useTeams();
-  const [matches, setMatches] = useState<Match[]>([]);
+  const { getTeamByCode } = useTeams();
+  const [rows, setRows] = useState<ApiMatch[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Fetch matches in parallel with /wc2026/teams. The team lookup is just a
+  // best-effort enrichment — toMatch falls back to a placeholder Team built
+  // from the API row's TLA + name when teams haven't landed yet, and once
+  // useTeams resolves the next render picks up the real Team objects via
+  // getTeamByCode below.
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const rows = await api.get<ApiMatch[]>('/matches', { stage: 'group' });
-      const converted = (rows ?? []).map((r) => toMatch(r, getTeamByCode));
-      setMatches(converted);
+      const data = await api.get<ApiMatch[]>('/matches', { stage: 'group' });
+      setRows(data ?? []);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setLoading(false);
     }
-  }, [getTeamByCode]);
+  }, []);
 
-  // Fetch once teams have landed, so getTeamByCode returns real Team objects
-  // rather than the placeholder fallback.
-  useEffect(() => {
-    if (!teamsLoading) void fetch();
-  }, [teamsLoading, fetch]);
+  useEffect(() => { void fetch(); }, [fetch]);
+
+  // Re-derive Match objects whenever the team roster updates, so flags +
+  // proper Team metadata appear without a second network round-trip.
+  const matches = useMemo<Match[]>(
+    () => (rows ?? []).map((r) => toMatch(r, getTeamByCode)),
+    [rows, getTeamByCode]
+  );
 
   const getMatchesByGroup = useCallback(
     (group: string): Match[] => matches.filter((m) => m.group === group),
     [matches]
   );
 
-  return { matches, loading: loading || teamsLoading, error, refetch: fetch, getMatchesByGroup };
+  return { matches, loading, error, refetch: fetch, getMatchesByGroup };
 };
