@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api, ApiError } from '@/lib/apiClient';
-import { Match } from '@/types/match';
+import { Match, Team } from '@/types/match';
 import { groupStageMatches } from '@/data/matches';
 import { getAllKnockoutMatches, KnockoutMatch } from '@/data/knockoutMatches';
+import { useTeams } from './useTeams';
 
 // Global cooldown in seconds
 const SYNC_COOLDOWN_SECONDS = 60;
@@ -26,6 +27,7 @@ interface LiveMatch {
 }
 
 export const useLiveMatches = () => {
+  const { getTeamByCode } = useTeams();
   const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
@@ -169,27 +171,62 @@ export const useLiveMatches = () => {
     });
   }, [liveMatches]);
 
+  // Today = matches whose kickoff falls on the user's local calendar day.
+  // Pulls from `liveMatches` (live API data), not the static fixture file —
+  // the static file's dates are all set to the actual tournament window
+  // (June 2026), so it'd never include "today" outside the WC itself, and
+  // would never reflect a freshly synced live match.
   const getTodayMatches = useCallback((): Match[] => {
-    const today = new Date();
-    const todayStr = today.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
+    const fallbackTeam = (code: string, name: string, group: string | null): Team => ({
+      id: code.toLowerCase(),
+      name,
+      code,
+      flag: '🏳️',
+      group: group ?? '',
     });
 
-    const todayMatches = groupStageMatches.filter(match => {
-      // Parse match date and compare with today
-      const matchDate = new Date(match.date);
-      const matchDateStr = matchDate.toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      return matchDateStr === todayStr;
-    });
+    const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    return liveMatches
+      .filter((row) => {
+        const matchDayLocal = new Date(row.match_date).toLocaleDateString('en-CA');
+        return matchDayLocal === todayLocal;
+      })
+      .map((row) => {
+        const status: Match['status'] =
+          row.status === 'IN_PLAY' || row.status === 'PAUSED' || row.status === 'LIVE'
+            ? 'live'
+            : row.status === 'FINISHED' || row.status === 'FT' || row.status === 'AET' || row.status === 'PEN'
+              ? 'finished'
+              : 'upcoming';
 
-    return mergeWithLocalData(todayMatches);
-  }, [mergeWithLocalData]);
+        const stageMap: Record<string, Match['stage']> = {
+          group: 'group',
+          round32: 'round32',
+          round16: 'round16',
+          quarter: 'quarter',
+          semi: 'semi',
+          third: 'third',
+          final: 'final',
+        };
+
+        return {
+          id: row.match_id,
+          homeTeam: getTeamByCode(row.home_team_code) ?? fallbackTeam(row.home_team_code, row.home_team_name, row.group_name),
+          awayTeam: getTeamByCode(row.away_team_code) ?? fallbackTeam(row.away_team_code, row.away_team_name, row.group_name),
+          date: row.match_date,
+          time: '',
+          dateIso: row.match_date,
+          venue: row.venue ?? '',
+          city: row.city ?? '',
+          stage: stageMap[row.stage] ?? 'group',
+          group: row.group_name ?? undefined,
+          homeScore: row.home_score ?? undefined,
+          awayScore: row.away_score ?? undefined,
+          status,
+        };
+      })
+      .sort((a, b) => new Date(a.dateIso!).getTime() - new Date(b.dateIso!).getTime());
+  }, [liveMatches, getTeamByCode]);
 
   const getGroupMatches = useCallback((group: string): Match[] => {
     const localMatches = groupStageMatches.filter(m => m.group === group);
