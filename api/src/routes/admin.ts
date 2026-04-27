@@ -209,7 +209,7 @@ async function runSync(apiKey: string): Promise<void> {
           INSERT INTO public.live_matches (
             match_id, api_match_id, home_team_name, home_team_code,
             away_team_name, away_team_code, home_score, away_score,
-            match_date, venue, stage, group_name, status, last_updated
+            match_date, venue, city, stage, group_name, status, last_updated
           ) VALUES (
             ${generateMatchId(match)},
             ${match.id ?? null},
@@ -221,6 +221,7 @@ async function runSync(apiKey: string): Promise<void> {
             ${match.score?.fullTime?.away ?? null},
             ${match.utcDate ?? null},
             ${match.venue ?? null},
+            ${null},
             ${mapStage(match.stage)},
             ${match.group ? match.group.replace(/^GROUP_/, "") : null},
             ${match.status ?? "SCHEDULED"},
@@ -228,10 +229,20 @@ async function runSync(apiKey: string): Promise<void> {
           )
           ON CONFLICT (match_id) DO UPDATE SET
             api_match_id   = EXCLUDED.api_match_id,
+            -- Team fields: knockout rounds start as "TBD" and get filled in
+            -- once the bracket resolves, so update these on every sync.
+            home_team_name = EXCLUDED.home_team_name,
+            home_team_code = EXCLUDED.home_team_code,
+            away_team_name = EXCLUDED.away_team_name,
+            away_team_code = EXCLUDED.away_team_code,
             home_score     = EXCLUDED.home_score,
             away_score     = EXCLUDED.away_score,
             match_date     = EXCLUDED.match_date,
             venue          = EXCLUDED.venue,
+            -- city is admin-only (FD doesn't supply it), but releasing an
+            -- override should fully revert all admin edits — so on a non-
+            -- overridden row we reset city to FD's value (NULL).
+            city           = EXCLUDED.city,
             stage          = EXCLUDED.stage,
             group_name     = EXCLUDED.group_name,
             status         = EXCLUDED.status,

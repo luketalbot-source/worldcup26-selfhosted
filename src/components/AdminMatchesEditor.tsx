@@ -15,6 +15,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -118,6 +128,11 @@ export const AdminMatchesEditor = () => {
   const [editing, setEditing] = useState<AdminMatch | null>(null);
   const [draft, setDraft] = useState<Partial<AdminMatch> | null>(null);
   const [saving, setSaving] = useState(false);
+  // Two-phase release: click "Release" → confirm modal → release + sync.
+  // Holding the candidate match here decouples confirm UI from the editor
+  // dialog so we can close the editor before the confirm appears.
+  const [confirmRelease, setConfirmRelease] = useState<AdminMatch | null>(null);
+  const [releasing, setReleasing] = useState(false);
 
   const fetchMatches = async () => {
     setLoading(true);
@@ -207,17 +222,55 @@ export const AdminMatchesEditor = () => {
     }
   };
 
-  const handleRelease = async (match: AdminMatch) => {
+  // Release flow: clear the manual_override flag, then immediately trigger a
+  // sync from football-data.org and refetch — so the row's manual values
+  // visibly revert to FD's data while the user is watching, instead of the
+  // release feeling like a no-op until some future scheduled sync runs.
+  const performRelease = async (match: AdminMatch) => {
+    setReleasing(true);
+    const toastId = `release-${match.match_id}`;
     try {
-      const updated = await api.delete<AdminMatch>(`/admin/matches/${encodeURIComponent(match.match_id)}/override`);
-      setMatches((rows) => rows.map((r) => (r.match_id === updated.match_id ? updated : r)));
-      toast.success('Override released — next sync will refresh this row');
-      // Close the modal — otherwise it keeps showing the pre-release state
-      // (lock icon + "Release to sync" button) and the click looks like a no-op.
+      await api.delete<AdminMatch>(`/admin/matches/${encodeURIComponent(match.match_id)}/override`);
       closeEdit();
+      setConfirmRelease(null);
+
+      toast.loading(
+        `Releasing ${match.home_team_code} vs ${match.away_team_code} — syncing from football-data.org…`,
+        { id: toastId },
+      );
+
+      // Fire sync. If one is already running this returns 202 with the
+      // existing job state — same outcome from our perspective.
+      try {
+        await api.post('/admin/sync-matches', {});
+      } catch (err) {
+        // Non-fatal: the override is already cleared. Surface but don't abort.
+        console.warn('[release] sync-matches kick failed:', err);
+      }
+
+      // Poll sync-status until idle (or 30s timeout). 1.5s cadence avoids
+      // hammering the API while keeping the toast feeling responsive.
+      const start = Date.now();
+      while (Date.now() - start < 30_000) {
+        await new Promise((r) => setTimeout(r, 1500));
+        try {
+          const status = await api.get<{ status: string }>('/admin/sync-status');
+          if (status?.status !== 'running') break;
+        } catch {
+          break;
+        }
+      }
+
+      await fetchMatches();
+      toast.success(
+        `${match.home_team_code} vs ${match.away_team_code} released — values reverted to football-data.org`,
+        { id: toastId, duration: 5000 },
+      );
     } catch (err) {
-      toast.error('Failed to release override');
+      toast.error('Failed to release override', { id: toastId });
       console.error(err);
+    } finally {
+      setReleasing(false);
     }
   };
 
@@ -469,8 +522,8 @@ export const AdminMatchesEditor = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => editing && handleRelease(editing)}
-                  disabled={saving}
+                  onClick={() => editing && setConfirmRelease(editing)}
+                  disabled={saving || releasing}
                 >
                   <Unlock className="w-4 h-4 mr-2" />
                   Release to sync
@@ -487,6 +540,50 @@ export const AdminMatchesEditor = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Release confirmation. Shown after the user clicks "Release to sync"
+          inside the edit dialog. Keeps the destructive action explicit —
+          releasing wipes manual edits the next time a sync runs. */}
+      <AlertDialog
+        open={!!confirmRelease}
+        onOpenChange={(open) => { if (!open && !releasing) setConfirmRelease(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Release {confirmRelease?.home_team_code} vs {confirmRelease?.away_team_code}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear your manual override for this match and immediately
+              sync from football-data.org. Any values you entered (scores, teams,
+              kick-off, venue, city, status) will be replaced by FD's data — and
+              for fields FD doesn't supply (like city), reset to empty.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={releasing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmRelease) void performRelease(confirmRelease);
+              }}
+              disabled={releasing}
+            >
+              {releasing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Releasing…
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-4 h-4 mr-2" />
+                  Release & sync
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
