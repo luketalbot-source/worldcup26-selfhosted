@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
 import { AdminBoostResults } from '@/components/AdminBoostResults';
+import { AdminMatchesEditor } from '@/components/AdminMatchesEditor';
 import { TenantCustomBoosts } from '@/components/TenantCustomBoosts';
 import {
   Dialog,
@@ -431,6 +432,10 @@ const Admin = () => {
         <Tabs defaultValue="tenants" className="space-y-4">
           <TabsList>
             <TabsTrigger value="tenants">Tenants</TabsTrigger>
+            <TabsTrigger value="matches" className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Matches
+            </TabsTrigger>
             <TabsTrigger value="boost" className="flex items-center gap-2">
               <Trophy className="w-4 h-4" />
               Boost Results
@@ -538,6 +543,10 @@ const Admin = () => {
             ))
           )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="matches">
+            <AdminMatchesEditor />
           </TabsContent>
 
           <TabsContent value="boost">

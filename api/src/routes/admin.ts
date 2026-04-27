@@ -236,6 +236,7 @@ async function runSync(apiKey: string): Promise<void> {
             group_name     = EXCLUDED.group_name,
             status         = EXCLUDED.status,
             last_updated   = NOW()
+          WHERE NOT public.live_matches.manual_override
         `;
         syncState.matchesUpdated++;
       } catch (err) {
@@ -323,6 +324,114 @@ router.post("/sync-matches", requireAuth, async (c) => {
 // regular users shouldn't see it either — it's just job state.
 router.get("/sync-status", requireAuth, async (c) => {
   return c.json(syncState);
+});
+
+// -----------------------------------------------------------------------------
+// Manual match override — backstop when football-data.org's data is wrong,
+// missing, or offline. Admin can edit any field and the row is locked from
+// future syncs (runSync's UPSERT respects manual_override). Releases the lock
+// via DELETE so sync can take over again.
+//
+// Scoring (routes/leaderboard.ts) keys off home_score/away_score being
+// non-null and ignores status, so manual edits flow through scoring with no
+// further plumbing.
+// -----------------------------------------------------------------------------
+
+router.get("/matches", requireAdmin, async (c) => {
+  const rows = await sql`
+    SELECT * FROM public.live_matches ORDER BY match_date ASC
+  `;
+  return c.json(rows);
+});
+
+const matchPatchSchema = z.object({
+  home_team_name: z.string().min(1).max(64).optional(),
+  home_team_code: z.string().min(2).max(8).optional(),
+  away_team_name: z.string().min(1).max(64).optional(),
+  away_team_code: z.string().min(2).max(8).optional(),
+  // null is a meaningful state for scores: "match has no recorded result yet".
+  // Differentiate from undefined (= field not in body, leave alone).
+  home_score: z.number().int().nullable().optional(),
+  away_score: z.number().int().nullable().optional(),
+  match_date: z.string().datetime().optional(),
+  venue: z.string().max(128).nullable().optional(),
+  city: z.string().max(64).nullable().optional(),
+  stage: z.string().max(32).optional(),
+  group_name: z.string().max(8).nullable().optional(),
+  status: z.string().max(32).optional(),
+}).strict();
+
+router.patch(
+  "/matches/:matchId",
+  requireAdmin,
+  zValidator("json", matchPatchSchema),
+  async (c) => {
+    const matchId = c.req.param("matchId");
+    const body = c.req.valid("json");
+
+    // postgres.js tagged templates don't support a dynamic SET clause
+    // (each ${} produces a single bound parameter, not a fragment of SQL).
+    // Build the SET list as a parameterised raw query so admin can PATCH
+    // any subset of fields. Column names are a fixed allowlist — never
+    // user input — so concatenation here can't introduce injection. Values
+    // bind through sql.unsafe's positional-parameter array.
+    const setFragments: string[] = [];
+    const values: unknown[] = [];
+    const bind = (col: string, val: unknown) => {
+      values.push(val);
+      setFragments.push(`${col} = $${values.length}`);
+    };
+
+    const has = (k: keyof typeof body) =>
+      Object.prototype.hasOwnProperty.call(body, k);
+
+    if (has("home_team_name")) bind("home_team_name", body.home_team_name);
+    if (has("home_team_code")) bind("home_team_code", body.home_team_code);
+    if (has("away_team_name")) bind("away_team_name", body.away_team_name);
+    if (has("away_team_code")) bind("away_team_code", body.away_team_code);
+    if (has("home_score"))     bind("home_score",     body.home_score);
+    if (has("away_score"))     bind("away_score",     body.away_score);
+    if (has("match_date"))     bind("match_date",     body.match_date);
+    if (has("venue"))          bind("venue",          body.venue);
+    if (has("city"))           bind("city",           body.city);
+    if (has("stage"))          bind("stage",          body.stage);
+    if (has("group_name"))     bind("group_name",     body.group_name);
+    if (has("status"))         bind("status",         body.status);
+
+    // Always set these on any admin PATCH. Toggling override on a
+    // body-less PATCH is fine — touches just these two columns.
+    setFragments.push(`manual_override = true`);
+    setFragments.push(`last_updated = NOW()`);
+
+    values.push(matchId);
+    const matchIdParam = `$${values.length}`;
+
+    const updated = await sql.unsafe(
+      `UPDATE public.live_matches
+         SET ${setFragments.join(", ")}
+       WHERE match_id = ${matchIdParam}
+       RETURNING *`,
+      values as never[]
+    );
+
+    if (!updated || updated.length === 0) {
+      return c.json({ error: "Match not found" }, 404);
+    }
+    return c.json(updated[0]);
+  }
+);
+
+router.delete("/matches/:matchId/override", requireAdmin, async (c) => {
+  const matchId = c.req.param("matchId");
+  const rows = await sql`
+    UPDATE public.live_matches
+       SET manual_override = false,
+           last_updated = NOW()
+     WHERE match_id = ${matchId}
+    RETURNING *
+  `;
+  if (rows.length === 0) return c.json({ error: "Match not found" }, 404);
+  return c.json(rows[0]);
 });
 
 // Fire a background sync if (a) the teams table is empty, or (b) the newest
