@@ -107,6 +107,41 @@ interface FootballDataMatch {
   awayTeam: { id: number; name: string; shortName: string; tla: string };
   score: { fullTime: { home: number | null; away: number | null } };
   venue: string | null;
+  // Present on TIER_TWO+ keys. Each entry has `minute`, optional
+  // `injuryTime`, `type` (REGULAR/PENALTY/OWN/...), and `team`/`scorer`/
+  // `assist` objects. We only persist minute + scorer + team-side, so
+  // the schema is loose on the rest.
+  goals?: Array<{
+    minute: number;
+    injuryTime?: number | null;
+    type?: string;
+    team?: { id?: number; name?: string };
+    scorer?: { id?: number; name?: string };
+  }>;
+}
+
+// Replace match_goals for a given match with whatever FD currently
+// reports. Source-of-truth model: FD's goal list wins. If admin had hand-
+// entered goals before FD caught up, those get overwritten — fine, since
+// match_goals is keyed off the *match* not the *event* (we don't have a
+// stable goal-id from FD anyway). team_side is derived by comparing the
+// goal's team.name to the match's FD home-team-name.
+async function syncGoalsFromFD(
+  matchId: string,
+  match: FootballDataMatch,
+): Promise<void> {
+  const fdGoals = match.goals ?? [];
+  await sql`DELETE FROM public.match_goals WHERE match_id = ${matchId}`;
+  if (fdGoals.length === 0) return;
+  const homeName = match.homeTeam?.name ?? '';
+  for (const g of fdGoals) {
+    if (!g.scorer?.name || g.minute == null) continue;
+    const isHome = g.team?.name === homeName;
+    await sql`
+      INSERT INTO public.match_goals (match_id, minute, player_name, team_side)
+      VALUES (${matchId}, ${g.minute}, ${g.scorer.name}, ${isHome ? 'home' : 'away'})
+    `;
+  }
 }
 
 // Use football-data.org's stable numeric match id as the canonical key.
@@ -283,7 +318,12 @@ async function runSync(apiKey: string): Promise<void> {
         // push to SSE clients on rows that actually changed — otherwise
         // we'd flood the stream every minute with no-ops.
         if (upserted && upserted.length > 0) {
-          const enriched = await fetchMatchWithGoals((upserted[0] as { match_id: string }).match_id);
+          // Pull FD's goal events into match_goals. Same lock semantics as
+          // the match itself: when manual_override=true the upsert returns
+          // no row, so we don't touch the goals either.
+          const upMatchId = (upserted[0] as { match_id: string }).match_id;
+          await syncGoalsFromFD(upMatchId, match);
+          const enriched = await fetchMatchWithGoals(upMatchId);
           if (enriched) emitMatchEvent(enriched);
         }
       } catch (err) {
@@ -537,8 +577,10 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
         RETURNING *
       `;
       // Same emit policy as runSync's main loop: only push to SSE when
-      // the row actually changed.
+      // the row actually changed. Pull FD's goal events too — manual_override
+      // gates both row + goals (upserted is empty when locked).
       if (upserted && upserted.length > 0) {
+        await syncGoalsFromFD(matchId, found);
         const enriched = await fetchMatchWithGoals(matchId);
         if (enriched) emitMatchEvent(enriched);
       }
