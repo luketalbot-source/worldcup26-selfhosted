@@ -511,10 +511,29 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
         continue;
       }
       const data = (await res.json()) as { matches?: FootballDataMatch[] };
-      const found = spec.pickFrom(data.matches ?? []);
-      if (!found) {
+      const picked = spec.pickFrom(data.matches ?? []);
+      if (!picked) {
         console.warn(`[extra-matches] ${spec.label}: no upcoming/live fixture found in ${spec.competition} feed`);
         continue;
+      }
+
+      // FD's /competitions/{code}/matches endpoint returns goals as an
+      // empty array — even on tiers that DO have event data. To get
+      // scorers, we have to fetch the single-match endpoint. Done per
+      // spec (just 2 matches today) so it's cheap on the rate limit.
+      let found: FootballDataMatch = picked;
+      try {
+        const detailRes = await fetch(
+          `${FOOTBALL_API_BASE}/matches/${picked.id}`,
+          { headers: { 'X-Auth-Token': apiKey } },
+        );
+        if (detailRes.ok) {
+          found = (await detailRes.json()) as FootballDataMatch;
+        }
+      } catch (err) {
+        // Non-fatal — fall back to the bulk-list payload we already have.
+        // Goals stay empty for this match but everything else still works.
+        console.warn(`[extra-matches] ${spec.label}: detail fetch failed:`, err);
       }
 
       // FD returns names like "FC Bayern München" / "Paris Saint-Germain FC"
