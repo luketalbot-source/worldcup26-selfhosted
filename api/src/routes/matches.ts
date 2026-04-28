@@ -12,47 +12,43 @@ const router = new Hono<AuthEnv>();
 // is considered knockout.
 router.get("/", async (c) => {
   const stage = c.req.query("stage");
-  // Aggregate match_goals per match into a JSON array, ordered by minute,
-  // so the client gets goals in chronological order without sorting on its
-  // end. coalesce-empty-array means rows with no goals get [] not null,
-  // which keeps the frontend's typed access (`row.goals.map(...)`) safe.
-  const goalsAgg = sql`COALESCE(
-    json_agg(
+  // Goals as a correlated subquery in SELECT — avoids the GROUP BY trap
+  // where Postgres demands every non-aggregate live_matches column appear
+  // in the GROUP BY (live_matches.id is the PK, match_id is just unique,
+  // so GROUP BY match_id alone fails on lm.* selection).
+  // COALESCE → '[]' so the frontend's typed `row.goals.map(...)` is safe.
+  const goalsSubquery = sql`COALESCE((
+    SELECT json_agg(
       json_build_object(
         'id', mg.id,
         'minute', mg.minute,
         'player_name', mg.player_name,
         'team_side', mg.team_side
       ) ORDER BY mg.minute, mg.created_at
-    ) FILTER (WHERE mg.id IS NOT NULL),
-    '[]'::json
-  )`;
+    )
+    FROM public.match_goals mg
+    WHERE mg.match_id = lm.match_id
+  ), '[]'::json)`;
 
   let rows;
   if (stage === "group") {
     rows = await sql`
-      SELECT lm.*, ${goalsAgg} AS goals
-      FROM live_matches lm
-      LEFT JOIN match_goals mg ON mg.match_id = lm.match_id
+      SELECT lm.*, ${goalsSubquery} AS goals
+      FROM public.live_matches lm
       WHERE lm.stage = 'group'
-      GROUP BY lm.match_id
       ORDER BY lm.match_date ASC
     `;
   } else if (stage === "knockout") {
     rows = await sql`
-      SELECT lm.*, ${goalsAgg} AS goals
-      FROM live_matches lm
-      LEFT JOIN match_goals mg ON mg.match_id = lm.match_id
+      SELECT lm.*, ${goalsSubquery} AS goals
+      FROM public.live_matches lm
       WHERE lm.stage <> 'group'
-      GROUP BY lm.match_id
       ORDER BY lm.match_date ASC
     `;
   } else {
     rows = await sql`
-      SELECT lm.*, ${goalsAgg} AS goals
-      FROM live_matches lm
-      LEFT JOIN match_goals mg ON mg.match_id = lm.match_id
-      GROUP BY lm.match_id
+      SELECT lm.*, ${goalsSubquery} AS goals
+      FROM public.live_matches lm
       ORDER BY lm.match_date ASC
     `;
   }

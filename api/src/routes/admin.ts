@@ -10,23 +10,25 @@ import { emitMatchEvent, type LiveMatchEvent, type MatchGoal } from "../lib/matc
 // list, so subscribers always see the freshest state without separately
 // listening for "match changed" vs "goals changed" event types.
 async function fetchMatchWithGoals(matchId: string): Promise<LiveMatchEvent | null> {
+  // Correlated subquery instead of LEFT JOIN + GROUP BY: live_matches' PK
+  // is `id`, not `match_id`, so GROUP BY match_id wouldn't license a
+  // SELECT lm.* and Postgres rejects with 42803.
   const rows = await sql`
     SELECT lm.*,
-      COALESCE(
-        json_agg(
+      COALESCE((
+        SELECT json_agg(
           json_build_object(
             'id', mg.id,
             'minute', mg.minute,
             'player_name', mg.player_name,
             'team_side', mg.team_side
           ) ORDER BY mg.minute, mg.created_at
-        ) FILTER (WHERE mg.id IS NOT NULL),
-        '[]'::json
-      ) AS goals
+        )
+        FROM public.match_goals mg
+        WHERE mg.match_id = lm.match_id
+      ), '[]'::json) AS goals
     FROM public.live_matches lm
-    LEFT JOIN public.match_goals mg ON mg.match_id = lm.match_id
     WHERE lm.match_id = ${matchId}
-    GROUP BY lm.match_id
   `;
   return rows.length === 0 ? null : (rows[0] as unknown as LiveMatchEvent);
 }
@@ -420,26 +422,44 @@ interface ExtraMatchSpec {
 
 const FINISHED_STATUSES = new Set(['FINISHED', 'CANCELLED', 'POSTPONED', 'SUSPENDED', 'AWARDED']);
 
-// Helper: build a "next non-finished UCL match between two teams" picker.
-// Same shape used by every CL test entry — match by team-name keywords,
-// drop already-played, take earliest by kickoff.
+// Helper: pick the most "now-relevant" UCL match between two teams from
+// a competition feed. Strategy:
+//   1. Live (IN_PLAY/PAUSED) wins — that's what the user wants to see.
+//   2. Otherwise pick the match with the kickoff time closest to NOW.
+//      That covers both directions: just-finished games stay visible for
+//      a day or two before the next leg eclipses them, and the next leg
+//      takes over once it's nearer than the previous one is in the past.
+//   3. Skip matches outside a +/- 14-day window so an old group-stage
+//      hit (Nov 2025 PSG vs Bayern, before the test fixture started)
+//      can't get picked up.
 function clPicker(
   homeKeyword: string,
   awayKeyword: string,
 ): (matches: FootballDataMatch[]) => FootballDataMatch | null {
   const has = (s: string | undefined, kw: string) =>
     (s ?? '').toLowerCase().includes(kw.toLowerCase());
+  const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
   return (matches) => {
+    const now = Date.now();
     const candidates = matches.filter((m) => {
       const home = m.homeTeam?.name;
       const away = m.awayTeam?.name;
       const isFixture =
         (has(home, homeKeyword) && has(away, awayKeyword)) ||
         (has(home, awayKeyword) && has(away, homeKeyword));
-      return isFixture && !FINISHED_STATUSES.has(m.status);
+      if (!isFixture) return false;
+      const kickoff = new Date(m.utcDate).getTime();
+      return Math.abs(now - kickoff) <= FOURTEEN_DAYS;
     });
+    if (candidates.length === 0) return null;
+
+    const live = candidates.find((m) => ['IN_PLAY', 'PAUSED'].includes(m.status));
+    if (live) return live;
+
     candidates.sort(
-      (a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime(),
+      (a, b) =>
+        Math.abs(now - new Date(a.utcDate).getTime()) -
+        Math.abs(now - new Date(b.utcDate).getTime()),
     );
     return candidates[0] ?? null;
   };
