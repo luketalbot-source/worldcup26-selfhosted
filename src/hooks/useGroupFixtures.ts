@@ -47,6 +47,7 @@ function toMatch(row: LiveMatch, getTeam: (code: string) => Team | undefined): M
     homeScore: row.home_score ?? undefined,
     awayScore: row.away_score ?? undefined,
     status: mapStatus(row.status),
+    goals: row.goals ?? [],
   };
 }
 

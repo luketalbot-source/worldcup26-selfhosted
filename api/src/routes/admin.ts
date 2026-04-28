@@ -3,7 +3,33 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
-import { emitMatchEvent, type LiveMatchEvent } from "../lib/matchEvents";
+import { emitMatchEvent, type LiveMatchEvent, type MatchGoal } from "../lib/matchEvents";
+
+// Re-fetch the full live_matches row + its goals for SSE emission. Used
+// from any code path that mutates either the match itself OR its goal
+// list, so subscribers always see the freshest state without separately
+// listening for "match changed" vs "goals changed" event types.
+async function fetchMatchWithGoals(matchId: string): Promise<LiveMatchEvent | null> {
+  const rows = await sql`
+    SELECT lm.*,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', mg.id,
+            'minute', mg.minute,
+            'player_name', mg.player_name,
+            'team_side', mg.team_side
+          ) ORDER BY mg.minute, mg.created_at
+        ) FILTER (WHERE mg.id IS NOT NULL),
+        '[]'::json
+      ) AS goals
+    FROM public.live_matches lm
+    LEFT JOIN public.match_goals mg ON mg.match_id = lm.match_id
+    WHERE lm.match_id = ${matchId}
+    GROUP BY lm.match_id
+  `;
+  return rows.length === 0 ? null : (rows[0] as unknown as LiveMatchEvent);
+}
 
 const router = new Hono<AuthEnv>();
 
@@ -257,7 +283,8 @@ async function runSync(apiKey: string): Promise<void> {
         // push to SSE clients on rows that actually changed — otherwise
         // we'd flood the stream every minute with no-ops.
         if (upserted && upserted.length > 0) {
-          emitMatchEvent(upserted[0] as unknown as LiveMatchEvent);
+          const enriched = await fetchMatchWithGoals((upserted[0] as { match_id: string }).match_id);
+          if (enriched) emitMatchEvent(enriched);
         }
       } catch (err) {
         console.error(`[sync-matches] match ${match.id} failed:`, err);
@@ -353,6 +380,31 @@ interface ExtraMatchSpec {
 
 const FINISHED_STATUSES = new Set(['FINISHED', 'CANCELLED', 'POSTPONED', 'SUSPENDED', 'AWARDED']);
 
+// Helper: build a "next non-finished UCL match between two teams" picker.
+// Same shape used by every CL test entry — match by team-name keywords,
+// drop already-played, take earliest by kickoff.
+function clPicker(
+  homeKeyword: string,
+  awayKeyword: string,
+): (matches: FootballDataMatch[]) => FootballDataMatch | null {
+  const has = (s: string | undefined, kw: string) =>
+    (s ?? '').toLowerCase().includes(kw.toLowerCase());
+  return (matches) => {
+    const candidates = matches.filter((m) => {
+      const home = m.homeTeam?.name;
+      const away = m.awayTeam?.name;
+      const isFixture =
+        (has(home, homeKeyword) && has(away, awayKeyword)) ||
+        (has(home, awayKeyword) && has(away, homeKeyword));
+      return isFixture && !FINISHED_STATUSES.has(m.status);
+    });
+    candidates.sort(
+      (a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime(),
+    );
+    return candidates[0] ?? null;
+  };
+}
+
 const EXTRA_MATCHES: ExtraMatchSpec[] = [
   {
     competition: 'CL',
@@ -360,26 +412,19 @@ const EXTRA_MATCHES: ExtraMatchSpec[] = [
     label: 'Bayern vs PSG (UCL semi)',
     stage: 'group',
     groupName: 'A',
-    pickFrom: (matches) => {
-      const isBayern = (s?: string) => (s ?? '').toLowerCase().includes('bayern');
-      const isPsg = (s?: string) => (s ?? '').toLowerCase().includes('paris');
-      // Filter to "is Bayern vs PSG, in either order, AND not already played".
-      // CL feeds list the whole season so there can be a group-stage hit
-      // (Nov 2025) sitting in the array alongside the semi we actually want;
-      // dropping FINISHED/CANCELLED/POSTPONED leaves just upcoming + live.
-      const candidates = matches.filter((m) => {
-        const home = m.homeTeam?.name;
-        const away = m.awayTeam?.name;
-        const isFixture =
-          (isBayern(home) && isPsg(away)) || (isPsg(home) && isBayern(away));
-        return isFixture && !FINISHED_STATUSES.has(m.status);
-      });
-      // Earliest by kick-off — picks the next leg if there are two semis.
-      candidates.sort(
-        (a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime(),
-      );
-      return candidates[0] ?? null;
-    },
+    pickFrom: clPicker('bayern', 'paris'),
+  },
+  {
+    competition: 'CL',
+    matchId: 'extra-cl-arsenal-atletico',
+    label: 'Arsenal vs Atletico Madrid (UCL semi)',
+    stage: 'group',
+    groupName: 'A',
+    // FD's name is "Club Atlético de Madrid" — matching on "atlético" with
+    // accent would break in-place toLowerCase; "atletico" alone might
+    // catch other clubs. Keyword "madrid" is unique to this fixture in
+    // the CL feed (Real Madrid is out of the semis).
+    pickFrom: clPicker('arsenal', 'madrid'),
   },
 ];
 
@@ -419,6 +464,8 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
       const SHORT_NAME: Record<string, string> = {
         FCB: 'Bayern',
         PSG: 'PSG',
+        ARS: 'Arsenal',
+        ATM: 'Atlético',
       };
       const displayName = (t: FootballDataMatch['homeTeam']): string =>
         SHORT_NAME[t?.tla ?? ''] ?? t?.shortName ?? t?.name ?? t?.tla ?? 'TBD';
@@ -492,7 +539,8 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
       // Same emit policy as runSync's main loop: only push to SSE when
       // the row actually changed.
       if (upserted && upserted.length > 0) {
-        emitMatchEvent(upserted[0] as unknown as LiveMatchEvent);
+        const enriched = await fetchMatchWithGoals(matchId);
+        if (enriched) emitMatchEvent(enriched);
       }
       console.log(
         `[extra-matches] ${spec.label}: ${found.status} ${found.homeTeam?.tla ?? '?'} ${found.score?.fullTime?.home ?? '-'} – ${found.score?.fullTime?.away ?? '-'} ${found.awayTeam?.tla ?? '?'}`,
@@ -627,12 +675,73 @@ router.patch(
       return c.json({ error: "Match not found" }, 404);
     }
     // Push to any SSE subscribers so live UIs reflect this edit immediately
-    // — no refresh required. The cast is safe: the column list matches
-    // LiveMatchEvent's shape (we SELECT * via RETURNING).
-    emitMatchEvent(updated[0] as unknown as LiveMatchEvent);
+    // — no refresh required. fetchMatchWithGoals re-reads the row so the
+    // emission carries the joined goals list, not just the bare match cols.
+    const enriched = await fetchMatchWithGoals(matchId);
+    if (enriched) emitMatchEvent(enriched);
     return c.json(updated[0]);
   }
 );
+
+// -----------------------------------------------------------------------------
+// Goal scorers — manual entry, since FD's tier we're on doesn't return
+// per-goal events. Surface scorer + minute on the MatchCard same as
+// Sofascore/Flashscore would. SSE emits a match-update with the refreshed
+// goals list so any open client repaints in real time.
+// -----------------------------------------------------------------------------
+
+const goalSchema = z.object({
+  minute: z.number().int().min(1).max(130),
+  player_name: z.string().min(1).max(64),
+  team_side: z.enum(['home', 'away']),
+});
+
+router.post(
+  "/matches/:matchId/goals",
+  requireAdmin,
+  zValidator("json", goalSchema),
+  async (c) => {
+    const matchId = c.req.param("matchId");
+    const body = c.req.valid("json");
+
+    // Verify the match exists first so we return 404, not a foreign-key
+    // violation, when the URL has a typo'd id.
+    const match = await sql`
+      SELECT 1 FROM public.live_matches WHERE match_id = ${matchId} LIMIT 1
+    `;
+    if (match.length === 0) return c.json({ error: "Match not found" }, 404);
+
+    const inserted = await sql`
+      INSERT INTO public.match_goals (match_id, minute, player_name, team_side)
+      VALUES (${matchId}, ${body.minute}, ${body.player_name}, ${body.team_side})
+      RETURNING *
+    `;
+
+    // Refresh the match row + goals and emit so live clients see the new
+    // scorer immediately. Same emit pipe as a score-edit PATCH.
+    const enriched = await fetchMatchWithGoals(matchId);
+    if (enriched) emitMatchEvent(enriched);
+
+    return c.json(inserted[0] as unknown as MatchGoal, 201);
+  },
+);
+
+router.delete("/matches/:matchId/goals/:goalId", requireAdmin, async (c) => {
+  const matchId = c.req.param("matchId");
+  const goalId = c.req.param("goalId");
+
+  const deleted = await sql`
+    DELETE FROM public.match_goals
+     WHERE id = ${goalId} AND match_id = ${matchId}
+    RETURNING *
+  `;
+  if (deleted.length === 0) return c.json({ error: "Goal not found" }, 404);
+
+  const enriched = await fetchMatchWithGoals(matchId);
+  if (enriched) emitMatchEvent(enriched);
+
+  return c.json({ ok: true });
+});
 
 // POST /admin/seed-extra-matches — runs ONLY the extra-match fetch (no WC).
 // Useful for seeding a CL test match in seconds without waiting for the full
@@ -658,7 +767,8 @@ router.delete("/matches/:matchId/override", requireAdmin, async (c) => {
   // Tell live clients the lock dropped so the UI can update accordingly.
   // The follow-up sync (admin's "Release & sync" action) will emit a
   // second event with the FD values that overwrote the manual ones.
-  emitMatchEvent(rows[0] as unknown as LiveMatchEvent);
+  const enriched = await fetchMatchWithGoals(matchId);
+  if (enriched) emitMatchEvent(enriched);
   return c.json(rows[0]);
 });
 

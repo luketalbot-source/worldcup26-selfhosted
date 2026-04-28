@@ -73,10 +73,13 @@ export const TLA_TO_ISO2: Record<string, string> = {
   THA: 'TH', VIE: 'VN', IDN: 'ID', MAS: 'MY', SIN: 'SG', PHI: 'PH',
   IND: 'IN', PAK: 'PK', BAN: 'BD', NEP: 'NP', SRI: 'LK',
   // Test scaffolding: club TLAs stand in as their country so MatchCard's
-  // getFlagUrl returns a real flag image (DE/FR via flagcdn) instead of
-  // falling through to the tiny opacity-30 emoji block. Remove with the
+  // getFlagUrl returns a real flag image (DE/FR/GB/ES via flagcdn) instead
+  // of falling through to the tiny opacity-30 emoji block. Remove with the
   // rest of the CL test bits once the WC opens.
-  FCB: 'DE', PSG: 'FR',
+  // Arsenal → 'GB' is the closest emoji-flag match (Union Jack); the
+  // FLAGCDN_OVERRIDES table in flagUtils.ts upgrades the *image* URL to
+  // the St George's Cross.
+  FCB: 'DE', PSG: 'FR', ARS: 'GB', ATM: 'ES',
 };
 
 function toAppTeam(t: ApiTeam): Team {

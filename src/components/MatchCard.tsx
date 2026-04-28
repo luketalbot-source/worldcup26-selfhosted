@@ -91,9 +91,9 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl shadow-card border h-[250px] ${
-        predictionResult?.resultType === 'exact' 
-          ? 'ring-2 ring-fifa-gold border-fifa-gold/50' 
+      className={`relative overflow-hidden rounded-2xl shadow-card border min-h-[250px] ${
+        predictionResult?.resultType === 'exact'
+          ? 'ring-2 ring-fifa-gold border-fifa-gold/50'
           : predictionResult?.resultType === 'correct'
             ? 'ring-2 ring-fifa-green border-fifa-green/50'
             : 'border-border/50'
@@ -176,13 +176,16 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
           )}
         </div>
 
-        {/* Score Section - Absolutely centered.
+        {/* Score + goals section.
             bg-background/60 instead of bg-white/30: theme-adaptive — solid
             enough that text-foreground (white in dark mode, near-black in
             light) gets proper contrast, still transparent enough that the
-            flag colours bleed through behind the pill. */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-background/60 backdrop-blur-md rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
+            flag colours bleed through behind the pill.
+
+            flex-1 wrapper centers the pill+goals stack vertically when the
+            card is empty, lets goals push down naturally when present. */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 my-3">
+          <div className="bg-background/60 backdrop-blur-md rounded-xl px-4 py-2 shadow-lg">
             {(isFinished || isLive) ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
@@ -217,10 +220,36 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
               </div>
             )}
           </div>
-        </div>
 
-        {/* Spacer to push prediction section to bottom */}
-        <div className="flex-1" />
+          {/* Goal scorers — only on live or finished matches that have any
+              goals recorded. Two-column grid: home scorers right-aligned
+              (toward the centre of the card), away left-aligned. Same
+              translucent background as the score pill so the text is
+              readable on top of the flag image. Small enough to fit
+              several goals without overflowing on a busy card. */}
+          {(isLive || isFinished) && (match.goals?.length ?? 0) > 0 && (
+            <div className="bg-background/55 backdrop-blur-md rounded-xl px-4 py-2 shadow-md max-w-md w-full">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                <div className="text-right space-y-0.5 min-w-0">
+                  {match.goals!.filter((g) => g.team_side === 'home').map((g) => (
+                    <div key={g.id} className="truncate text-foreground">
+                      <span className="font-medium">{g.player_name}</span>
+                      <span className="font-mono text-muted-foreground ml-2">{g.minute}&prime;</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-left space-y-0.5 min-w-0">
+                  {match.goals!.filter((g) => g.team_side === 'away').map((g) => (
+                    <div key={g.id} className="truncate text-foreground">
+                      <span className="font-mono text-muted-foreground mr-2">{g.minute}&prime;</span>
+                      <span className="font-medium">{g.player_name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Prediction Section */}
         {!isFinished && !isLive && (

@@ -103,6 +103,7 @@ export const useLiveMatches = () => {
           homeScore: row.home_score ?? undefined,
           awayScore: row.away_score ?? undefined,
           status,
+          goals: row.goals ?? [],
         };
       })
       .sort((a, b) => new Date(a.dateIso!).getTime() - new Date(b.dateIso!).getTime());

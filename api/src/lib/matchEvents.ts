@@ -9,6 +9,13 @@
 // (postgres.js supports it) so a write on one instance fans out to SSE
 // subscribers on every instance. Until then, simpler is better.
 
+export interface MatchGoal {
+  id: string;
+  minute: number;
+  player_name: string;
+  team_side: 'home' | 'away';
+}
+
 export interface LiveMatchEvent {
   match_id: string;
   api_match_id: number | null;
@@ -26,6 +33,7 @@ export interface LiveMatchEvent {
   status: string;
   manual_override: boolean;
   last_updated: string;
+  goals?: MatchGoal[];
 }
 
 type Subscriber = (event: LiveMatchEvent) => void;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Lock, Unlock, Save, Calendar, Filter } from 'lucide-react';
+import { Loader2, Lock, Unlock, Save, Calendar, Filter, X, Plus } from 'lucide-react';
 import { api } from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,13 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
+interface AdminGoal {
+  id: string;
+  minute: number;
+  player_name: string;
+  team_side: 'home' | 'away';
+}
+
 // Mirrors the live_matches schema. Stays loose on Match `stage` to tolerate
 // any new value the football-data.org sync might introduce in the future
 // (e.g. RELEGATION_PLAYOFF — won't happen at WC but good defence).
@@ -53,6 +60,7 @@ interface AdminMatch {
   status: string;
   manual_override: boolean;
   last_updated: string;
+  goals?: AdminGoal[];
 }
 
 // FD's status enum, paired with a one-line plain-English gloss so admins
@@ -136,6 +144,13 @@ export const AdminMatchesEditor = () => {
   // dialog so we can close the editor before the confirm appears.
   const [confirmRelease, setConfirmRelease] = useState<AdminMatch | null>(null);
   const [releasing, setReleasing] = useState(false);
+  // New-goal form state. Persists across goal additions so the admin can
+  // hammer Enter to add several goals in a row without re-picking side.
+  const [goalDraft, setGoalDraft] = useState<{
+    minute: string;
+    player_name: string;
+    team_side: 'home' | 'away';
+  }>({ minute: '', player_name: '', team_side: 'home' });
 
   const fetchMatches = async () => {
     setLoading(true);
@@ -279,6 +294,62 @@ export const AdminMatchesEditor = () => {
 
   const updateDraft = <K extends keyof AdminMatch>(k: K, v: AdminMatch[K] | null) => {
     setDraft((d) => (d ? { ...d, [k]: v } : d));
+  };
+
+  // Add / remove goal scorers. Updates BOTH the local editing dialog state
+  // and the parent matches list so the row's goal count + the goals array
+  // stay in sync without a refetch round-trip.
+  const addGoal = async () => {
+    if (!editing) return;
+    const minute = parseInt(goalDraft.minute, 10);
+    if (!minute || minute < 1 || minute > 130) {
+      toast.error('Minute must be between 1 and 130');
+      return;
+    }
+    if (!goalDraft.player_name.trim()) {
+      toast.error('Player name required');
+      return;
+    }
+    try {
+      const newGoal = await api.post<AdminGoal>(
+        `/admin/matches/${encodeURIComponent(editing.match_id)}/goals`,
+        {
+          minute,
+          player_name: goalDraft.player_name.trim(),
+          team_side: goalDraft.team_side,
+        },
+      );
+      const updatedGoals: AdminGoal[] = [...(editing.goals ?? []), newGoal].sort(
+        (a, b) => a.minute - b.minute,
+      );
+      setEditing({ ...editing, goals: updatedGoals });
+      setMatches((rows) =>
+        rows.map((r) => (r.match_id === editing.match_id ? { ...r, goals: updatedGoals } : r)),
+      );
+      // Reset the form but keep team_side selected — admin often enters
+      // multiple goals for the same side back-to-back.
+      setGoalDraft({ minute: '', player_name: '', team_side: goalDraft.team_side });
+    } catch (err) {
+      toast.error('Failed to add goal');
+      console.error(err);
+    }
+  };
+
+  const removeGoal = async (goalId: string) => {
+    if (!editing) return;
+    try {
+      await api.delete(
+        `/admin/matches/${encodeURIComponent(editing.match_id)}/goals/${goalId}`,
+      );
+      const filtered = (editing.goals ?? []).filter((g) => g.id !== goalId);
+      setEditing({ ...editing, goals: filtered });
+      setMatches((rows) =>
+        rows.map((r) => (r.match_id === editing.match_id ? { ...r, goals: filtered } : r)),
+      );
+    } catch (err) {
+      toast.error('Failed to remove goal');
+      console.error(err);
+    }
   };
 
   if (loading) {
@@ -548,6 +619,97 @@ export const AdminMatchesEditor = () => {
                     value={draft.group_name ?? ''}
                     onChange={(e) => updateDraft('group_name', e.target.value.toUpperCase() || null)}
                   />
+                </div>
+              </div>
+
+              {/* Goal scorers — manual entry since FD doesn't supply event
+                  data on this tier. Adds/removes hit the API immediately
+                  and emit SSE so user clients update in real time. */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label>Goal scorers</Label>
+
+                <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                  {(editing.goals ?? []).length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">
+                      No goals recorded. Add one below.
+                    </p>
+                  )}
+                  {(editing.goals ?? []).map((g) => (
+                    <div
+                      key={g.id}
+                      className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1"
+                    >
+                      <span className="font-mono text-xs w-10 shrink-0 text-muted-foreground">
+                        {g.minute}&prime;
+                      </span>
+                      <span className="flex-1 truncate">{g.player_name}</span>
+                      <span className="text-xs font-semibold text-muted-foreground shrink-0 px-1.5 py-0.5 rounded bg-background">
+                        {g.team_side === 'home' ? editing.home_team_code : editing.away_team_code}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 shrink-0"
+                        onClick={() => removeGoal(g.id)}
+                        aria-label={`Remove ${g.player_name}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 items-end">
+                  <div className="w-16 space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Min</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={130}
+                      placeholder="45"
+                      value={goalDraft.minute}
+                      onChange={(e) => setGoalDraft({ ...goalDraft, minute: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void addGoal();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Player</Label>
+                    <Input
+                      placeholder="Harry Kane"
+                      value={goalDraft.player_name}
+                      onChange={(e) => setGoalDraft({ ...goalDraft, player_name: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void addGoal();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="w-24 space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Side</Label>
+                    <Select
+                      value={goalDraft.team_side}
+                      onValueChange={(v) => setGoalDraft({ ...goalDraft, team_side: v as 'home' | 'away' })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="home">{editing.home_team_code}</SelectItem>
+                        <SelectItem value="away">{editing.away_team_code}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="button" onClick={addGoal} size="sm" className="shrink-0">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Goal
+                  </Button>
                 </div>
               </div>
             </div>

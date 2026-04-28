@@ -25,6 +25,13 @@ import {
 } from 'react';
 import { api, ApiError } from '@/lib/apiClient';
 
+export interface MatchGoal {
+  id: string;
+  minute: number;
+  player_name: string;
+  team_side: 'home' | 'away';
+}
+
 export interface LiveMatch {
   id: string;
   match_id: string;
@@ -42,6 +49,9 @@ export interface LiveMatch {
   group_name: string | null;
   status: string;
   last_updated: string;
+  // Optional because legacy SSE events from before the goals-aware emit
+  // landed don't carry it; default to [] in render code.
+  goals?: MatchGoal[];
 }
 
 export interface GoalEvent {

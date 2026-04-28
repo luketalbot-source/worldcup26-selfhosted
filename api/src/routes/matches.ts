@@ -12,13 +12,49 @@ const router = new Hono<AuthEnv>();
 // is considered knockout.
 router.get("/", async (c) => {
   const stage = c.req.query("stage");
+  // Aggregate match_goals per match into a JSON array, ordered by minute,
+  // so the client gets goals in chronological order without sorting on its
+  // end. coalesce-empty-array means rows with no goals get [] not null,
+  // which keeps the frontend's typed access (`row.goals.map(...)`) safe.
+  const goalsAgg = sql`COALESCE(
+    json_agg(
+      json_build_object(
+        'id', mg.id,
+        'minute', mg.minute,
+        'player_name', mg.player_name,
+        'team_side', mg.team_side
+      ) ORDER BY mg.minute, mg.created_at
+    ) FILTER (WHERE mg.id IS NOT NULL),
+    '[]'::json
+  )`;
+
   let rows;
   if (stage === "group") {
-    rows = await sql`SELECT * FROM live_matches WHERE stage = 'group' ORDER BY match_date ASC`;
+    rows = await sql`
+      SELECT lm.*, ${goalsAgg} AS goals
+      FROM live_matches lm
+      LEFT JOIN match_goals mg ON mg.match_id = lm.match_id
+      WHERE lm.stage = 'group'
+      GROUP BY lm.match_id
+      ORDER BY lm.match_date ASC
+    `;
   } else if (stage === "knockout") {
-    rows = await sql`SELECT * FROM live_matches WHERE stage <> 'group' ORDER BY match_date ASC`;
+    rows = await sql`
+      SELECT lm.*, ${goalsAgg} AS goals
+      FROM live_matches lm
+      LEFT JOIN match_goals mg ON mg.match_id = lm.match_id
+      WHERE lm.stage <> 'group'
+      GROUP BY lm.match_id
+      ORDER BY lm.match_date ASC
+    `;
   } else {
-    rows = await sql`SELECT * FROM live_matches ORDER BY match_date ASC`;
+    rows = await sql`
+      SELECT lm.*, ${goalsAgg} AS goals
+      FROM live_matches lm
+      LEFT JOIN match_goals mg ON mg.match_id = lm.match_id
+      GROUP BY lm.match_id
+      ORDER BY lm.match_date ASC
+    `;
   }
   // Tight cache (10s) — during live matches we want a refresh to pick up
   // a goal quickly. The SSE stream at /api/matches/stream pushes updates

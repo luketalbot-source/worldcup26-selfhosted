@@ -11,6 +11,9 @@ const FLAGCDN_OVERRIDES: Record<string, string> = {
   SCO: 'gb-sct',
   WAL: 'gb-wls',
   NIR: 'gb-nir',
+  // Arsenal flies the St George's Cross — gb-eng matches the brand more
+  // than the Union Jack would. Test scaffolding only.
+  ARS: 'gb-eng',
 };
 
 // w320 is the sweet spot — sharp on retina (the MatchCard half is ~180px

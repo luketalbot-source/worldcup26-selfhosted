@@ -6,6 +6,13 @@ export interface Team {
   group: string;
 }
 
+export interface MatchGoal {
+  id: string;
+  minute: number;
+  player_name: string;
+  team_side: 'home' | 'away';
+}
+
 export interface Match {
   id: string;
   homeTeam: Team;
@@ -29,6 +36,7 @@ export interface Match {
   homeScore?: number;
   awayScore?: number;
   status: 'upcoming' | 'live' | 'finished';
+  goals?: MatchGoal[];
 }
 
 export interface Prediction {
