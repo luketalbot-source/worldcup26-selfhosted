@@ -77,7 +77,12 @@ interface ContextValue {
     error?: unknown;
   }>;
   refetch: () => Promise<Date | null>;
-  goalEvent: GoalEvent | null;
+  // Queue rather than a single value. Two SSE events in the same React tick
+  // (rapid admin saves, or PATCH + runSync re-emit) both push their goals;
+  // the consumer animates them one at a time so neither is dropped to
+  // React's state batching.
+  goalQueue: GoalEvent[];
+  dismissGoal: (id: number) => void;
 }
 
 const Ctx = createContext<ContextValue | null>(null);
@@ -90,15 +95,25 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
-  const [goalEvent, setGoalEvent] = useState<GoalEvent | null>(null);
+  const [goalQueue, setGoalQueue] = useState<GoalEvent[]>([]);
 
-  // The SSE handler closes over state. Without a ref, every event's
-  // "compare to previous score" check would see the initial empty array.
-  const matchesRef = useRef<LiveMatch[]>([]);
-  matchesRef.current = matches;
+  // Per-match score snapshot updated SYNCHRONOUSLY inside the SSE handler,
+  // independent of React state. Two reasons:
+  //   1) React-state-derived refs (e.g. `matchesRef.current = matches` in
+  //      render body) only update once per render. If two SSE events fire
+  //      in the same tick, the second sees the first's pre-update state.
+  //   2) O(1) lookup instead of array.find on every event.
+  // Seeded from the initial fetch so the first SSE event has a baseline.
+  const prevScoresRef = useRef<Map<string, { home: number | null; away: number | null }>>(
+    new Map(),
+  );
 
   const goalSeqRef = useRef(0);
   const hasAutoSynced = useRef(false);
+
+  const dismissGoal = useCallback((id: number) => {
+    setGoalQueue((q) => q.filter((g) => g.id !== id));
+  }, []);
 
   const fetchLiveMatches = useCallback(async (): Promise<Date | null> => {
     try {
@@ -107,6 +122,15 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
         const sorted = [...data].sort(
           (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime(),
         );
+        // Seed prev-scores BEFORE the SSE handler can run with this state.
+        // Without seeding, the first SSE event for any match would have no
+        // baseline to compare against and be silently dropped.
+        for (const m of sorted) {
+          prevScoresRef.current.set(m.match_id, {
+            home: m.home_score,
+            away: m.away_score,
+          });
+        }
         setMatches(sorted);
         if (sorted.length > 0) {
           const mostRecent = sorted.reduce((latest, m) => {
@@ -199,23 +223,28 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     es.addEventListener('match-update', (ev) => {
       try {
         const incoming = JSON.parse((ev as MessageEvent).data) as LiveMatch;
-        const prev = matchesRef.current.find((m) => m.match_id === incoming.match_id);
+        const prev = prevScoresRef.current.get(incoming.match_id);
 
-        // Goal detection. Two guard rails matter:
-        //   1) Only when status is in a "live" state — avoids replaying the
-        //      goals embedded in a FINISHED row when the admin first lands
-        //      on the page and a match-update event re-arrives.
-        //   2) Only when we have a prior snapshot — first-time arrival has
-        //      nothing to compare against (could be initial fetch race or
-        //      a brand new fixture).
+        // Goal detection. Two guard rails:
+        //   1) Only when status is "live" — avoids replaying the goals
+        //      already embedded in a FINISHED row that arrives via a
+        //      runSync re-emit just after the user opens the page.
+        //   2) Only when we have a prior snapshot in prevScoresRef. The
+        //      first time we see a match (no baseline yet), we just record
+        //      the score; we don't celebrate retroactively.
         // Score going DOWN (VAR disallowed goal) is a no-op.
+        //
+        // Both home AND away can register a goal in the same event (rare,
+        // but possible if an admin saves "0-0 → 1-1" in a single PATCH).
+        // Independent ifs, not else-if.
+        const newGoals: GoalEvent[] = [];
         if (prev && LIVE_STATUSES.has(incoming.status)) {
-          const prevHome = prev.home_score ?? 0;
-          const prevAway = prev.away_score ?? 0;
+          const prevHome = prev.home ?? 0;
+          const prevAway = prev.away ?? 0;
           const newHome = incoming.home_score ?? 0;
           const newAway = incoming.away_score ?? 0;
           if (newHome > prevHome) {
-            setGoalEvent({
+            newGoals.push({
               id: ++goalSeqRef.current,
               matchId: incoming.match_id,
               scoredBy: 'home',
@@ -224,8 +253,9 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
               homeScore: newHome,
               awayScore: newAway,
             });
-          } else if (newAway > prevAway) {
-            setGoalEvent({
+          }
+          if (newAway > prevAway) {
+            newGoals.push({
               id: ++goalSeqRef.current,
               matchId: incoming.match_id,
               scoredBy: 'away',
@@ -235,6 +265,20 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
               awayScore: newAway,
             });
           }
+        }
+
+        // Update prev-scores ref synchronously, BEFORE the next SSE event
+        // can fire. React's state batching can delay setMatches by a tick;
+        // this ref isn't subject to that.
+        prevScoresRef.current.set(incoming.match_id, {
+          home: incoming.home_score,
+          away: incoming.away_score,
+        });
+
+        if (newGoals.length > 0) {
+          // Functional update: even if React batches multiple events into
+          // the same render, every event's goals make it into the queue.
+          setGoalQueue((q) => [...q, ...newGoals]);
         }
 
         setMatches((rows) => {
@@ -278,7 +322,8 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
         canSync,
         syncMatches,
         refetch: fetchLiveMatches,
-        goalEvent,
+        goalQueue,
+        dismissGoal,
       }}
     >
       {children}
@@ -293,5 +338,3 @@ export const useLiveMatchesContext = (): ContextValue => {
   }
   return v;
 };
-
-export const useGoalEvent = (): GoalEvent | null => useLiveMatchesContext().goalEvent;

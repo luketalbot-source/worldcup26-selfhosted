@@ -12,26 +12,29 @@
 // the inner motion element — that guarantees a fresh mount/animation
 // even when the same match scores twice in quick succession.
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useGoalEvent, type GoalEvent } from '@/contexts/LiveMatchesContext';
+import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { useTeams } from '@/hooks/useTeams';
 
 const VISIBLE_MS = 4000; // total time the overlay stays on screen
 
 export const GoalCelebration = () => {
-  const event = useGoalEvent();
+  const { goalQueue, dismissGoal } = useLiveMatchesContext();
   const { getTeamByCode } = useTeams();
-  // Latched copy so we can animate-out after the context's most-recent event
-  // pointer changes — otherwise switching events would yank the overlay.
-  const [active, setActive] = useState<GoalEvent | null>(null);
+
+  // Animate the queue head. When it's been on screen for VISIBLE_MS we
+  // dismiss it from the queue, which causes the next (if any) to slide
+  // into the head position and start its own cycle. Goals never overlap
+  // and none get dropped to React batching — both bugs the previous
+  // single-state design suffered from.
+  const active = goalQueue[0] ?? null;
 
   useEffect(() => {
-    if (!event) return;
-    setActive(event);
-    const t = setTimeout(() => setActive(null), VISIBLE_MS);
+    if (!active) return;
+    const t = setTimeout(() => dismissGoal(active.id), VISIBLE_MS);
     return () => clearTimeout(t);
-  }, [event?.id]);
+  }, [active?.id, dismissGoal]);
 
   if (!active) return null;
 
