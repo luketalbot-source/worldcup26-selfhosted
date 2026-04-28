@@ -176,9 +176,13 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
           )}
         </div>
 
-        {/* Score Section - Absolutely centered */}
+        {/* Score Section - Absolutely centered.
+            bg-background/60 instead of bg-white/30: theme-adaptive — solid
+            enough that text-foreground (white in dark mode, near-black in
+            light) gets proper contrast, still transparent enough that the
+            flag colours bleed through behind the pill. */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
+          <div className="bg-background/60 backdrop-blur-md rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
             {(isFinished || isLive) ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
