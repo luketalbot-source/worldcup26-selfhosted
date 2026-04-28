@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { Match, Team } from '@/types/match';
-import { useTeams } from './useTeams';
+import { useTeams, tlaToFlag } from './useTeams';
 import { useLiveMatchesContext, type LiveMatch } from '@/contexts/LiveMatchesContext';
 
 /**
@@ -23,12 +23,14 @@ function mapStatus(s: string): Match['status'] {
 function toMatch(row: LiveMatch, getTeam: (code: string) => Team | undefined): Match {
   // Fallback team when the roster hasn't been synced yet or the TLA doesn't
   // match (rare — FD is usually consistent). Keeps the UI rendering instead
-  // of blowing up.
+  // of blowing up. Run the code through tlaToFlag so the FLAG_OVERRIDES
+  // table (e.g. FCB → 🇩🇪, PSG → 🇫🇷) still applies even when the team is
+  // missing from the cached roster.
   const fallback = (code: string, name: string): Team => ({
     id: code.toLowerCase(),
     name,
     code,
-    flag: '🏳️',
+    flag: tlaToFlag(code),
     group: row.group_name ?? '',
   });
   return {

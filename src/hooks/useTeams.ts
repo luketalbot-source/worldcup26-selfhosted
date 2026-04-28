@@ -34,7 +34,12 @@ const FLAG_OVERRIDES: Record<string, string> = {
   FCB: '🇩🇪',
   PSG: '🇫🇷',
 };
-function tlaToFlag(tla: string): string {
+// Exported so fallback paths (useGroupFixtures' `fallback` Team, etc) can
+// render the right flag for codes that haven't yet landed in the teams
+// cache. Without this, a freshly-seeded match shows 🏳️ for both sides
+// until either the server's 5-min Cache-Control on /wc2026/teams turns
+// over OR the user does a hard refresh.
+export function tlaToFlag(tla: string): string {
   if (FLAG_OVERRIDES[tla]) return FLAG_OVERRIDES[tla]!;
   const iso2 = TLA_TO_ISO2[tla];
   if (!iso2) return '🏳️';

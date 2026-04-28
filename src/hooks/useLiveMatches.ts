@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { Match, Team } from '@/types/match';
 import { groupStageMatches } from '@/data/matches';
 import { getAllKnockoutMatches, KnockoutMatch } from '@/data/knockoutMatches';
-import { useTeams } from './useTeams';
+import { useTeams, tlaToFlag } from './useTeams';
 import { useLiveMatchesContext, type LiveMatch } from '@/contexts/LiveMatchesContext';
 
 // Thin wrapper around <LiveMatchesProvider>'s context. Keeps the public API
@@ -52,7 +52,9 @@ export const useLiveMatches = () => {
       id: code.toLowerCase(),
       name,
       code,
-      flag: '🏳️',
+      // Use tlaToFlag so FLAG_OVERRIDES (e.g. FCB/PSG for the CL test)
+      // still applies even when teams cache hasn't seen these codes yet.
+      flag: tlaToFlag(code),
       group: group ?? '',
     });
 

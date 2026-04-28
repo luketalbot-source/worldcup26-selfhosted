@@ -340,29 +340,61 @@ async function runSync(apiKey: string): Promise<void> {
 
 interface ExtraMatchSpec {
   competition: string;          // FD competition code (CL, PL, …)
-  match: (m: FootballDataMatch) => boolean;  // identifies which match
+  // Stable match_id we write to live_matches. Hardcoded per spec rather
+  // than derived from FD's match.id so updates always land on the same
+  // row even if the predicate resolves to a different FD match over time
+  // (e.g. group stage → knockout once the earlier fixture has finished).
+  matchId: string;
+  pickFrom: (matches: FootballDataMatch[]) => FootballDataMatch | null;
   stage: string;                // our internal stage
   groupName: string | null;     // our internal group_name
   label: string;                // for logs
 }
 
+const FINISHED_STATUSES = new Set(['FINISHED', 'CANCELLED', 'POSTPONED', 'SUSPENDED', 'AWARDED']);
+
 const EXTRA_MATCHES: ExtraMatchSpec[] = [
   {
     competition: 'CL',
+    matchId: 'extra-cl-bayern-psg',
     label: 'Bayern vs PSG (UCL semi)',
     stage: 'group',
     groupName: 'A',
-    match: (m) => {
-      const home = (m.homeTeam?.name ?? '').toLowerCase();
-      const away = (m.awayTeam?.name ?? '').toLowerCase();
-      const isBayern = (s: string) => s.includes('bayern');
-      const isPsg = (s: string) => s.includes('paris');
-      return (isBayern(home) && isPsg(away)) || (isPsg(home) && isBayern(away));
+    pickFrom: (matches) => {
+      const isBayern = (s?: string) => (s ?? '').toLowerCase().includes('bayern');
+      const isPsg = (s?: string) => (s ?? '').toLowerCase().includes('paris');
+      // Filter to "is Bayern vs PSG, in either order, AND not already played".
+      // CL feeds list the whole season so there can be a group-stage hit
+      // (Nov 2025) sitting in the array alongside the semi we actually want;
+      // dropping FINISHED/CANCELLED/POSTPONED leaves just upcoming + live.
+      const candidates = matches.filter((m) => {
+        const home = m.homeTeam?.name;
+        const away = m.awayTeam?.name;
+        const isFixture =
+          (isBayern(home) && isPsg(away)) || (isPsg(home) && isBayern(away));
+        return isFixture && !FINISHED_STATUSES.has(m.status);
+      });
+      // Earliest by kick-off — picks the next leg if there are two semis.
+      candidates.sort(
+        (a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime(),
+      );
+      return candidates[0] ?? null;
     },
   },
 ];
 
 async function syncExtraMatches(apiKey: string): Promise<void> {
+  // One-time cleanup: an earlier version of this code derived match_id
+  // from the FD match.id (`fd-cl-<id>`), which left an orphan row whenever
+  // the predicate later resolved to a different match. Stable IDs make
+  // this a no-op going forward, but we still need to nuke any legacy
+  // rows so the user's Group A list doesn't show a stale FT result
+  // alongside the live semi.
+  await sql`
+    DELETE FROM public.live_matches
+     WHERE match_id LIKE 'fd-cl-%' OR match_id LIKE 'fd-pl-%'
+  `;
+
   for (const spec of EXTRA_MATCHES) {
     try {
       const res = await fetch(
@@ -374,9 +406,9 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
         continue;
       }
       const data = (await res.json()) as { matches?: FootballDataMatch[] };
-      const found = (data.matches ?? []).find(spec.match);
+      const found = spec.pickFrom(data.matches ?? []);
       if (!found) {
-        console.warn(`[extra-matches] ${spec.label}: not found in ${spec.competition} feed`);
+        console.warn(`[extra-matches] ${spec.label}: no upcoming/live fixture found in ${spec.competition} feed`);
         continue;
       }
 
@@ -407,7 +439,7 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
         `;
       }
 
-      const matchId = `fd-${spec.competition.toLowerCase()}-${found.id}`;
+      const matchId = spec.matchId;
       const upserted = await sql`
         INSERT INTO public.live_matches (
           match_id, api_match_id, home_team_name, home_team_code,
