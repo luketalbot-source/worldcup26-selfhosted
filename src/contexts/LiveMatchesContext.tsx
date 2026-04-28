@@ -195,6 +195,20 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     [fetchLiveMatches, canSync],
   );
 
+  // Periodic auto-sync while at least one match is live. Without this, FD
+  // score updates only flow when someone manually hits the Sync button —
+  // unworkable during a 90-minute match where users want goals to appear.
+  // Throttled to 60s and skipped when no live matches exist, so we don't
+  // burn FD's free-tier quota during quiet hours.
+  useEffect(() => {
+    const anyLive = matches.some((m) => LIVE_STATUSES.has(m.status));
+    if (!anyLive) return;
+    const id = setInterval(() => {
+      void syncMatches(true);
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [matches, syncMatches]);
+
   // Initial fetch + auto-sync once per session
   useEffect(() => {
     const init = async () => {

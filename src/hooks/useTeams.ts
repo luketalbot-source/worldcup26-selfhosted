@@ -27,6 +27,12 @@ const FLAG_OVERRIDES: Record<string, string> = {
   SCO: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
   WAL: '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
   NIR: '🇬🇧',
+  // Test injection: Bayern vs PSG UCL semi for live-score rehearsal. The
+  // app expects nation TLAs, so we render the club's country flag instead
+  // of the badge — Bayern (Germany), PSG (France). Remove with the rest
+  // of the CL test scaffolding once the WC opens.
+  FCB: '🇩🇪',
+  PSG: '🇫🇷',
 };
 function tlaToFlag(tla: string): string {
   if (FLAG_OVERRIDES[tla]) return FLAG_OVERRIDES[tla]!;

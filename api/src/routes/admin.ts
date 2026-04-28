@@ -304,6 +304,16 @@ async function runSync(apiKey: string): Promise<void> {
       console.log(`[sync-matches] teams done: ${syncState.teamsUpdated}/${teams.length}`);
     }
 
+    // Pull in non-WC test fixtures (Bayern vs PSG, etc) so they get
+    // refreshed on every sync — without this, live scores from the
+    // CL feed never make it into our DB. Failures are isolated; a
+    // broken extra-match must not fail the WC sync.
+    try {
+      await syncExtraMatches(apiKey);
+    } catch (err) {
+      console.error("[sync-matches] extra-matches failed:", err);
+    }
+
     syncState.status = "success";
     syncState.finishedAt = new Date().toISOString();
   } catch (err) {
@@ -311,6 +321,141 @@ async function runSync(apiKey: string): Promise<void> {
     syncState.error = err instanceof Error ? err.message : String(err);
     syncState.finishedAt = new Date().toISOString();
     console.error("[sync-matches] failed:", err);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// EXTRA MATCHES — non-WC fixtures we want to surface inside the WC app for
+// testing the live-score push pipeline before the World Cup opens.
+//
+// Each entry pulls from a different FD competition (free tier supports CL,
+// PL, BL1, etc.) and is upserted into live_matches with stage/group_name
+// overrides so it appears in the WC group view. Match-id is namespaced by
+// competition code (`fd-cl-{id}`, `fd-pl-{id}`) so it can never collide
+// with the regular `fd-{id}` rows that runSync writes for the WC feed.
+//
+// Remove this block (plus the call inside runSync below) once the
+// tournament starts and we don't need a stand-in live match.
+// -----------------------------------------------------------------------------
+
+interface ExtraMatchSpec {
+  competition: string;          // FD competition code (CL, PL, …)
+  match: (m: FootballDataMatch) => boolean;  // identifies which match
+  stage: string;                // our internal stage
+  groupName: string | null;     // our internal group_name
+  label: string;                // for logs
+}
+
+const EXTRA_MATCHES: ExtraMatchSpec[] = [
+  {
+    competition: 'CL',
+    label: 'Bayern vs PSG (UCL semi)',
+    stage: 'group',
+    groupName: 'A',
+    match: (m) => {
+      const home = (m.homeTeam?.name ?? '').toLowerCase();
+      const away = (m.awayTeam?.name ?? '').toLowerCase();
+      const isBayern = (s: string) => s.includes('bayern');
+      const isPsg = (s: string) => s.includes('paris');
+      return (isBayern(home) && isPsg(away)) || (isPsg(home) && isBayern(away));
+    },
+  },
+];
+
+async function syncExtraMatches(apiKey: string): Promise<void> {
+  for (const spec of EXTRA_MATCHES) {
+    try {
+      const res = await fetch(
+        `${FOOTBALL_API_BASE}/competitions/${spec.competition}/matches`,
+        { headers: { 'X-Auth-Token': apiKey } },
+      );
+      if (!res.ok) {
+        console.warn(`[extra-matches] ${spec.label}: ${spec.competition} returned ${res.status}`);
+        continue;
+      }
+      const data = (await res.json()) as { matches?: FootballDataMatch[] };
+      const found = (data.matches ?? []).find(spec.match);
+      if (!found) {
+        console.warn(`[extra-matches] ${spec.label}: not found in ${spec.competition} feed`);
+        continue;
+      }
+
+      // Upsert teams so useTeams returns them (with crests + group)
+      // alongside the regular WC roster. group is our overridden value,
+      // not the FD competition group.
+      for (const t of [found.homeTeam, found.awayTeam]) {
+        if (!t?.tla) continue;
+        await sql`
+          INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
+          VALUES (
+            gen_random_uuid(),
+            ${t.tla},
+            ${t.name ?? t.tla},
+            ${t.shortName ?? t.name ?? t.tla},
+            ${(t as { crest?: string }).crest ?? null},
+            ${spec.groupName},
+            ${t.id ?? null},
+            NOW()
+          )
+          ON CONFLICT (tla) DO UPDATE SET
+            name = EXCLUDED.name,
+            short_name = EXCLUDED.short_name,
+            crest_url = EXCLUDED.crest_url,
+            group_name = EXCLUDED.group_name,
+            fd_team_id = EXCLUDED.fd_team_id,
+            updated_at = NOW()
+        `;
+      }
+
+      const matchId = `fd-${spec.competition.toLowerCase()}-${found.id}`;
+      const upserted = await sql`
+        INSERT INTO public.live_matches (
+          match_id, api_match_id, home_team_name, home_team_code,
+          away_team_name, away_team_code, home_score, away_score,
+          match_date, venue, city, stage, group_name, status, last_updated
+        ) VALUES (
+          ${matchId},
+          ${found.id ?? null},
+          ${found.homeTeam?.name ?? 'TBD'},
+          ${found.homeTeam?.tla ?? 'TBD'},
+          ${found.awayTeam?.name ?? 'TBD'},
+          ${found.awayTeam?.tla ?? 'TBD'},
+          ${found.score?.fullTime?.home ?? null},
+          ${found.score?.fullTime?.away ?? null},
+          ${found.utcDate ?? null},
+          ${found.venue ?? null},
+          ${null},
+          ${spec.stage},
+          ${spec.groupName},
+          ${found.status ?? 'SCHEDULED'},
+          NOW()
+        )
+        ON CONFLICT (match_id) DO UPDATE SET
+          api_match_id   = EXCLUDED.api_match_id,
+          home_team_name = EXCLUDED.home_team_name,
+          home_team_code = EXCLUDED.home_team_code,
+          away_team_name = EXCLUDED.away_team_name,
+          away_team_code = EXCLUDED.away_team_code,
+          home_score     = EXCLUDED.home_score,
+          away_score     = EXCLUDED.away_score,
+          match_date     = EXCLUDED.match_date,
+          venue          = EXCLUDED.venue,
+          status         = EXCLUDED.status,
+          last_updated   = NOW()
+        WHERE NOT public.live_matches.manual_override
+        RETURNING *
+      `;
+      // Same emit policy as runSync's main loop: only push to SSE when
+      // the row actually changed.
+      if (upserted && upserted.length > 0) {
+        emitMatchEvent(upserted[0] as unknown as LiveMatchEvent);
+      }
+      console.log(
+        `[extra-matches] ${spec.label}: ${found.status} ${found.homeTeam?.tla ?? '?'} ${found.score?.fullTime?.home ?? '-'} – ${found.score?.fullTime?.away ?? '-'} ${found.awayTeam?.tla ?? '?'}`,
+      );
+    } catch (err) {
+      console.error(`[extra-matches] ${spec.label} failed:`, err);
+    }
   }
 }
 
@@ -444,6 +589,17 @@ router.patch(
     return c.json(updated[0]);
   }
 );
+
+// POST /admin/seed-extra-matches — runs ONLY the extra-match fetch (no WC).
+// Useful for seeding a CL test match in seconds without waiting for the full
+// 104-match WC sync, and for manually nudging the CL refresh during a live
+// game without taking the WC sync's cooldown.
+router.post("/seed-extra-matches", requireAdmin, async (c) => {
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+  if (!apiKey) return c.json({ error: "FOOTBALL_DATA_API_KEY not configured" }, 500);
+  await syncExtraMatches(apiKey);
+  return c.json({ ok: true, count: EXTRA_MATCHES.length });
+});
 
 router.delete("/matches/:matchId/override", requireAdmin, async (c) => {
   const matchId = c.req.param("matchId");
