@@ -412,18 +412,30 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
         continue;
       }
 
+      // FD returns names like "FC Bayern München" / "Paris Saint-Germain FC"
+      // that always truncate in the MatchCard's 96px team-name pill. Override
+      // to a short form keyed by TLA so the user sees "Bayern" / "PSG" in
+      // full — purely a display concern; the FD data itself is unchanged.
+      const SHORT_NAME: Record<string, string> = {
+        FCB: 'Bayern',
+        PSG: 'PSG',
+      };
+      const displayName = (t: FootballDataMatch['homeTeam']): string =>
+        SHORT_NAME[t?.tla ?? ''] ?? t?.shortName ?? t?.name ?? t?.tla ?? 'TBD';
+
       // Upsert teams so useTeams returns them (with crests + group)
       // alongside the regular WC roster. group is our overridden value,
       // not the FD competition group.
       for (const t of [found.homeTeam, found.awayTeam]) {
         if (!t?.tla) continue;
+        const name = displayName(t);
         await sql`
           INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
           VALUES (
             gen_random_uuid(),
             ${t.tla},
-            ${t.name ?? t.tla},
-            ${t.shortName ?? t.name ?? t.tla},
+            ${name},
+            ${name},
             ${(t as { crest?: string }).crest ?? null},
             ${spec.groupName},
             ${t.id ?? null},
@@ -448,9 +460,9 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
         ) VALUES (
           ${matchId},
           ${found.id ?? null},
-          ${found.homeTeam?.name ?? 'TBD'},
+          ${displayName(found.homeTeam)},
           ${found.homeTeam?.tla ?? 'TBD'},
-          ${found.awayTeam?.name ?? 'TBD'},
+          ${displayName(found.awayTeam)},
           ${found.awayTeam?.tla ?? 'TBD'},
           ${found.score?.fullTime?.home ?? null},
           ${found.score?.fullTime?.away ?? null},

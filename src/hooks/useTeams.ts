@@ -72,6 +72,11 @@ export const TLA_TO_ISO2: Record<string, string> = {
   UZB: 'UZ', TKM: 'TM', KAZ: 'KZ', KGZ: 'KG', TJK: 'TJ',
   THA: 'TH', VIE: 'VN', IDN: 'ID', MAS: 'MY', SIN: 'SG', PHI: 'PH',
   IND: 'IN', PAK: 'PK', BAN: 'BD', NEP: 'NP', SRI: 'LK',
+  // Test scaffolding: club TLAs stand in as their country so MatchCard's
+  // getFlagUrl returns a real flag image (DE/FR via flagcdn) instead of
+  // falling through to the tiny opacity-30 emoji block. Remove with the
+  // rest of the CL test bits once the WC opens.
+  FCB: 'DE', PSG: 'FR',
 };
 
 function toAppTeam(t: ApiTeam): Team {
