@@ -79,7 +79,7 @@ export const TLA_TO_ISO2: Record<string, string> = {
   // Arsenal → 'GB' is the closest emoji-flag match (Union Jack); the
   // FLAGCDN_OVERRIDES table in flagUtils.ts upgrades the *image* URL to
   // the St George's Cross.
-  FCB: 'DE', PSG: 'FR', ARS: 'GB', ATM: 'ES',
+  FCB: 'DE', PSG: 'FR', ARS: 'GB', ATL: 'ES',
 };
 
 function toAppTeam(t: ApiTeam): Team {

@@ -548,7 +548,7 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
         FCB: 'Bayern',
         PSG: 'PSG',
         ARS: 'Arsenal',
-        ATM: 'Atlético',
+        ATL: 'Atlético',
       };
       const displayName = (t: FootballDataMatch['homeTeam']): string =>
         SHORT_NAME[t?.tla ?? ''] ?? t?.shortName ?? t?.name ?? t?.tla ?? 'TBD';
