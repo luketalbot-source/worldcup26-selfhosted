@@ -87,7 +87,13 @@ const calculateStandings = (group: string, matches: Match[], teams: Team[]): Gro
     return b.goalsFor - a.goalsFor;
   });
 };
-const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+// 'TEST' is a synthetic group at the front of the list for non-WC test
+// fixtures (Champions League stand-ins for live-data rehearsal). The
+// rendering layer treats it specially: label "Test Games" instead of
+// "Group TEST", and no standings table (no round-robin to compute).
+// Drop 'TEST' from the array along with the EXTRA_MATCHES backend
+// scaffolding once the WC opens.
+const groups = ['TEST', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 export const MatchesView = () => {
   const {
     t
@@ -218,7 +224,12 @@ export const MatchesView = () => {
           </motion.div>}
       </div>;
   }
-  const standings = calculateStandings(activeGroup, matches, getTeamsByGroup(activeGroup));
+  // No standings for the synthetic TEST group — its fixtures aren't a
+  // round-robin, so a 4-team table would just be misleading zeros.
+  const standings =
+    activeGroup === 'TEST'
+      ? null
+      : calculateStandings(activeGroup, matches, getTeamsByGroup(activeGroup));
 
   return <div className="space-y-4">
       {/* Sticky header - stage selector + group tabs on mobile */}
@@ -256,7 +267,7 @@ export const MatchesView = () => {
       }} transition={{
         duration: 0.3
       }} className="flex-1 space-y-4">
-          <GroupStandings standings={standings} group={activeGroup} />
+          {standings && <GroupStandings standings={standings} group={activeGroup} />}
           {matches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
         </motion.div>
       </div>

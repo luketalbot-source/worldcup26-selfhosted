@@ -31,7 +31,7 @@ export const GroupTabs = ({ groups, activeGroup, onGroupChange, vertical = false
               : 'bg-card text-muted-foreground hover:bg-muted'
           }`}
         >
-          {t('standings.group')} {group}
+          {group === 'TEST' ? t('matches.testGames') : `${t('standings.group')} ${group}`}
         </motion.button>
       ))}
     </div>

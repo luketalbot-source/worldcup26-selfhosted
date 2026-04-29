@@ -33,7 +33,8 @@
   "matches": {
     "noMatchesToday": "No matches scheduled for today",
     "loginPrompt": "Log in to save your predictions!",
-    "group": "Group {{letter}}"
+    "group": "Group {{letter}}",
+    "testGames": "Test Games"
   },
   "matchCard": {
     "live": "LIVE",

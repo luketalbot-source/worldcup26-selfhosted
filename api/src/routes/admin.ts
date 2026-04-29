@@ -465,13 +465,17 @@ function clPicker(
   };
 }
 
+// All extra (non-WC) test fixtures land in a synthetic "TEST" group so
+// they don't pollute Group A's roster. Frontend renders this group
+// first in the tabs with the label "Test Games" and skips standings
+// (no round-robin to compute on a couple of friendlies).
 const EXTRA_MATCHES: ExtraMatchSpec[] = [
   {
     competition: 'CL',
     matchId: 'extra-cl-bayern-psg',
     label: 'Bayern vs PSG (UCL semi)',
     stage: 'group',
-    groupName: 'A',
+    groupName: 'TEST',
     pickFrom: clPicker('bayern', 'paris'),
   },
   {
@@ -479,7 +483,7 @@ const EXTRA_MATCHES: ExtraMatchSpec[] = [
     matchId: 'extra-cl-arsenal-atletico',
     label: 'Arsenal vs Atletico Madrid (UCL semi)',
     stage: 'group',
-    groupName: 'A',
+    groupName: 'TEST',
     // FD's name is "Club Atlético de Madrid" — matching on "atlético" with
     // accent would break in-place toLowerCase; "atletico" alone might
     // catch other clubs. Keyword "madrid" is unique to this fixture in
