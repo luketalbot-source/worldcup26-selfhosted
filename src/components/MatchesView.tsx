@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { GroupStanding, Match, Team } from '@/types/match';
 import { LogIn, Trophy } from 'lucide-react';
-import emptyStateToday from '@/assets/empty-state-today.svg';
+import emptyStateToday from '@/assets/empty-state-today.jpg';
 
 
 const calculateStandings = (group: string, matches: Match[], teams: Team[]): GroupStanding[] => {
@@ -209,7 +209,18 @@ export const MatchesView = () => {
         {renderLoginPrompt()}
         
         {todayMatches.length === 0 ? <div className="text-center py-12 space-y-4">
-            <img src={emptyStateToday} alt="" aria-hidden="true" className="w-full max-w-[600px] h-auto mx-auto rounded-2xl shadow-card" />
+            {/* Source image is grayscale on a dark background — for light
+                mode we invert the whole image, which flips the bg to white
+                and the icons to dark-grey. One asset, both themes covered,
+                no double download. */}
+            <img
+              src={emptyStateToday}
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+              className="w-full max-w-[400px] h-auto mx-auto rounded-2xl shadow-card invert dark:invert-0"
+            />
             <p className="text-muted-foreground">{t('matches.noMatchesToday')}</p>
           </div> : <motion.div initial={{
         opacity: 0,
