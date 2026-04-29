@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { GroupStanding, Match, Team } from '@/types/match';
 import { LogIn, Trophy } from 'lucide-react';
-import mascotsWaiting from '@/assets/mascots-waiting.png';
+import emptyStateToday from '@/assets/empty-state-today.svg';
 
 
 const calculateStandings = (group: string, matches: Match[], teams: Team[]): GroupStanding[] => {
@@ -203,7 +203,7 @@ export const MatchesView = () => {
         {renderLoginPrompt()}
         
         {todayMatches.length === 0 ? <div className="text-center py-12 space-y-4">
-            <img src={mascotsWaiting} alt="World Cup 2026 mascots waiting for matches" className="w-full max-w-[600px] h-auto mx-auto" />
+            <img src={emptyStateToday} alt="" aria-hidden="true" className="w-full max-w-[600px] h-auto mx-auto rounded-2xl shadow-card" />
             <p className="text-muted-foreground">{t('matches.noMatchesToday')}</p>
           </div> : <motion.div initial={{
         opacity: 0,

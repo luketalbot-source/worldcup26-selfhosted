@@ -930,8 +930,83 @@ router.post("/seed-demo-matches", requireAdmin, async (c) => {
 });
 
 // -----------------------------------------------------------------------------
-// POST /admin/generate-boost-image (unchanged)
+// POST /admin/generate-boost-image
+//
+// Two providers, in order:
+//   1. Google Gemini's image model — best quality when it works.
+//   2. Pollinations.ai — free, no API key, no quota. Reliable fallback.
+//
+// Gemini's free tier has limit=0 for image models (paid-only), and we
+// don't have billing wired. Until that changes we'll usually fall through
+// to Pollinations — but the structure means a future billing change just
+// works without code changes.
+//
+// In both cases the resulting image is fetched server-side, base64-encoded,
+// and stored as a data: URL on the boost row. Keeps everything in one
+// place (no external image hosting), and the image survives even if the
+// upstream provider goes down later.
 // -----------------------------------------------------------------------------
+
+async function tryGeminiImage(
+  prompt: string,
+  apiKey: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ["IMAGE"] },
+        }),
+      },
+    );
+    if (!res.ok) {
+      const txt = (await res.text()).slice(0, 200);
+      console.warn(`[boost-image] Gemini ${res.status}: ${txt}`);
+      return null;
+    }
+    const data = (await res.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> };
+      }>;
+    };
+    const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+    const b64 = part?.inlineData?.data;
+    const mime = part?.inlineData?.mimeType ?? "image/png";
+    return b64 ? `data:${mime};base64,${b64}` : null;
+  } catch (err) {
+    console.warn("[boost-image] Gemini threw:", err);
+    return null;
+  }
+}
+
+async function tryPollinationsImage(prompt: string): Promise<string | null> {
+  try {
+    // nologo=true strips the bottom-right Pollinations watermark. seed is
+    // randomised per request so you don't get the same image on a duplicate
+    // boost title. width/height fixed at 768x768 — boost cards are square.
+    const seed = Math.floor(Math.random() * 1_000_000);
+    const url =
+      `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
+      `?width=768&height=768&nologo=true&seed=${seed}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`[boost-image] Pollinations ${res.status}`);
+      return null;
+    }
+    const buf = await res.arrayBuffer();
+    const mime = res.headers.get("content-type") ?? "image/jpeg";
+    const b64 = Buffer.from(buf).toString("base64");
+    return `data:${mime};base64,${b64}`;
+  } catch (err) {
+    console.warn("[boost-image] Pollinations threw:", err);
+    return null;
+  }
+}
+
 router.post(
   "/generate-boost-image",
   requireAdmin,
@@ -941,59 +1016,26 @@ router.post(
       boostId: z.string().uuid(),
       title: z.string(),
       description: z.string().optional(),
-    })
+    }),
   ),
   async (c) => {
     const body = c.req.valid("json");
+
+    const prompt = `A vivid, eye-catching sports prediction image for a football boost award. Title: "${body.title}"${body.description ? `. Description: "${body.description}"` : ""}. Style: modern, energetic, football/soccer themed, vibrant colours. NO text, NO logos, NO national flags, NO team kits, NO FIFA branding, NO mascots.`;
+
     const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) return c.json({ error: "GOOGLE_AI_API_KEY not configured" }, 500);
+    let imageUrl: string | null = null;
 
-    const prompt = `Generate a vivid, eye-catching sports prediction image for a World Cup 2026 boost award. Title: "${body.title}"${body.description ? `. Description: "${body.description}"` : ""}. Style: modern, energetic, football/soccer themed.`;
-
-    // Imagen 4 requires a paid Gemini plan. gemini-2.5-flash-image is a
-    // Gemini-native image model available on the free tier and uses the
-    // standard generateContent API. Response returns an inline base64 image
-    // in the candidates[].content.parts[] array alongside any text parts.
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseModalities: ["IMAGE"],
-          },
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini image API error:", errText);
-      let msg = errText;
-      try {
-        const parsed = JSON.parse(errText);
-        msg = parsed.error?.message || errText;
-      } catch { /* not JSON */ }
-      return c.json({ error: `Image generation failed: ${msg}` }, 502);
+    if (apiKey) {
+      imageUrl = await tryGeminiImage(prompt, apiKey);
+    }
+    if (!imageUrl) {
+      imageUrl = await tryPollinationsImage(prompt);
     }
 
-    const data = (await res.json()) as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> };
-      }>;
-    };
-    const parts = data.candidates?.[0]?.content?.parts ?? [];
-    const imagePart = parts.find((p) => p.inlineData);
-    const b64 = imagePart?.inlineData?.data;
-    const mime = imagePart?.inlineData?.mimeType ?? "image/png";
-    if (!b64) {
-      console.error("Gemini image API returned no inline image:", JSON.stringify(data).slice(0, 400));
-      return c.json({ error: "No image returned" }, 502);
+    if (!imageUrl) {
+      return c.json({ error: "All image providers failed — please try again" }, 502);
     }
-
-    const imageUrl = `data:${mime};base64,${b64}`;
 
     await sql`
       UPDATE tenant_custom_boosts SET image_url = ${imageUrl}, updated_at = NOW()
@@ -1001,7 +1043,7 @@ router.post(
     `;
 
     return c.json({ imageUrl });
-  }
+  },
 );
 
 export default router;

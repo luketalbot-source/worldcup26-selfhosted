@@ -33,7 +33,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
-            
+
             return (
               <motion.button
                 key={tab.id}
@@ -49,6 +49,15 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
             );
           })}
         </div>
+        {/* Trademark disclaimer. Tiny by design — visible but unobtrusive,
+            sized so it fits on a single line at the narrowest mobile widths
+            (~320px) without wrapping. Under the menu so it doesn't push the
+            tap targets around. Translated per locale; copy lives in nav.disclaimer. */}
+        <p
+          className="text-[9px] leading-tight text-muted-foreground/70 text-center px-2 pb-1 select-none"
+        >
+          {t('nav.disclaimer')}
+        </p>
       </div>
     </nav>
   );
