@@ -614,6 +614,12 @@ async function syncExtraMatches(apiKey: string): Promise<void> {
           away_score     = EXCLUDED.away_score,
           match_date     = EXCLUDED.match_date,
           venue          = EXCLUDED.venue,
+          -- stage / group_name are spec-driven (e.g. moving extras out of
+          -- Group A into the synthetic 'TEST' group). Without these in the
+          -- UPDATE clause, existing rows would keep whatever group_name the
+          -- previous spec wrote and never migrate.
+          stage          = EXCLUDED.stage,
+          group_name     = EXCLUDED.group_name,
           status         = EXCLUDED.status,
           last_updated   = NOW()
         WHERE NOT public.live_matches.manual_override
