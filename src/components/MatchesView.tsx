@@ -16,7 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { GroupStanding, Match, Team } from '@/types/match';
 import { LogIn, Trophy } from 'lucide-react';
-import emptyStateToday from '@/assets/empty-state-today.jpg';
+import emptyStateTodayDark from '@/assets/empty-state-today-dark.jpg';
+import emptyStateTodayLight from '@/assets/empty-state-today-light.jpg';
 
 
 const calculateStandings = (group: string, matches: Match[], teams: Team[]): GroupStanding[] => {
@@ -209,17 +210,26 @@ export const MatchesView = () => {
         {renderLoginPrompt()}
         
         {todayMatches.length === 0 ? <div className="text-center py-12 space-y-4">
-            {/* Source image is grayscale on a dark background — for light
-                mode we invert the whole image, which flips the bg to white
-                and the icons to dark-grey. One asset, both themes covered,
-                no double download. */}
+            {/* Two real assets — dark-on-black for dark mode, light-on-white
+                for light mode — instead of relying on CSS invert. Slightly
+                more bytes (40KB total vs ~20KB) but the light version's
+                contrast is properly tuned, not just a numerical channel
+                flip. Tailwind's dark: variant toggles which is shown. */}
             <img
-              src={emptyStateToday}
+              src={emptyStateTodayLight}
               alt=""
               aria-hidden="true"
               loading="lazy"
               decoding="async"
-              className="w-full max-w-[400px] h-auto mx-auto rounded-2xl shadow-card invert dark:invert-0"
+              className="w-full max-w-[400px] h-auto mx-auto rounded-2xl shadow-card block dark:hidden"
+            />
+            <img
+              src={emptyStateTodayDark}
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+              className="w-full max-w-[400px] h-auto mx-auto rounded-2xl shadow-card hidden dark:block"
             />
             <p className="text-muted-foreground">{t('matches.noMatchesToday')}</p>
           </div> : <motion.div initial={{
