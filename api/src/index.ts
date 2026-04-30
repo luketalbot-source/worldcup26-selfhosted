@@ -28,9 +28,19 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 
 // Public config endpoint — tells the frontend whether dev mode is on, so it
 // can conditionally show "enter without SSO" buttons. Safe to expose: only
-// returns booleans derived from server env.
+// returns booleans derived from server env, plus a public deploy label.
+//
+// The `deployment` block exists because we can run identical code on
+// multiple Northflank projects (e.g. legacy `wc2026` + new `football-2026`
+// during a registry migration). Each project sets DEPLOY_LABEL in its
+// runtime env so a request to /api/config tells you exactly which
+// instance answered. Falls back to "unknown" so the field is always
+// present.
 app.get("/api/config", (c) => c.json({
   devMode: process.env.ADMIN_OPEN === "1",
+  deployment: {
+    label: process.env.DEPLOY_LABEL ?? "unknown",
+  },
 }));
 
 app.route("/api/auth", authRoutes);
