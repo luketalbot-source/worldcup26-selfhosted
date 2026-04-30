@@ -27,12 +27,6 @@ const FLAG_OVERRIDES: Record<string, string> = {
   SCO: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
   WAL: '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
   NIR: '🇬🇧',
-  // Test injection: Bayern vs PSG UCL semi for live-score rehearsal. The
-  // app expects nation TLAs, so we render the club's country flag instead
-  // of the badge — Bayern (Germany), PSG (France). Remove with the rest
-  // of the CL test scaffolding once the WC opens.
-  FCB: '🇩🇪',
-  PSG: '🇫🇷',
 };
 // Exported so fallback paths (useGroupFixtures' `fallback` Team, etc) can
 // render the right flag for codes that haven't yet landed in the teams
@@ -72,14 +66,6 @@ export const TLA_TO_ISO2: Record<string, string> = {
   UZB: 'UZ', TKM: 'TM', KAZ: 'KZ', KGZ: 'KG', TJK: 'TJ',
   THA: 'TH', VIE: 'VN', IDN: 'ID', MAS: 'MY', SIN: 'SG', PHI: 'PH',
   IND: 'IN', PAK: 'PK', BAN: 'BD', NEP: 'NP', SRI: 'LK',
-  // Test scaffolding: club TLAs stand in as their country so MatchCard's
-  // getFlagUrl returns a real flag image (DE/FR/GB/ES via flagcdn) instead
-  // of falling through to the tiny opacity-30 emoji block. Remove with the
-  // rest of the CL test bits once the WC opens.
-  // Arsenal → 'GB' is the closest emoji-flag match (Union Jack); the
-  // FLAGCDN_OVERRIDES table in flagUtils.ts upgrades the *image* URL to
-  // the St George's Cross.
-  FCB: 'DE', PSG: 'FR', ARS: 'GB', ATL: 'ES',
 };
 
 function toAppTeam(t: ApiTeam): Team {

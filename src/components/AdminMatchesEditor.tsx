@@ -399,27 +399,6 @@ export const AdminMatchesEditor = () => {
               <span className="ml-1.5 text-xs opacity-70">{c.count}</span>
             </Button>
           ))}
-          {/* Test scaffolding: seeds Bayern vs PSG (and any other entries
-              in EXTRA_MATCHES) into Group A so we can rehearse live-score
-              push before the WC opens. Remove with the rest of the
-              extra-match block on the backend once the tournament starts. */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={async () => {
-              try {
-                await api.post('/admin/seed-extra-matches', {});
-                toast.success('Test match seeded — refreshing list');
-                await fetchMatches();
-              } catch (err) {
-                toast.error('Failed to seed test match');
-                console.error(err);
-              }
-            }}
-          >
-            + Seed test match
-          </Button>
         </div>
 
         {filtered.length === 0 && (

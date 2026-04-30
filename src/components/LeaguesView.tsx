@@ -621,15 +621,24 @@ const ExpandableLeagueCard = ({
 export const LeaguesView = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { tenantId } = useTenant();
+  const { tenantId, tenant } = useTenant();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { leagues, loading, createLeague, joinLeague, refetch } = useLeagues(tenantId);
-  
+
+  // Tenant-level feature flag. When false the leagues view collapses to a
+  // single "Everyone" league — no create/join, no custom leagues, and the
+  // Everyone card auto-expands so the leaderboard fills the viewport.
+  const customLeaguesEnabled = tenant?.allow_custom_leagues !== false;
+
   // Check for dev load test mode
   const isDevMode = searchParams.get('devLoadTest') === 'true';
-  
-  const [expandedLeagueId, setExpandedLeagueId] = useState<string | null>(null);
+
+  const [expandedLeagueId, setExpandedLeagueId] = useState<string | null>(
+    // Auto-expand Everyone when it's the only thing on screen — saves the
+    // user a click and makes the page feel "full" rather than empty.
+    customLeaguesEnabled ? null : EVERYONE_LEAGUE_ID,
+  );
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   
@@ -752,23 +761,28 @@ export const LeaguesView = () => {
           <p className="text-white/70 text-sm mt-1">{t('leagues.subtitle')}</p>
         </div>
         
-        <div className="p-4 flex gap-3">
-          <Button
-            className="flex-1"
-            onClick={() => setShowCreateDialog(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {t('leagues.create')}
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => setShowJoinDialog(true)}
-          >
-            <Users className="w-4 h-4 mr-2" />
-            {t('leagues.join')}
-          </Button>
-        </div>
+        {/* Create / Join only when the tenant has custom leagues enabled.
+            When disabled the only league is "Everyone" so there's nothing
+            to create or join — the buttons would just be dead weight. */}
+        {customLeaguesEnabled && (
+          <div className="p-4 flex gap-3">
+            <Button
+              className="flex-1"
+              onClick={() => setShowCreateDialog(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {t('leagues.create')}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowJoinDialog(true)}
+            >
+              <Users className="w-4 h-4 mr-2" />
+              {t('leagues.join')}
+            </Button>
+          </div>
+        )}
       </motion.div>
 
       {/* Leagues List */}
@@ -778,7 +792,9 @@ export const LeaguesView = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Everyone League - Always at top */}
+          {/* Everyone League — always shown. When custom leagues are off it
+              starts pre-expanded (see expandedLeagueId initial value) so
+              the leaderboard fills the viewport without any user input. */}
           <ExpandableLeagueCard
             league={EVERYONE_LEAGUE}
             isExpanded={expandedLeagueId === EVERYONE_LEAGUE_ID}
@@ -786,9 +802,10 @@ export const LeaguesView = () => {
             isEveryone
             isDevMode={isDevMode}
           />
-          
-          {/* User's leagues */}
-          {leagues.map((league) => (
+
+          {/* User's custom leagues — hidden entirely when custom leagues
+              are disabled at the tenant level. */}
+          {customLeaguesEnabled && leagues.map((league) => (
             <ExpandableLeagueCard
               key={league.id}
               league={league}

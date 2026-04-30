@@ -77,8 +77,7 @@
   "matches": {
     "noMatchesToday": "Heute keine Spiele geplant",
     "loginPrompt": "Melde dich an, um deine Tipps zu speichern!",
-    "group": "Gruppe {{letter}}",
-    "testGames": "Testspiele"
+    "group": "Gruppe {{letter}}"
   },
   "matchCard": {
     "live": "LIVE",

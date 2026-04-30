@@ -13,6 +13,10 @@ interface Tenant {
   uid: string;
   name: string;
   oidc_config?: OIDCConfig | null;
+  // Per-tenant feature flag. When false, the leagues view collapses to
+  // just the built-in "Everyone" league (no create/join, no custom
+  // leagues visible). Default true.
+  allow_custom_leagues: boolean;
 }
 
 interface TenantContextType {
@@ -41,9 +45,12 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         // Fetch tenant basic info
-        const tenantData = await api.get<{ id: string; uid: string; name: string }>(
-          `/tenants/by-uid/${tenantUid}`
-        );
+        const tenantData = await api.get<{
+          id: string;
+          uid: string;
+          name: string;
+          allow_custom_leagues?: boolean;
+        }>(`/tenants/by-uid/${tenantUid}`);
 
         if (!tenantData) {
           setError('Tenant not found');
@@ -66,6 +73,9 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
           uid: tenantData.uid,
           name: tenantData.name,
           oidc_config: oidcConfig,
+          // Default true so older API responses (pre-migration) still
+          // produce the full leagues experience.
+          allow_custom_leagues: tenantData.allow_custom_leagues ?? true,
         });
         setError(null);
       } catch {

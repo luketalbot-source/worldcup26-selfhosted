@@ -6,6 +6,7 @@ import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
@@ -38,6 +39,7 @@ interface Tenant {
   name: string;
   created_at: string;
   oidc_count: number;
+  allow_custom_leagues?: boolean;
 }
 
 interface TenantUser {
@@ -368,7 +370,64 @@ const Admin = () => {
               />
             </TabsContent>
 
-            <TabsContent value="settings">
+            <TabsContent value="settings" className="space-y-6">
+              {/* Feature flags. Stacked above the OIDC config so admins
+                  see "what does this tenant get" before "how do they
+                  log in". Per-flag PATCH so toggling one doesn't
+                  re-write the others. */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Features</CardTitle>
+                  <CardDescription>
+                    Per-tenant toggles. Default values are conservative —
+                    every existing customer keeps current behaviour unless
+                    explicitly opted out.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <Checkbox
+                      id="allow-custom-leagues"
+                      checked={selectedTenant.allow_custom_leagues !== false}
+                      onCheckedChange={async (checked) => {
+                        const next = checked === true;
+                        try {
+                          const updated = await api.patch<Tenant>(
+                            `/tenants/${selectedTenant.id}`,
+                            { allow_custom_leagues: next },
+                          );
+                          // Mirror server state in BOTH the list and the
+                          // currently-open detail panel so the toggle
+                          // sticks visually even if the user navigates away.
+                          setTenants((ts) =>
+                            ts.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+                          );
+                          setSelectedTenant({ ...selectedTenant, ...updated });
+                          toast.success(
+                            next ? 'Custom leagues enabled' : 'Custom leagues disabled',
+                          );
+                        } catch (err) {
+                          console.error(err);
+                          toast.error('Failed to update setting');
+                        }
+                      }}
+                      className="mt-0.5"
+                    />
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium leading-none">
+                        Allow custom leagues
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        When enabled, users can create and join their own leagues
+                        alongside the built-in <strong>Everyone</strong> league.
+                        When disabled, only Everyone is shown — pre-expanded to
+                        fill the viewport, no create/join buttons.
+                      </p>
+                    </div>
+                  </label>
+                </CardContent>
+              </Card>
+
               <TenantOIDCConfig
                 tenantId={selectedTenant.id}
                 tenantName={selectedTenant.name}

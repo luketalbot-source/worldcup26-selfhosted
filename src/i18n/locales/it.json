@@ -77,8 +77,7 @@
   "matches": {
     "noMatchesToday": "Nessuna partita in programma oggi",
     "loginPrompt": "Accedi per salvare i tuoi pronostici!",
-    "group": "Girone {{letter}}",
-    "testGames": "Partite di prova"
+    "group": "Girone {{letter}}"
   },
   "matchCard": {
     "live": "LIVE",

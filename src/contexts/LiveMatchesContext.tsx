@@ -19,6 +19,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -93,6 +94,11 @@ interface ContextValue {
   // React's state batching.
   goalQueue: GoalEvent[];
   dismissGoal: (id: number) => void;
+  // Global boost-prediction deadline: kickoff of the first knockout match,
+  // i.e. all boost picks lock at the same moment, between the end of group
+  // stage and the start of KO. Null while we're still loading matches or
+  // if no knockout fixture is yet in the table.
+  boostsDeadline: Date | null;
 }
 
 const Ctx = createContext<ContextValue | null>(null);
@@ -335,6 +341,20 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     return () => es.close();
   }, []);
 
+  // Deadline for boost-style predictions = kickoff of the first knockout
+  // match. Falls in the natural window between "last group game ended"
+  // and "knockout stage starts", which is what the product wants. Memoised
+  // so we don't re-derive on every render — recomputes only when the
+  // matches array reference changes (i.e. on a new sync).
+  const boostsDeadline = useMemo<Date | null>(() => {
+    const koDates = matches
+      .filter((m) => m.stage && m.stage !== 'group' && m.match_date)
+      .map((m) => new Date(m.match_date).getTime())
+      .filter((t) => Number.isFinite(t));
+    if (koDates.length === 0) return null;
+    return new Date(Math.min(...koDates));
+  }, [matches]);
+
   return (
     <Ctx.Provider
       value={{
@@ -348,6 +368,7 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
         refetch: fetchLiveMatches,
         goalQueue,
         dismissGoal,
+        boostsDeadline,
       }}
     >
       {children}

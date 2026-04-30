@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '@/lib/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 
 export interface CustomBoostAward {
   id: string;
@@ -52,6 +53,9 @@ export const useCustomBoostAwards = () => {
   const { user } = useAuth();
   const { tenantId } = useTenant();
   const { i18n } = useTranslation();
+  // Single tournament-wide deadline shared with the built-in boosts
+  // (computed in LiveMatchesContext from the first KO kickoff).
+  const { boostsDeadline } = useLiveMatchesContext();
   const [awards, setAwards] = useState<CustomBoostAward[]>([]);
   const [predictions, setPredictions] = useState<CustomBoostPrediction[]>([]);
   const [results, setResults] = useState<CustomBoostResult[]>([]);
@@ -211,9 +215,10 @@ export const useCustomBoostAwards = () => {
     return results.find(r => r.custom_boost_id === customBoostId);
   };
 
-  const isLocked = (award: CustomBoostAward): boolean => {
-    if (!award.lock_date) return false;
-    return new Date() >= new Date(award.lock_date);
+  const isLocked = (_award: CustomBoostAward): boolean => {
+    // Same global rule as built-in boosts — first KO kickoff = lock for all.
+    if (!boostsDeadline) return false;
+    return new Date() >= boostsDeadline;
   };
 
   const calculatePoints = (customBoostId: string): number => {

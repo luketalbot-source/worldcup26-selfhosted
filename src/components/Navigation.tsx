@@ -22,12 +22,6 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
     // → rgba(43, 43, 43, 0.8)) so the embedded app blends with the host
     // chrome. Light mode keeps `bg-card`.
     <nav className="fixed bottom-0 left-0 right-0 bg-card dark:bg-[rgba(43,43,43,0.8)] backdrop-blur-md border-t border-border dark:border-[rgba(255,255,255,0.06)] z-50 safe-area-inset-bottom">
-      <span
-        className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full shadow-sm pointer-events-none"
-        aria-label="Beta environment"
-      >
-        BETA
-      </span>
       <div className="max-w-[700px] mx-auto px-4">
         <div className="flex items-center justify-around py-2">
           {tabs.map((tab) => {

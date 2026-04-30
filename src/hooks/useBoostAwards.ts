@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 
 export interface BoostAward {
   id: string;
@@ -31,6 +32,11 @@ export interface BoostResult {
 export const useBoostAwards = () => {
   const { user } = useAuth();
   const { tenantId } = useTenant();
+  // Global deadline lives on the LiveMatches context — the moment the first
+  // knockout match kicks off, all boost predictions lock simultaneously.
+  // Per-award lock_date columns are now ignored (the column stays in the DB
+  // for back-compat with already-saved configs but no longer drives lock).
+  const { boostsDeadline } = useLiveMatchesContext();
   const [awards, setAwards] = useState<BoostAward[]>([]);
   const [predictions, setPredictions] = useState<BoostPrediction[]>([]);
   const [results, setResults] = useState<BoostResult[]>([]);
@@ -105,9 +111,13 @@ export const useBoostAwards = () => {
     return results.find(r => r.award_id === awardId);
   };
 
-  const isLocked = (award: BoostAward): boolean => {
-    if (!award.lock_date) return false;
-    return new Date() >= new Date(award.lock_date);
+  const isLocked = (_award: BoostAward): boolean => {
+    // Deadline = kickoff of first KO match (computed in LiveMatchesContext).
+    // While we don't yet know the deadline (matches still loading or no KO
+    // fixture yet), boosts stay open — better to be permissive than to
+    // freeze the predictor on first paint.
+    if (!boostsDeadline) return false;
+    return new Date() >= boostsDeadline;
   };
 
   const calculatePoints = (awardId: string): number => {

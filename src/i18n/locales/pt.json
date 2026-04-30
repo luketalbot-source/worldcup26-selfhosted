@@ -77,8 +77,7 @@
   "matches": {
     "noMatchesToday": "Nenhum jogo programado para hoje",
     "loginPrompt": "Faça login para salvar suas previsões!",
-    "group": "Grupo {{letter}}",
-    "testGames": "Jogos de teste"
+    "group": "Grupo {{letter}}"
   },
   "matchCard": {
     "live": "AO VIVO",
