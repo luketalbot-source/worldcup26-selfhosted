@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar, Pencil } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
@@ -64,6 +65,13 @@ const Admin = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  // Edit-name flow: opens from the Pencil button on the detail header,
+  // PATCHes /tenants/:id with the new name, mirrors into both the list
+  // and the open detail panel so navigation back doesn't show the stale
+  // name in either place.
+  const [editNameDialogOpen, setEditNameDialogOpen] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   // Tenant detail view state
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -141,9 +149,49 @@ const Admin = () => {
       await api.delete(`/tenants/${tenantId}`);
 
       setTenants(tenants.filter(t => t.id !== tenantId));
+      // If we were currently viewing this tenant's detail page, bounce
+      // back to the list — otherwise the user lands on a detail panel
+      // for a tenant that no longer exists.
+      if (selectedTenant?.id === tenantId) {
+        setSelectedTenant(null);
+        setTenantUsers([]);
+      }
       toast.success(`Tenant "${tenantName}" deleted`);
     } catch {
       toast.error('Failed to delete tenant');
+    }
+  };
+
+  // Save the edited tenant name. Mirrors server state into both the list
+  // and the open detail panel so navigating back doesn't show stale data.
+  const handleSaveName = async () => {
+    if (!selectedTenant) return;
+    const next = editingName.trim();
+    if (!next) {
+      toast.error('Name cannot be empty');
+      return;
+    }
+    if (next === selectedTenant.name) {
+      setEditNameDialogOpen(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const updated = await api.patch<Tenant>(
+        `/tenants/${selectedTenant.id}`,
+        { name: next },
+      );
+      setTenants((ts) =>
+        ts.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+      );
+      setSelectedTenant({ ...selectedTenant, ...updated });
+      toast.success('Tenant renamed');
+      setEditNameDialogOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to rename tenant');
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -265,7 +313,7 @@ const Admin = () => {
               <h1 className="text-3xl font-bold text-foreground">{selectedTenant.name}</h1>
               <p className="text-muted-foreground font-mono">/t/{selectedTenant.uid}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -281,6 +329,30 @@ const Admin = () => {
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Open App
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditingName(selectedTenant.name);
+                  setEditNameDialogOpen(true);
+                }}
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Rename
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  setTenantToDelete(selectedTenant);
+                  setDeleteConfirmation('');
+                  setDeleteDialogOpen(true);
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
               </Button>
             </div>
           </div>
@@ -385,7 +457,14 @@ const Admin = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <label className="flex items-start gap-3 cursor-pointer">
+                  {/* Sibling structure with htmlFor — NOT a wrapping <label>.
+                      Wrapping fired the click twice on Radix Checkbox: once
+                      from the checkbox itself, once from the label re-
+                      targeting it, which silently undid every toggle the
+                      admin made. htmlFor still gives the label its
+                      standard role of "click-to-toggle" without the
+                      double-fire. */}
+                  <div className="flex items-start gap-3">
                     <Checkbox
                       id="allow-custom-leagues"
                       checked={selectedTenant.allow_custom_leagues !== false}
@@ -396,9 +475,6 @@ const Admin = () => {
                             `/tenants/${selectedTenant.id}`,
                             { allow_custom_leagues: next },
                           );
-                          // Mirror server state in BOTH the list and the
-                          // currently-open detail panel so the toggle
-                          // sticks visually even if the user navigates away.
                           setTenants((ts) =>
                             ts.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
                           );
@@ -413,18 +489,18 @@ const Admin = () => {
                       }}
                       className="mt-0.5"
                     />
-                    <div className="space-y-1">
+                    <Label htmlFor="allow-custom-leagues" className="space-y-1 cursor-pointer">
                       <div className="text-sm font-medium leading-none">
                         Allow custom leagues
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs font-normal text-muted-foreground">
                         When enabled, users can create and join their own leagues
                         alongside the built-in <strong>Everyone</strong> league.
                         When disabled, only Everyone is shown — pre-expanded to
                         fill the viewport, no create/join buttons.
                       </p>
-                    </div>
-                  </label>
+                    </Label>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -657,6 +733,63 @@ const Admin = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Edit Name dialog. Open via the Pencil button on the detail
+            header. Disable Save when name is blank or unchanged so the
+            user can't accidentally fire a no-op PATCH. Enter submits. */}
+        <Dialog open={editNameDialogOpen} onOpenChange={setEditNameDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Tenant</DialogTitle>
+              <DialogDescription>
+                The tenant URL ( /t/{selectedTenant?.uid} ) does not change —
+                only the display name shown in the admin and to users.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="tenant-name-input">Name</Label>
+              <Input
+                id="tenant-name-input"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !savingName) {
+                    e.preventDefault();
+                    void handleSaveName();
+                  }
+                }}
+                placeholder={selectedTenant?.name ?? ''}
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => setEditNameDialogOpen(false)}
+                disabled={savingName}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveName}
+                disabled={
+                  savingName ||
+                  !editingName.trim() ||
+                  editingName.trim() === selectedTenant?.name
+                }
+              >
+                {savingName ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  'Save'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

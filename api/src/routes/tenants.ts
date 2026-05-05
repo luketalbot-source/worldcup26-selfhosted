@@ -58,15 +58,15 @@ router.delete("/:id", requireAdmin, async (c) => {
   return c.json({ ok: true });
 });
 
-// Tenant settings update. Currently only `allow_custom_leagues` is editable
-// — admin-only. Any future tenant-scoped toggle (theming, feature flags,
-// etc.) belongs here too.
+// Tenant settings update. Admin-only. Any future tenant-scoped toggle
+// (theming, feature flags, etc.) belongs here too.
 router.patch(
   "/:id",
   requireAdmin,
   zValidator(
     "json",
     z.object({
+      name: z.string().min(1).max(120).optional(),
       allow_custom_leagues: z.boolean().optional(),
     }).strict(),
   ),
@@ -75,6 +75,14 @@ router.patch(
     const body = c.req.valid("json");
     if (Object.keys(body).length === 0) {
       return c.json({ error: "No fields to update" }, 400);
+    }
+    if (body.name !== undefined) {
+      await sql`
+        UPDATE tenants
+           SET name = ${body.name},
+               updated_at = NOW()
+         WHERE id = ${id}
+      `;
     }
     if (body.allow_custom_leagues !== undefined) {
       await sql`
