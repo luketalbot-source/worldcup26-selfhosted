@@ -292,6 +292,119 @@ const Admin = () => {
     );
   }
 
+  // Dialogs that need to be available from BOTH the list view AND the
+  // detail view. Earlier these only lived in the list-view return, so
+  // clicking Rename / Delete on the detail header flipped state but
+  // nothing rendered until the user navigated back — at which point
+  // `selectedTenant` was null, and Save bailed out at the null-check.
+  // Single function called from both returns: dialogs are mounted
+  // wherever the user is when they trigger them.
+  const renderTenantDialogs = () => (
+    <>
+      {/* Delete tenant — confirm by typing the name */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tenant?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                This will permanently delete <strong>"{tenantToDelete?.name}"</strong> and all associated data including users, predictions, and leagues.
+              </p>
+              <p className="font-medium text-destructive">This action cannot be undone.</p>
+              <div className="pt-2">
+                <label className="text-sm text-foreground">
+                  Type <strong>{tenantToDelete?.name}</strong> to confirm:
+                </label>
+                <Input
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder="Enter tenant name"
+                  className="mt-2"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteConfirmation('')}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirmation !== tenantToDelete?.name}
+              onClick={() => {
+                if (tenantToDelete && deleteConfirmation === tenantToDelete.name) {
+                  handleDeleteTenant(tenantToDelete.id, tenantToDelete.name);
+                  setDeleteDialogOpen(false);
+                  setDeleteConfirmation('');
+                  setTenantToDelete(null);
+                }
+              }}
+            >
+              Delete Permanently
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rename tenant. Save button stays disabled while name is empty
+          or unchanged so the admin can't fire a no-op PATCH. Enter
+          submits. */}
+      <Dialog open={editNameDialogOpen} onOpenChange={setEditNameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Tenant</DialogTitle>
+            <DialogDescription>
+              The tenant URL ( /t/{selectedTenant?.uid} ) does not change —
+              only the display name shown in the admin and to users.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="tenant-name-input">Name</Label>
+            <Input
+              id="tenant-name-input"
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !savingName) {
+                  e.preventDefault();
+                  void handleSaveName();
+                }
+              }}
+              placeholder={selectedTenant?.name ?? ''}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setEditNameDialogOpen(false)}
+              disabled={savingName}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveName}
+              disabled={
+                savingName ||
+                !editingName.trim() ||
+                editingName.trim() === selectedTenant?.name
+              }
+            >
+              {savingName ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+
   // Tenant detail view
   if (selectedTenant) {
     return (
@@ -549,6 +662,12 @@ const Admin = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          {/* Shared dialogs — must be mounted in the same tree as the
+              buttons that trigger them, otherwise state flips but the
+              dialog doesn't render until the tree re-mounts (which
+              clears selectedTenant first, breaking Save). */}
+          {renderTenantDialogs()}
         </div>
       </div>
     );
@@ -689,107 +808,8 @@ const Admin = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Tenant?</AlertDialogTitle>
-              <AlertDialogDescription className="space-y-3">
-                <p>
-                  This will permanently delete <strong>"{tenantToDelete?.name}"</strong> and all associated data including users, predictions, and leagues.
-                </p>
-                <p className="font-medium text-destructive">This action cannot be undone.</p>
-                <div className="pt-2">
-                  <label className="text-sm text-foreground">
-                    Type <strong>{tenantToDelete?.name}</strong> to confirm:
-                  </label>
-                  <Input
-                    value={deleteConfirmation}
-                    onChange={(e) => setDeleteConfirmation(e.target.value)}
-                    placeholder="Enter tenant name"
-                    className="mt-2"
-                  />
-                </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setDeleteConfirmation('')}>
-                Cancel
-              </AlertDialogCancel>
-              <Button
-                variant="destructive"
-                disabled={deleteConfirmation !== tenantToDelete?.name}
-                onClick={() => {
-                  if (tenantToDelete && deleteConfirmation === tenantToDelete.name) {
-                    handleDeleteTenant(tenantToDelete.id, tenantToDelete.name);
-                    setDeleteDialogOpen(false);
-                    setDeleteConfirmation('');
-                    setTenantToDelete(null);
-                  }
-                }}
-              >
-                Delete Permanently
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Edit Name dialog. Open via the Pencil button on the detail
-            header. Disable Save when name is blank or unchanged so the
-            user can't accidentally fire a no-op PATCH. Enter submits. */}
-        <Dialog open={editNameDialogOpen} onOpenChange={setEditNameDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Rename Tenant</DialogTitle>
-              <DialogDescription>
-                The tenant URL ( /t/{selectedTenant?.uid} ) does not change —
-                only the display name shown in the admin and to users.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2 py-2">
-              <Label htmlFor="tenant-name-input">Name</Label>
-              <Input
-                id="tenant-name-input"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !savingName) {
-                    e.preventDefault();
-                    void handleSaveName();
-                  }
-                }}
-                placeholder={selectedTenant?.name ?? ''}
-                autoFocus
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                variant="ghost"
-                onClick={() => setEditNameDialogOpen(false)}
-                disabled={savingName}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveName}
-                disabled={
-                  savingName ||
-                  !editingName.trim() ||
-                  editingName.trim() === selectedTenant?.name
-                }
-              >
-                {savingName ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Shared with the detail view — same render function called there. */}
+        {renderTenantDialogs()}
       </div>
     </div>
   );
