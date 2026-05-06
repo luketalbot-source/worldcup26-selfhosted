@@ -38,4 +38,10 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+# nginx resolves `proxy_pass http://api:3000/...` once at config-load time.
+# In a fresh Northflank deploy, the api service's DNS entry isn't always in
+# the cluster resolver yet when web starts — nginx hits "host not found in
+# upstream" and the container crash-loops. Wait for the hostname before
+# starting nginx; fail loudly after a generous timeout so we don't hang
+# forever on a real outage. getent hosts is part of the Alpine base.
+CMD ["/bin/sh", "-c", "i=0; until getent hosts api >/dev/null 2>&1; do i=$((i+1)); if [ $i -gt 60 ]; then echo 'api hostname never resolved after 120s, giving up' >&2; exit 1; fi; echo \"waiting for api hostname (try $i)...\"; sleep 2; done; echo 'api resolved, starting nginx'; exec nginx -g 'daemon off;'"]
