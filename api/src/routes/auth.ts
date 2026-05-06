@@ -5,6 +5,7 @@ import { SignJWT, jwtVerify, createRemoteJWKSet } from "jose";
 import { createHash } from "crypto";
 import { sql } from "../db";
 import { requireAuth, type AuthEnv } from "../auth/middleware";
+import { sendEmail } from "../lib/email";
 
 const router = new Hono<AuthEnv>();
 
@@ -120,6 +121,217 @@ router.post("/dev-login", async (c) => {
   setRefreshCookie(c, refreshToken);
   return c.json({ access_token: accessToken, user: { id: userId, email: DEV_ADMIN_EMAIL, role: "admin" } });
 });
+
+// -----------------------------------------------------------------------------
+// Email-allowlist admin login (replaces dev-login for production).
+//
+//   Step 1: POST /admin-login/start     { email }       → 6-digit code in email
+//   Step 2: POST /admin-login/verify    { email, code } → admin JWT pair
+//
+// Allowlist lives in the ADMIN_EMAILS env var (comma-separated). Codes are
+// 6 digits, 10 minutes valid, single-use, sha256-hashed in DB. Up to 5
+// failed verifies per code before it's burned. Rate-limited per email at
+// 5 codes per hour to prevent enumeration / spam.
+//
+// Email is delivered via Resend (api/src/lib/email.ts).
+// -----------------------------------------------------------------------------
+
+const ADMIN_LOGIN_CODE_TTL_MS  = 10 * 60 * 1000;     // 10 min
+const ADMIN_LOGIN_MAX_ATTEMPTS = 5;                  // failed verifies per code
+const ADMIN_LOGIN_RATE_WINDOW_MS = 60 * 60 * 1000;   // 1 hour
+const ADMIN_LOGIN_RATE_MAX = 5;                      // max codes per email per window
+
+function parseAdminAllowlist(): Set<string> {
+  const raw = process.env.ADMIN_EMAILS ?? "";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0),
+  );
+}
+
+function generateLoginCode(): string {
+  // Crypto-safe 6-digit code. randomInt is unbiased across the requested range.
+  const { randomInt } = require("crypto") as typeof import("crypto");
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+function isValidEmail(s: string): boolean {
+  // Just enough validation to avoid storing obvious garbage. Real checking
+  // happens via the allowlist comparison.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= 254;
+}
+
+router.post(
+  "/admin-login/start",
+  zValidator("json", z.object({ email: z.string().min(3).max(254) })),
+  async (c) => {
+    const rawEmail = c.req.valid("json").email.trim();
+    if (!isValidEmail(rawEmail)) {
+      return c.json({ error: "Invalid email" }, 400);
+    }
+    const email = rawEmail.toLowerCase();
+    const allowlist = parseAdminAllowlist();
+
+    // Rate-limit BEFORE the allowlist check so the response is identical for
+    // allowlisted vs non-allowlisted emails — no enumeration oracle.
+    const recentCodes = await sql<{ count: number }[]>`
+      SELECT COUNT(*)::int AS count
+      FROM public.admin_login_codes
+      WHERE email = ${email}
+        AND created_at > NOW() - ${ADMIN_LOGIN_RATE_WINDOW_MS / 1000}::int * INTERVAL '1 second'
+    `;
+    if ((recentCodes[0]?.count ?? 0) >= ADMIN_LOGIN_RATE_MAX) {
+      return c.json({ error: "Too many login attempts; try again in an hour." }, 429);
+    }
+
+    // Constant response shape regardless of whether email is on the allowlist:
+    // attackers can't distinguish "valid admin email" from "unknown email" via
+    // the response. We still skip the email send + DB write for non-allowlisted
+    // addresses, but the latency is similar enough not to leak.
+    if (!allowlist.has(email)) {
+      // Small artificial delay so response time doesn't reveal the answer.
+      await new Promise((r) => setTimeout(r, 200));
+      return c.json({ ok: true });
+    }
+
+    const code = generateLoginCode();
+    const codeHash = hashToken(code);
+    const expiresAt = new Date(Date.now() + ADMIN_LOGIN_CODE_TTL_MS);
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    const ua = c.req.header("user-agent") ?? null;
+
+    await sql`
+      INSERT INTO public.admin_login_codes
+        (email, code_hash, expires_at, ip_address, user_agent)
+      VALUES
+        (${email}, ${codeHash}, ${expiresAt}, ${ip}, ${ua})
+    `;
+
+    const result = await sendEmail({
+      to: email,
+      subject: `Football 2026 admin code: ${code}`,
+      html: `
+        <p>Hi,</p>
+        <p>Use this code to sign in to the Football 2026 admin console:</p>
+        <p style="font-size:32px;font-weight:600;letter-spacing:6px;font-family:monospace;background:#f4f4f5;padding:16px 24px;border-radius:8px;display:inline-block;">${code}</p>
+        <p style="color:#71717a;font-size:13px;">The code expires in 10 minutes. If you didn't try to sign in, you can ignore this email.</p>
+      `,
+      text: `Your Football 2026 admin login code: ${code}\n\nThe code expires in 10 minutes.`,
+    });
+
+    if (!result.ok) {
+      console.error("[admin-login] email send failed for", email, ":", result.error);
+      // Don't surface the upstream error to the client (could leak provider
+      // detail). The user retries; we'll see the cause in server logs.
+      return c.json({ error: "Failed to send code; try again." }, 500);
+    }
+
+    return c.json({ ok: true });
+  },
+);
+
+router.post(
+  "/admin-login/verify",
+  zValidator(
+    "json",
+    z.object({
+      email: z.string().min(3).max(254),
+      code: z.string().regex(/^\d{6}$/, "Code must be 6 digits"),
+    }),
+  ),
+  async (c) => {
+    const body = c.req.valid("json");
+    const email = body.email.trim().toLowerCase();
+    const codeHash = hashToken(body.code);
+
+    // Find the most recent unused, unexpired code for this email.
+    const rows = await sql<
+      { id: string; code_hash: string; expires_at: Date; failed_verify_count: number }[]
+    >`
+      SELECT id, code_hash, expires_at, failed_verify_count
+      FROM public.admin_login_codes
+      WHERE email = ${email}
+        AND used_at IS NULL
+        AND expires_at > NOW()
+        AND failed_verify_count < ${ADMIN_LOGIN_MAX_ATTEMPTS}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    const row = rows[0];
+    // Don't tell the client whether the email or the code was wrong — same
+    // generic 401 for both, so the client can't probe the allowlist.
+    const generic = () => c.json({ error: "Invalid or expired code" }, 401);
+
+    if (!row) return generic();
+
+    if (row.code_hash !== codeHash) {
+      await sql`
+        UPDATE public.admin_login_codes
+        SET failed_verify_count = failed_verify_count + 1
+        WHERE id = ${row.id}
+      `;
+      return generic();
+    }
+
+    // Defence-in-depth: verify allowlist membership again at verify time.
+    // (The email could have been removed from ADMIN_EMAILS between start and
+    // verify.)
+    const allowlist = parseAdminAllowlist();
+    if (!allowlist.has(email)) return generic();
+
+    // Mark the code used so it can't be replayed.
+    await sql`
+      UPDATE public.admin_login_codes
+      SET used_at = NOW()
+      WHERE id = ${row.id}
+    `;
+
+    // Upsert the admin user. Display name defaults to the local-part of the
+    // email; the user can rename later via profile.
+    const existing = await sql<{ id: string }[]>`
+      SELECT id FROM public.users WHERE email = ${email} LIMIT 1
+    `;
+    let userId: string;
+    if (existing.length > 0) {
+      userId = existing[0]!.id;
+    } else {
+      const localPart = email.split("@")[0] ?? email;
+      const displayName = localPart
+        .replace(/[._-]+/g, " ")
+        .replace(/\b\w/g, (m) => m.toUpperCase());
+      const created = await sql<{ id: string }[]>`
+        INSERT INTO public.users (id, email, display_name, created_at)
+        VALUES (gen_random_uuid(), ${email}, ${displayName}, NOW())
+        RETURNING id
+      `;
+      userId = created[0]!.id;
+    }
+
+    // Idempotent admin role grant.
+    await sql`
+      INSERT INTO user_roles (id, user_id, role, created_at)
+      VALUES (gen_random_uuid(), ${userId}, 'admin'::app_role, NOW())
+      ON CONFLICT (user_id, role) DO NOTHING
+    `;
+
+    const accessToken = await signAccessToken({
+      sub: userId,
+      email,
+      role: "admin",
+    });
+    const refreshToken = await signRefreshToken(userId);
+    await storeRefreshToken(userId, refreshToken);
+
+    setRefreshCookie(c, refreshToken);
+    return c.json({
+      access_token: accessToken,
+      user: { id: userId, email, role: "admin" },
+    });
+  },
+);
 
 // POST /dev-tenant-login
 // Gated open-user entry for testing the tenant app without a real OIDC

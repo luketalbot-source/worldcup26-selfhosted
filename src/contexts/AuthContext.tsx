@@ -7,6 +7,12 @@ interface AuthContextType {
   loading: boolean;
   devLogin: () => Promise<{ error: Error | null }>;
   devTenantLogin: (tenantId: string) => Promise<{ error: Error | null }>;
+  // Email-allowlist admin login — two-step.
+  // start: send a 6-digit code to the given email (silently no-ops if email
+  //        isn't on the server-side allowlist; UI doesn't tell the user)
+  // verify: exchange (email, code) for an admin JWT
+  adminLoginStart: (email: string) => Promise<{ error: Error | null }>;
+  adminLoginVerify: (email: string, code: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -71,13 +77,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Email-allowlist admin login — backend handles allowlist + delivery.
+  // The "start" call always returns ok regardless of whether the email is
+  // allowlisted (no enumeration). "verify" returns 401 on bad code.
+  const adminLoginStart = async (email: string): Promise<{ error: Error | null }> => {
+    try {
+      await api.post('/auth/admin-login/start', { email });
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  };
+
+  const adminLoginVerify = async (
+    email: string,
+    code: string,
+  ): Promise<{ error: Error | null }> => {
+    try {
+      const data = await api.post<{ access_token: string }>('/auth/admin-login/verify', {
+        email,
+        code,
+      });
+      if (data?.access_token) setAccessToken(data.access_token);
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  };
+
   const signOut = async () => {
     try { await api.post('/auth/signout'); } catch { /* best-effort */ }
     clearAccessToken();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, devLogin, devTenantLogin, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        devLogin,
+        devTenantLogin,
+        adminLoginStart,
+        adminLoginVerify,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
