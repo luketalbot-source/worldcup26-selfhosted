@@ -1,53 +1,81 @@
-// Resend email helper. Used right now only by the admin-login flow to
-// deliver one-time login codes; could grow to support other transactional
-// emails (e.g. league invites) later.
+// Mailjet transactional email helper.
 //
-// Resend takes a Bearer key (from RESEND_API_KEY) and a verified
-// from-address. Until we verify a Flip-owned domain at Resend, the from
-// address is `onboarding@resend.dev` — Resend's default sender, which
-// only delivers to email addresses associated with the API-key owner's
-// Resend account. That's fine for early testing with the project owner's
-// email; for the full CS team allowlist we'll need a verified sender
-// (set RESEND_FROM to the verified address once the domain is set up).
+// Used by the admin-login flow to deliver one-time codes. Could grow to
+// support other transactional emails (league invites, weekly digests…)
+// later.
+//
+// Mailjet uses HTTP basic auth with two credentials — an API key and an
+// API secret. Both come from env vars MAILJET_API_KEY and
+// MAILJET_API_SECRET. The from address (MAILJET_FROM) must be at a
+// domain you've verified at mailjet.com — Flip's getflip.com is set up,
+// so e.g. `Football 2026 <noreply@getflip.com>` works.
 
-const RESEND_API_URL = "https://api.resend.com/emails";
+const MAILJET_API_URL = "https://api.mailjet.com/v3.1/send";
 
 export interface SendEmailOptions {
   to: string;
+  toName?: string;
   subject: string;
   html: string;
   text?: string;
 }
 
-export async function sendEmail(opts: SendEmailOptions): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return { ok: false, error: "RESEND_API_KEY not configured" };
+export async function sendEmail(
+  opts: SendEmailOptions,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const apiKey = process.env.MAILJET_API_KEY;
+  const apiSecret = process.env.MAILJET_API_SECRET;
+  if (!apiKey || !apiSecret) {
+    return { ok: false, error: "MAILJET_API_KEY / MAILJET_API_SECRET not configured" };
   }
-  const from = process.env.RESEND_FROM || "Football 2026 <onboarding@resend.dev>";
+
+  // Default from-address — overrideable per-deploy via env var. Format
+  // accepts both bare email ("foo@bar.com") and named form
+  // ("Display Name <foo@bar.com>") for parity with how SMTP From: headers
+  // are usually written. We parse it into Mailjet's split shape below.
+  const fromRaw = process.env.MAILJET_FROM ?? "Football 2026 <noreply@getflip.com>";
+  const namedMatch = fromRaw.match(/^(.+?)\s*<\s*([^>]+)\s*>\s*$/);
+  const fromEmail = namedMatch ? namedMatch[2]! : fromRaw.trim();
+  const fromName = namedMatch ? namedMatch[1]!.trim() : undefined;
+
+  const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
 
   try {
-    const res = await fetch(RESEND_API_URL, {
+    const res = await fetch(MAILJET_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from,
-        to: opts.to,
-        subject: opts.subject,
-        html: opts.html,
-        ...(opts.text ? { text: opts.text } : {}),
+        Messages: [
+          {
+            From: fromName ? { Email: fromEmail, Name: fromName } : { Email: fromEmail },
+            To: [opts.toName ? { Email: opts.to, Name: opts.toName } : { Email: opts.to }],
+            Subject: opts.subject,
+            HTMLPart: opts.html,
+            ...(opts.text ? { TextPart: opts.text } : {}),
+          },
+        ],
       }),
     });
     if (!res.ok) {
       const body = await res.text();
-      console.error("[email] Resend rejected:", res.status, body);
-      return { ok: false, error: `Resend ${res.status}: ${body.slice(0, 200)}` };
+      console.error("[email] Mailjet rejected:", res.status, body);
+      return { ok: false, error: `Mailjet ${res.status}: ${body.slice(0, 200)}` };
     }
-    const data = (await res.json()) as { id?: string };
-    return { ok: true, id: data.id ?? "(no id)" };
+    // Successful response shape:
+    //   { Messages: [{ Status: "success", To: [{ MessageID: 123, MessageUUID: "..." }], ... }] }
+    const data = (await res.json()) as {
+      Messages?: Array<{ Status?: string; To?: Array<{ MessageUUID?: string }> }>;
+    };
+    const first = data.Messages?.[0];
+    const id = first?.To?.[0]?.MessageUUID ?? "(no id)";
+    if (first?.Status !== "success") {
+      console.error("[email] Mailjet returned non-success status:", JSON.stringify(data).slice(0, 400));
+      return { ok: false, error: `Mailjet status: ${first?.Status ?? "unknown"}` };
+    }
+    return { ok: true, id };
   } catch (err) {
     console.error("[email] fetch failed:", err);
     return { ok: false, error: String(err) };
