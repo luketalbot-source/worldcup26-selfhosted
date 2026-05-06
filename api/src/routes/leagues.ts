@@ -134,4 +134,56 @@ router.delete("/:id", requireAuth, async (c) => {
   return c.json({ ok: true });
 });
 
+// Modify a league. Same authz model as DELETE: only the creator (or any
+// global admin) can edit. Members see the league but can't change name or
+// avatar. Frontend was already calling this endpoint via updateLeague —
+// it just didn't exist on the backend, so every Save silently 404'd.
+router.patch(
+  "/:id",
+  requireAuth,
+  zValidator(
+    "json",
+    z.object({
+      name: z.string().min(1).max(100).optional(),
+      avatar_emoji: z.string().min(1).max(16).optional(),
+    }).strict(),
+  ),
+  async (c) => {
+    const user = c.get("user");
+    const leagueId = c.req.param("id");
+    const body = c.req.valid("json");
+    const isAdmin = user.role === "admin";
+
+    if (Object.keys(body).length === 0) {
+      return c.json({ error: "No fields to update" }, 400);
+    }
+
+    const rows = await withUser(user.sub, async (tx) => {
+      // Authz: the WHERE clause is the gate. If no row matches the
+      // creator/admin condition, the UPDATE is a no-op and RETURNING is
+      // empty — same semantics as DELETE above.
+      if (body.name !== undefined) {
+        const where = isAdmin
+          ? tx`UPDATE leagues SET name = ${body.name} WHERE id = ${leagueId} RETURNING id`
+          : tx`UPDATE leagues SET name = ${body.name} WHERE id = ${leagueId} AND creator_id = ${user.sub} RETURNING id`;
+        const updated = await where;
+        if (updated.length === 0) return [];
+      }
+      if (body.avatar_emoji !== undefined) {
+        const where = isAdmin
+          ? tx`UPDATE leagues SET avatar_emoji = ${body.avatar_emoji} WHERE id = ${leagueId} RETURNING id`
+          : tx`UPDATE leagues SET avatar_emoji = ${body.avatar_emoji} WHERE id = ${leagueId} AND creator_id = ${user.sub} RETURNING id`;
+        const updated = await where;
+        if (updated.length === 0) return [];
+      }
+      return tx`SELECT * FROM leagues WHERE id = ${leagueId} LIMIT 1`;
+    });
+
+    if (rows.length === 0) {
+      return c.json({ error: "League not found or not authorized" }, 404);
+    }
+    return c.json(rows[0]);
+  },
+);
+
 export default router;
