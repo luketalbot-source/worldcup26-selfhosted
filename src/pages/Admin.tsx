@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar, Pencil } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar, Pencil, Search, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -72,6 +72,12 @@ const Admin = () => {
   const [editNameDialogOpen, setEditNameDialogOpen] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  // Tenant list search + filter. Both are pure client-side — the list is
+  // small enough (currently single-digit count, will grow but not into
+  // pagination territory before the WC) that re-filtering the loaded
+  // array on every keystroke is fine and avoids a debounced query path.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'with-users' | 'empty' | 'leagues-off'>('all');
 
   // Tenant detail view state
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -732,15 +738,93 @@ const Admin = () => {
               </Dialog>
             </div>
 
+            {/* Search + filter chips. Cheap to compute, so we just derive
+                the filtered list inline rather than memo'ing — list size
+                is tiny. */}
+            {tenants.length > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name or URL slug…"
+                    className="pl-9 pr-9"
+                    aria-label="Search tenants"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {([
+                    { key: 'all',          label: 'All',                count: tenants.length },
+                    { key: 'with-users',   label: 'With users',         count: tenants.filter((t) => (t.oidc_count ?? 0) > 0).length },
+                    { key: 'empty',        label: 'Empty',              count: tenants.filter((t) => (t.oidc_count ?? 0) === 0).length },
+                    { key: 'leagues-off',  label: 'Leagues disabled',   count: tenants.filter((t) => t.allow_custom_leagues === false).length },
+                  ] as const).map((c) => (
+                    <Button
+                      key={c.key}
+                      variant={filterMode === c.key ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setFilterMode(c.key)}
+                    >
+                      {c.label}
+                      <span className="ml-1.5 text-xs opacity-70">{c.count}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-4">
-          {tenants.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No tenants yet. Create your first tenant to get started.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            tenants.map((tenant) => (
+          {(() => {
+            const q = searchQuery.trim().toLowerCase();
+            const filteredTenants = tenants.filter((t) => {
+              if (filterMode === 'with-users'  && (t.oidc_count ?? 0) === 0) return false;
+              if (filterMode === 'empty'       && (t.oidc_count ?? 0) > 0)   return false;
+              if (filterMode === 'leagues-off' && t.allow_custom_leagues !== false) return false;
+              if (!q) return true;
+              return t.name.toLowerCase().includes(q) || t.uid.toLowerCase().includes(q);
+            });
+            if (tenants.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground">No tenants yet. Create your first tenant to get started.</p>
+                  </CardContent>
+                </Card>
+              );
+            }
+            if (filteredTenants.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="py-12 text-center space-y-3">
+                    <p className="text-muted-foreground">
+                      No tenants match {searchQuery ? <strong>"{searchQuery}"</strong> : 'this filter'}.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setFilterMode('all');
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            }
+            return filteredTenants.map((tenant) => (
               <Card
                 key={tenant.id}
                 className="cursor-pointer hover:border-primary/50 transition-colors"
@@ -794,8 +878,8 @@ const Admin = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
+            ));
+          })()}
             </div>
           </TabsContent>
 
