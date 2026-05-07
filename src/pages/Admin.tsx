@@ -44,8 +44,10 @@ interface Tenant {
 }
 
 interface TenantUser {
+  // The backend's /tenants/:id/users response returns u.id directly (the
+  // user's primary key in public.users) — not a join-row id. So we use
+  // `id` for both list keys AND the DELETE URL.
   id: string;
-  user_id: string;
   display_name: string;
   avatar_emoji: string | null;
   phone_number: string | null;
@@ -222,7 +224,7 @@ const Admin = () => {
     if (!userToDelete || deleteUserConfirmation !== userToDelete.display_name) return;
 
     try {
-      await api.delete(`/admin/users/${userToDelete.user_id}`);
+      await api.delete(`/admin/users/${userToDelete.id}`);
 
       setTenantUsers(tenantUsers.filter(u => u.id !== userToDelete.id));
 
@@ -766,8 +768,8 @@ const Admin = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   {([
                     { key: 'all',          label: 'All',                count: tenants.length },
-                    { key: 'with-users',   label: 'With users',         count: tenants.filter((t) => (t.oidc_count ?? 0) > 0).length },
-                    { key: 'empty',        label: 'Empty',              count: tenants.filter((t) => (t.oidc_count ?? 0) === 0).length },
+                    { key: 'with-users',   label: 'With users',         count: tenants.filter((t) => Number(t.oidc_count ?? 0) > 0).length },
+                    { key: 'empty',        label: 'Empty',              count: tenants.filter((t) => Number(t.oidc_count ?? 0) === 0).length },
                     { key: 'leagues-off',  label: 'Leagues disabled',   count: tenants.filter((t) => t.allow_custom_leagues === false).length },
                   ] as const).map((c) => (
                     <Button
@@ -787,13 +789,24 @@ const Admin = () => {
             <div className="grid gap-4">
           {(() => {
             const q = searchQuery.trim().toLowerCase();
+            // Coerce oidc_count to a real number — postgres COUNT(*) can
+            // come back as a string or BigInt depending on driver config,
+            // and `"0" === 0` / `0n > 0` would silently break the filter.
+            const userCount = (t: Tenant) => Number(t.oidc_count ?? 0);
             const filteredTenants = tenants.filter((t) => {
-              if (filterMode === 'with-users'  && (t.oidc_count ?? 0) === 0) return false;
-              if (filterMode === 'empty'       && (t.oidc_count ?? 0) > 0)   return false;
+              if (filterMode === 'with-users'  && userCount(t) === 0) return false;
+              if (filterMode === 'empty'       && userCount(t) > 0)   return false;
               if (filterMode === 'leagues-off' && t.allow_custom_leagues !== false) return false;
               if (!q) return true;
               return t.name.toLowerCase().includes(q) || t.uid.toLowerCase().includes(q);
             });
+            // Default order is creation-date desc (from the API). For
+            // "With users", sort by user count descending so the busiest
+            // tenants float to the top — that's what an admin scanning
+            // the list usually wants to see first.
+            if (filterMode === 'with-users') {
+              filteredTenants.sort((a, b) => userCount(b) - userCount(a));
+            }
             if (tenants.length === 0) {
               return (
                 <Card>
