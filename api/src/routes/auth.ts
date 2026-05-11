@@ -457,6 +457,45 @@ router.post("/signout", async (c) => {
   return c.json({ ok: true });
 });
 
+// POST /oidc/pkce-init
+//
+// Frontend calls this right before redirecting the iframe to the IdP's
+// authorize URL. It stores the PKCE code_verifier + tenant_id server-side
+// keyed by `state` (the same state the frontend will send to the IdP).
+// The callback handler below DELETE-RETURNs the row to get the verifier
+// back — single-use semantics, same CSRF guarantee as the old
+// sessionStorage-side state check.
+//
+// Replaces the client-side sessionStorage approach which got wiped when
+// the Flip iframe was re-mounted between auth-start and callback.
+router.post(
+  "/oidc/pkce-init",
+  zValidator(
+    "json",
+    z.object({
+      state: z.string().min(8).max(256),
+      code_verifier: z.string().min(8).max(256),
+      tenant_id: z.string().uuid(),
+    }),
+  ),
+  async (c) => {
+    const { state, code_verifier, tenant_id } = c.req.valid("json");
+    // ON CONFLICT replace — handles same-state replay (e.g. user clicks
+    // sign-in twice, browser retries). Last write wins; old verifier
+    // discarded. Refreshes expires_at to give the user a fresh 15 min.
+    await sql`
+      INSERT INTO public.pkce_sessions (state, code_verifier, tenant_id)
+      VALUES (${state}, ${code_verifier}, ${tenant_id})
+      ON CONFLICT (state) DO UPDATE
+        SET code_verifier = EXCLUDED.code_verifier,
+            tenant_id     = EXCLUDED.tenant_id,
+            created_at    = NOW(),
+            expires_at    = NOW() + INTERVAL '15 minutes'
+    `;
+    return c.json({ ok: true });
+  },
+);
+
 // POST /oidc/callback
 router.post(
   "/oidc/callback",
@@ -465,12 +504,43 @@ router.post(
     z.object({
       code: z.string(),
       state: z.string().optional(),
-      tenant_id: z.string().uuid(),
+      // tenant_id and code_verifier are now both optional — the server
+      // can resolve them from pkce_sessions when `state` is supplied.
+      // Kept as input fields so a still-cached old client (deploy-window
+      // straddler) doesn't fall off a cliff.
+      tenant_id: z.string().uuid().optional(),
       code_verifier: z.string().optional(),
     })
   ),
   async (c) => {
-    const { code, tenant_id, code_verifier } = c.req.valid("json");
+    const body = c.req.valid("json");
+    const { code, state } = body;
+
+    // Resolve verifier + tenant_id. Prefer DB lookup by state (new path).
+    // Fall back to whatever the client sent in the body (legacy path),
+    // so an iframe with the previous bundle still works during the deploy
+    // rollout.
+    let code_verifier = body.code_verifier;
+    let tenant_id = body.tenant_id;
+    if (state) {
+      const rows = await sql<{ code_verifier: string; tenant_id: string }[]>`
+        DELETE FROM public.pkce_sessions
+         WHERE state = ${state}
+           AND expires_at > NOW()
+        RETURNING code_verifier, tenant_id
+      `;
+      if (rows.length > 0) {
+        code_verifier = rows[0]!.code_verifier;
+        tenant_id = tenant_id ?? rows[0]!.tenant_id;
+      }
+    }
+
+    if (!tenant_id) {
+      return c.json({ error: "Session expired. Please try logging in again." }, 401);
+    }
+    if (!code_verifier) {
+      return c.json({ error: "Session expired. Please try logging in again." }, 401);
+    }
 
     const configs = await sql<{
       client_id: string;

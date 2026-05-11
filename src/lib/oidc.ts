@@ -1,5 +1,7 @@
 // PKCE utilities for OIDC authentication
 
+import { api } from './apiClient';
+
 /**
  * Generate a random code verifier for PKCE
  */
@@ -39,38 +41,27 @@ export function generateState(): string {
   return base64UrlEncode(array);
 }
 
-// Session storage keys for PKCE flow
-const PKCE_VERIFIER_KEY = 'oidc_code_verifier';
-const PKCE_STATE_KEY = 'oidc_state';
-const PKCE_TENANT_KEY = 'oidc_tenant_id';
-
 /**
- * Store PKCE parameters in session storage
+ * Register a fresh PKCE session server-side, keyed by `state`. The
+ * backend stores (verifier, tenant_id) with a 15-minute TTL and the
+ * callback handler DELETE-RETURNs the row to redeem it.
+ *
+ * Replaces the old sessionStorage approach (storePKCEParams /
+ * retrievePKCEParams) which broke when the Flip iframe was re-mounted
+ * between auth-start and callback — browser storage in a third-party
+ * iframe context is fragile (Safari ITP, Chrome CHIPS, parent-driven
+ * re-mounts). Server-side state survives any client-side lifecycle.
  */
-export function storePKCEParams(verifier: string, state: string, tenantId: string): void {
-  sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
-  sessionStorage.setItem(PKCE_STATE_KEY, state);
-  sessionStorage.setItem(PKCE_TENANT_KEY, tenantId);
-}
-
-/**
- * Retrieve and clear PKCE parameters from session storage
- */
-export function retrievePKCEParams(): { verifier: string; state: string; tenantId: string } | null {
-  const verifier = sessionStorage.getItem(PKCE_VERIFIER_KEY);
-  const state = sessionStorage.getItem(PKCE_STATE_KEY);
-  const tenantId = sessionStorage.getItem(PKCE_TENANT_KEY);
-
-  if (!verifier || !state || !tenantId) {
-    return null;
-  }
-
-  // Clear after retrieval
-  sessionStorage.removeItem(PKCE_VERIFIER_KEY);
-  sessionStorage.removeItem(PKCE_STATE_KEY);
-  sessionStorage.removeItem(PKCE_TENANT_KEY);
-
-  return { verifier, state, tenantId };
+export async function initPKCESession(
+  state: string,
+  verifier: string,
+  tenantId: string,
+): Promise<void> {
+  await api.post('/auth/oidc/pkce-init', {
+    state,
+    code_verifier: verifier,
+    tenant_id: tenantId,
+  });
 }
 
 /**
@@ -86,8 +77,11 @@ export async function buildAuthorizationUrl(
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const state = generateState();
 
-  // Store PKCE params for callback
-  storePKCEParams(codeVerifier, state, tenantId);
+  // Persist PKCE state SERVER-SIDE before redirecting. The callback
+  // will look up the verifier by `state`. If this POST fails the
+  // whole sign-in attempt fails loudly here, rather than silently
+  // landing on the IdP login and then a confusing "session expired".
+  await initPKCESession(state, codeVerifier, tenantId);
 
   const url = new URL(authUrl);
   url.searchParams.set('response_type', 'code');

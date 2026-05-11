@@ -4,7 +4,6 @@ import { Loader2, ArrowLeft, Info, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/apiClient';
 import { setAccessToken } from '@/lib/auth';
-import { retrievePKCEParams } from '@/lib/oidc';
 import { Button } from '@/components/ui/button';
 
 type CallbackStep = 'processing' | 'consent' | 'error';
@@ -69,48 +68,30 @@ const OIDCCallback = () => {
       return;
     }
 
-    // Retrieve PKCE params
-    const params = retrievePKCEParams();
-    if (!params) {
-      setError('Session expired. Please try logging in again.');
-      setStep('error');
-      return;
-    }
-
-    // Validate state
-    if (params.state !== state) {
-      setError('Invalid state parameter. Please try logging in again.');
-      setStep('error');
-      return;
-    }
-
-    // Exchange code for tokens (pass the PKCE verifier — required when the
-    // IdP enforces PKCE, which Keycloak does by default for public clients).
-    exchangeCode(code, params.tenantId, params.verifier);
+    // No sessionStorage lookup — the backend has the PKCE state keyed by
+    // `state`. We just hand over `code` + `state` and the callback handler
+    // resolves verifier + tenant_id server-side. The DB row is single-use
+    // (DELETE-RETURN) so it doubles as CSRF protection — a replayed state
+    // value finds nothing and 401s.
+    exchangeCode(code, state);
   }, [searchParams]);
 
-  const exchangeCode = async (code: string, tenantId: string, codeVerifier: string) => {
+  const exchangeCode = async (code: string, state: string) => {
     setError('');
 
     try {
-      // The backend derives a display name from the OIDC claims
-      // (given_name + family_name preferred) so there's no longer a
-      // needsUsername step. Consent may still be required on first login.
       const data = await api.post<{ access_token: string; needsConsent?: boolean }>(
         '/auth/oidc/callback',
-        {
-          code,
-          state: searchParams.get('state'),
-          tenant_id: tenantId,
-          code_verifier: codeVerifier,
-        }
+        { code, state },
       );
 
       setAccessToken(data.access_token);
 
       if (data.needsConsent) {
+        // setStep already moves out of 'processing' rendering — no
+        // separate isLoading flag in this component (the stale
+        // setIsLoading reference was dead code from a previous refactor).
         setStep('consent');
-        setIsLoading(false);
         return;
       }
 

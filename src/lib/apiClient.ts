@@ -40,6 +40,17 @@ async function refreshToken(): Promise<boolean> {
   }
 }
 
+// Transient failures we retry for idempotent GETs:
+//   - 502 Bad Gateway / 503 Service Unavailable / 504 Gateway Timeout —
+//     classic "backend is restarting / proxy overloaded"
+//   - fetch throwing (network blip, DNS, TLS reset)
+// Non-idempotent methods (POST/PATCH/DELETE) never retry — risk of
+// partial-side-effect duplication. 4xx never retries: input's wrong,
+// retry won't fix it.
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
+const RETRY_DELAYS_MS = [250, 750, 1500]; // worst-case total ~2.5s
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function request<T>(
   method: string,
   path: string,
@@ -65,7 +76,33 @@ async function request<T>(
     });
   };
 
-  let res = await makeRequest();
+  // Retry loop for idempotent GETs. First attempt is immediate (delay = 0);
+  // subsequent attempts wait per RETRY_DELAYS_MS before re-firing. POST /
+  // PATCH / DELETE skip the loop and fire exactly once.
+  const canRetry = method === 'GET';
+  let res: Response | null = null;
+  let lastNetworkError: unknown = null;
+  const maxAttempts = canRetry ? RETRY_DELAYS_MS.length + 1 : 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) await sleep(RETRY_DELAYS_MS[attempt - 1]!);
+    try {
+      res = await makeRequest();
+    } catch (err) {
+      lastNetworkError = err;
+      res = null;
+      if (!canRetry) throw err;
+      continue;
+    }
+    if (!canRetry) break;
+    if (!RETRYABLE_STATUS.has(res.status)) break;
+  }
+
+  if (!res) {
+    // Exhausted retries without a single completed response.
+    throw lastNetworkError instanceof Error
+      ? lastNetworkError
+      : new Error('Network request failed');
+  }
 
   // Transparently try refresh on 401 (except for the refresh endpoint itself,
   // which would loop). Still propagates 401 as a thrown ApiError if refresh fails.
