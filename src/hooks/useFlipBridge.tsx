@@ -24,6 +24,11 @@ const TAG = '[flip-bridge]';
  * returns the direct parent's origin even for cross-origin iframes. If that's
  * unavailable (Firefox), we fall back to `document.referrer`. '*' is a last
  * resort — some bridge implementations accept it, some don't.
+ *
+ * On Flutter mobile the page loads in a top-level WebView (no iframe, no
+ * referrer), so neither lookup yields anything. That's fine because the
+ * bridge's `isAllowedOrigin` short-circuits to `true` when FlipFlutter is
+ * injected — the value we pass to `initFlipBridge` is unused on mobile.
  */
 function resolveHostOrigin(): string {
   if (typeof window === 'undefined') return '*';
@@ -38,6 +43,27 @@ function resolveHostOrigin(): string {
     }
   }
   return '*';
+}
+
+/**
+ * "Embedded" means we should run the bridge handshake. Two cases:
+ *
+ * 1. **Iframe embed (web)** — `window.parent !== window`. Flip host loads
+ *    us inside an iframe; the bridge talks to the parent via postMessage.
+ *
+ * 2. **Flutter WebView (mobile)** — `'FlipFlutter' in window`. The Flip
+ *    mobile app injects a `FlipFlutter` JS object into the WebView and
+ *    loads us as the *top-level* document, so `window.parent === window`
+ *    and the iframe check fails. Without this branch the entire bridge
+ *    wiring was being skipped on mobile (language never followed the host,
+ *    theme reverted to next-themes defaults, etc.) — silently, because
+ *    "not embedded; skipping bridge init" looked benign in the logs.
+ */
+function detectEmbedded(): boolean {
+  if (typeof window === 'undefined') return false;
+  const inIframe = window.parent !== window;
+  const inFlutter = 'FlipFlutter' in window;
+  return inIframe || inFlutter;
 }
 
 /**
@@ -77,7 +103,7 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
   const { i18n } = useTranslation();
 
   const [state, setState] = useState<FlipBridgeState>({
-    isEmbedded: typeof window !== 'undefined' && window.parent !== window,
+    isEmbedded: detectEmbedded(),
     bridgeReady: false,
     error: null,
   });
@@ -89,7 +115,8 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const hostOrigin = resolveHostOrigin();
-    console.log(`${TAG} embedded; initialising bridge against host origin: ${hostOrigin}`);
+    const transport = 'FlipFlutter' in window ? 'flutter-webview' : 'iframe';
+    console.log(`${TAG} embedded (${transport}); initialising bridge against host origin: ${hostOrigin}`);
 
     let unsubscribeTheme: (() => void) | undefined;
     let unsubscribeLang: (() => void) | undefined;
