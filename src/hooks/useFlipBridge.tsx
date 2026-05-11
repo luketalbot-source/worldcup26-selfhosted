@@ -46,11 +46,32 @@ function resolveHostOrigin(): string {
  * - On mount, detects iframe context via window.parent !== window.
  * - When embedded, lazily imports @getflip/bridge and pulls the parent's
  *   current theme, then subscribes to THEME_CHANGE events to re-apply.
- * - Also reads the parent's initial language once. Doesn't subscribe to
- *   language changes — the in-app language selector stays authoritative.
+ * - Also reads the parent's initial language AND subscribes to LANG_CHANGE
+ *   so the in-app strings follow the host whenever the user changes
+ *   language in Flip — same pattern as theme. The in-app language selector
+ *   still works (it calls i18n.changeLanguage locally) but any subsequent
+ *   host event will override it.
  * - Logs verbosely via `[flip-bridge]` prefix so a silent failure is
  *   visible in DevTools.
  */
+// Bridge's getLang/getTheme resolve with EITHER the value OR a
+// `{ code: BridgeErrorCode }` shape — they don't throw on platform-level
+// rejections like FORBIDDEN_ORIGIN. The narrow check below splits the
+// two cases so we don't silently treat an error response as "no value".
+function isBridgeError(v: unknown): v is { code: string } {
+  return typeof v === 'object' && v !== null && typeof (v as { code?: unknown }).code === 'string';
+}
+
+// Normalise whatever locale the host hands us (e.g. "de-DE", "pt_BR")
+// to our supported 2-letter set. Unsupported codes return null so we
+// don't call i18n.changeLanguage with garbage that'd just fall back to
+// `en` and lose information.
+const SUPPORTED = new Set(['en', 'es', 'de', 'fr', 'pt', 'it']);
+function normaliseLang(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.length < 2) return null;
+  const short = raw.slice(0, 2).toLowerCase();
+  return SUPPORTED.has(short) ? short : null;
+}
 export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
   const { setTheme } = useTheme();
   const { i18n } = useTranslation();
@@ -71,6 +92,7 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
     console.log(`${TAG} embedded; initialising bridge against host origin: ${hostOrigin}`);
 
     let unsubscribeTheme: (() => void) | undefined;
+    let unsubscribeLang: (() => void) | undefined;
     let cancelled = false;
 
     const wire = async () => {
@@ -87,21 +109,33 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
         try {
           const theme = await getTheme();
           console.log(`${TAG} getTheme →`, theme);
-          const active = theme?.activeTheme;
-          if (!cancelled && (active === 'light' || active === 'dark')) {
-            setTheme(active);
+          if (isBridgeError(theme)) {
+            console.warn(`${TAG} getTheme returned BridgeError:`, theme);
+          } else {
+            const active = theme?.activeTheme;
+            if (!cancelled && (active === 'light' || active === 'dark')) {
+              setTheme(active);
+            }
           }
         } catch (err) {
           console.warn(`${TAG} getTheme rejected (host may not expose theme):`, err);
         }
 
-        // Language handshake (initial only; don't subscribe to LANG_CHANGE).
+        // Initial language handshake. getLang resolves with either a string
+        // or `{ code: BridgeErrorCode }` — branch on both.
         try {
           const lang = await getLang();
           console.log(`${TAG} getLang →`, lang);
-          if (!cancelled && typeof lang === 'string' && lang) {
-            const short = lang.slice(0, 2);
-            if (i18n.language !== short) i18n.changeLanguage(short);
+          if (isBridgeError(lang)) {
+            console.warn(`${TAG} getLang returned BridgeError:`, lang);
+          } else {
+            const normalised = normaliseLang(lang);
+            if (!cancelled && normalised && i18n.language !== normalised) {
+              console.log(`${TAG} applying host language: ${normalised} (was ${i18n.language})`);
+              i18n.changeLanguage(normalised);
+            } else if (!cancelled && !normalised) {
+              console.warn(`${TAG} host language "${lang}" not in supported set — leaving as ${i18n.language}`);
+            }
           }
         } catch (err) {
           console.warn(`${TAG} getLang rejected:`, err);
@@ -122,6 +156,31 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
           console.warn(`${TAG} subscribe(THEME_CHANGE) rejected:`, err);
         }
 
+        // Subscribe to language changes. When the user changes language in
+        // Flip after the iframe has loaded, we re-apply it here. Event
+        // payload shape: { data: <langCode> } based on the bridge SDK's
+        // existing patterns — we defensively support both bare-string and
+        // wrapped-object payloads.
+        try {
+          unsubscribeLang = await subscribe(
+            BridgeEventType.LANG_CHANGE,
+            (event: { data?: unknown }) => {
+              // Some bridge implementations deliver the new lang as the
+              // bare event.data; others wrap it. Try both.
+              const raw = typeof event.data === 'string'
+                ? event.data
+                : (event.data as { lang?: string; activeLang?: string } | undefined)?.lang
+                    ?? (event.data as { activeLang?: string } | undefined)?.activeLang;
+              const next = normaliseLang(raw);
+              console.log(`${TAG} LANG_CHANGE →`, event.data, '→ normalised:', next);
+              if (next && i18n.language !== next) i18n.changeLanguage(next);
+            }
+          );
+          console.log(`${TAG} subscribed to LANG_CHANGE`);
+        } catch (err) {
+          console.warn(`${TAG} subscribe(LANG_CHANGE) rejected:`, err);
+        }
+
         if (!cancelled) setState((s) => ({ ...s, bridgeReady: true, error: null }));
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -136,6 +195,9 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
       cancelled = true;
       if (unsubscribeTheme) {
         try { unsubscribeTheme(); } catch { /* ignore */ }
+      }
+      if (unsubscribeLang) {
+        try { unsubscribeLang(); } catch { /* ignore */ }
       }
     };
   }, [state.isEmbedded, setTheme, i18n]);
