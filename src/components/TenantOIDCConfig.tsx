@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Key, Save, Loader2, Info, AlertCircle, Copy, Check, Send, AppWindow } from 'lucide-react';
+import { Key, Save, Loader2, Info, AlertCircle, Copy, Check, Send, AppWindow, Lock, Pencil } from 'lucide-react';
 import { api, ApiError } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,6 +112,13 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // The bottom OIDC config section defaults to read-only. Admins kept
+  // accidentally copying the *bottom* redirect URI (with /auth/callback)
+  // into Flip's OIDC settings, when Flip actually needs the bare tenant
+  // URL from the "Share with Flip" card above. Locking edits behind an
+  // explicit toggle makes the bottom section visually a reference panel,
+  // while still allowing first-time-setup edits when needed.
+  const [editing, setEditing] = useState(false);
 
   // Default redirect URI uses the production base URL so the helper text /
   // share card show what an admin should give to Flip — independent of the
@@ -164,6 +171,9 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
       // discovery — e.g. /realms/show/protocol/openid-connect/auth →
       // /realms/show).
       setIssuer(saved.issuer);
+      // Snap back to read-only after a successful save so the section
+      // returns to its "reference panel" presentation.
+      setEditing(false);
       toast.success('OIDC configuration saved');
     } catch (err) {
       const message = err instanceof ApiError
@@ -239,65 +249,117 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
         </CardContent>
       </Card>
 
-      {/* The actual editable OIDC config. */}
+      {/* The OIDC config itself. Locked to read-only by default so admins
+          don't grab the bottom Redirect URI (with /auth/callback) and paste
+          it into Flip — the value Flip needs lives in the "Share with Flip"
+          card above. An explicit Edit toggle unlocks the inputs for the
+          rare cases first-time setup or a re-keying is needed. */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="w-5 h-5" />
-            SSO (OIDC) Configuration
-          </CardTitle>
-          <CardDescription>
-            Configure Single Sign-On for <strong>{tenantName}</strong>. Endpoints are
-            auto-discovered from the issuer URL on save — no need to enter them manually.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <CardTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                SSO (OIDC) Configuration
+                {!editing && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    <Lock className="w-3 h-3" />
+                    Read-only
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Current SSO config for <strong>{tenantName}</strong>. To share values with
+                Flip, copy from <em>Share with Flip</em> above — the Redirect URI here ends
+                in <code>/auth/callback</code> and is for the IdP, <strong>not Flip</strong>.
+              </CardDescription>
+            </div>
+            {!editing && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSaveError(null);
+                  setEditing(true);
+                }}
+                className="shrink-0"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="issuer">Issuer URL *</Label>
-              <Input
-                id="issuer"
-                placeholder="https://login.microsoftonline.com/{tenant-id}/v2.0"
-                value={issuer}
-                onChange={(e) => setIssuer(e.target.value)}
-                autoComplete="off"
-              />
-              <p className="text-xs text-muted-foreground">
-                The OIDC issuer. Must serve <code>/.well-known/openid-configuration</code>.
-              </p>
-            </div>
+          {editing ? (
+            <>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="issuer">Issuer URL *</Label>
+                  <Input
+                    id="issuer"
+                    placeholder="https://login.microsoftonline.com/{tenant-id}/v2.0"
+                    value={issuer}
+                    onChange={(e) => setIssuer(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The OIDC issuer. Must serve <code>/.well-known/openid-configuration</code>.
+                  </p>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="client-id">Client ID *</Label>
-              <Input
-                id="client-id"
-                placeholder="your-client-id"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="client-id">Client ID *</Label>
+                  <Input
+                    id="client-id"
+                    placeholder="your-client-id"
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
 
-            {/* Client Secret intentionally omitted — Flip's IdP issues a
-                public (PKCE) client, not a confidential one, so this field
-                was always either blank or wrong. The backend still accepts
-                client_secret for back-compat but we no longer surface it. */}
+                {/* Client Secret intentionally omitted — Flip's IdP issues a
+                    public (PKCE) client, not a confidential one, so this field
+                    was always either blank or wrong. The backend still accepts
+                    client_secret for back-compat but we no longer surface it. */}
 
-            <div className="space-y-2">
-              <Label htmlFor="redirect-uri">Redirect URI *</Label>
-              <Input
-                id="redirect-uri"
-                placeholder={defaultRedirectUri}
-                value={redirectUri}
-                onChange={(e) => setRedirectUri(e.target.value)}
-                autoComplete="off"
-              />
-              <p className="text-xs text-muted-foreground">
-                Must be registered in your IdP. Default: <code className="break-all">{defaultRedirectUri}</code>
-              </p>
+                <div className="space-y-2">
+                  <Label htmlFor="redirect-uri">Redirect URI *</Label>
+                  <Input
+                    id="redirect-uri"
+                    placeholder={defaultRedirectUri}
+                    value={redirectUri}
+                    onChange={(e) => setRedirectUri(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Must be registered in your IdP. Default: <code className="break-all">{defaultRedirectUri}</code>
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Issuer URL</Label>
+                <Input value={issuer || '(not configured)'} readOnly className="font-mono text-sm bg-muted/40" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Client ID</Label>
+                <Input value={clientId || '(not configured)'} readOnly className="font-mono text-sm bg-muted/40" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Redirect URI</Label>
+                <Input value={redirectUri || '(not configured)'} readOnly className="font-mono text-sm bg-muted/40" />
+                <p className="text-xs text-muted-foreground">
+                  Registered in the IdP — <strong>not</strong> the value to share with Flip.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {loaded && (
             <div className="rounded-md bg-muted/50 p-3 text-xs space-y-1">
@@ -312,21 +374,45 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
             </div>
           )}
 
-          {saveError && (
+          {editing && saveError && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="break-words">{saveError}</div>
             </div>
           )}
 
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
-            Save Configuration
-          </Button>
+          {editing && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  // Revert local edits to whatever the server most recently
+                  // confirmed, so cancelling never accidentally persists
+                  // half-typed values on the next save.
+                  if (loaded) {
+                    setIssuer(loaded.issuer ?? '');
+                    setClientId(loaded.client_id ?? '');
+                    setRedirectUri(loaded.redirect_uri ?? defaultRedirectUri);
+                  }
+                  setSaveError(null);
+                  setEditing(false);
+                }}
+                disabled={saving}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving} className="flex-1">
+                {saving ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                Save Configuration
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
