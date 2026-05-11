@@ -50,9 +50,12 @@ interface TenantUser {
   id: string;
   display_name: string;
   avatar_emoji: string | null;
-  phone_number: string | null;
   created_at: string;
-  lastActive: string | null;
+  // Engagement metrics. Postgres COUNT/SUM come back as strings or
+  // BigInt depending on driver; the renderer coerces with Number().
+  // Replace the old stubbed lastActive field which was never wired up.
+  prediction_count: number | string;
+  total_points: number | string;
 }
 
 const Admin = () => {
@@ -520,19 +523,28 @@ const Admin = () => {
                             <span className="text-2xl">{tenantUser.avatar_emoji || '👤'}</span>
                             <div>
                               <p className="font-medium text-foreground">{tenantUser.display_name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {tenantUser.phone_number || 'No phone number'}
+                              <p className="text-xs text-muted-foreground">
+                                Joined {new Date(tenantUser.created_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
+                            {/* Engagement at a glance — predictions placed and
+                                running points total (same formula as the
+                                leaderboard: 3 for exact, 1 for correct result,
+                                plus any won boost / custom-boost points). */}
                             <div className="text-right text-xs text-muted-foreground">
-                              <div>Joined {new Date(tenantUser.created_at).toLocaleDateString()}</div>
                               <div>
-                                {tenantUser.lastActive
-                                  ? `Active ${new Date(tenantUser.lastActive).toLocaleString()}`
-                                  : 'No activity yet'
-                                }
+                                <span className="font-semibold text-foreground tabular-nums">
+                                  {Number(tenantUser.prediction_count ?? 0)}
+                                </span>{' '}
+                                prediction{Number(tenantUser.prediction_count ?? 0) === 1 ? '' : 's'}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-foreground tabular-nums">
+                                  {Number(tenantUser.total_points ?? 0)}
+                                </span>{' '}
+                                point{Number(tenantUser.total_points ?? 0) === 1 ? '' : 's'}
                               </div>
                             </div>
                             <Button

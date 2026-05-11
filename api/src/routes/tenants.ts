@@ -276,17 +276,84 @@ router.patch("/:id/oidc-config", requireAdmin, zValidator("json", oidcConfigSche
   return c.json({ ...safe, has_client_secret: !!client_secret });
 });
 
+// Admin-facing tenant users list. Includes per-user prediction count +
+// total points (same formula as the leaderboard: 3pts exact, 1pt correct
+// result, plus boost awards and tenant custom boosts) so the admin can
+// see at a glance who's engaged. `lastActive` was previously a stub field
+// that never got populated — replaced by these two real metrics.
 router.get("/:id/users", requireAdmin, async (c) => {
   const tenantId = c.req.param("id");
   const rows = await sql`
-    SELECT u.id, u.email, u.phone, u.created_at,
-           p.display_name, p.avatar_emoji,
-           oi.oidc_subject, oi.created_at AS identity_linked_at
-    FROM oidc_identities oi
-    INNER JOIN public.users u ON u.id = oi.user_id
-    LEFT JOIN profiles p ON p.user_id = u.id
-    WHERE oi.tenant_id = ${tenantId}
-    ORDER BY u.created_at DESC
+    WITH tenant_users AS (
+      SELECT u.id AS user_id, u.email, u.created_at,
+             p.display_name, p.avatar_emoji,
+             oi.oidc_subject, oi.created_at AS identity_linked_at
+      FROM oidc_identities oi
+      INNER JOIN public.users u ON u.id = oi.user_id
+      LEFT JOIN profiles p ON p.user_id = u.id
+      WHERE oi.tenant_id = ${tenantId}
+    ),
+    match_pts AS (
+      SELECT pr.user_id,
+             SUM(
+               CASE
+                 WHEN lm.home_score IS NULL OR lm.away_score IS NULL THEN 0
+                 WHEN pr.home_score = lm.home_score AND pr.away_score = lm.away_score THEN 3
+                 WHEN SIGN(pr.home_score - pr.away_score) = SIGN(lm.home_score - lm.away_score) THEN 1
+                 ELSE 0
+               END
+             ) AS pts,
+             COUNT(*) AS pred_count
+      FROM predictions pr
+      INNER JOIN live_matches lm ON lm.match_id = pr.match_id
+      WHERE pr.tenant_id = ${tenantId}
+      GROUP BY pr.user_id
+    ),
+    boost_pts AS (
+      SELECT bp.user_id,
+             SUM(
+               CASE
+                 WHEN br.result_team_code   IS NOT NULL AND bp.predicted_team_code   = br.result_team_code   THEN ba.points_value
+                 WHEN br.result_player_name IS NOT NULL AND bp.predicted_player_name = br.result_player_name THEN ba.points_value
+                 ELSE 0
+               END
+             ) AS pts
+      FROM boost_predictions bp
+      INNER JOIN boost_awards ba ON ba.id = bp.award_id
+      LEFT JOIN boost_results br ON br.award_id = bp.award_id
+      WHERE bp.tenant_id = ${tenantId}
+      GROUP BY bp.user_id
+    ),
+    custom_pts AS (
+      SELECT cbp.user_id,
+             SUM(
+               CASE
+                 WHEN cbr.result_team_code   IS NOT NULL AND cbp.predicted_team_code   = cbr.result_team_code   THEN cb.points_value
+                 WHEN cbr.result_player_name IS NOT NULL AND cbp.predicted_player_name = cbr.result_player_name THEN cb.points_value
+                 ELSE 0
+               END
+             ) AS pts
+      FROM tenant_custom_boost_predictions cbp
+      INNER JOIN tenant_custom_boosts cb ON cb.id = cbp.custom_boost_id
+      LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = cbp.custom_boost_id
+      WHERE cb.tenant_id = ${tenantId}
+      GROUP BY cbp.user_id
+    )
+    SELECT
+      tu.user_id                                       AS id,
+      tu.email,
+      tu.created_at,
+      tu.display_name,
+      tu.avatar_emoji,
+      tu.oidc_subject,
+      tu.identity_linked_at,
+      COALESCE(mp.pred_count, 0)                       AS prediction_count,
+      COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) AS total_points
+    FROM tenant_users tu
+    LEFT JOIN match_pts  mp ON mp.user_id = tu.user_id
+    LEFT JOIN boost_pts  bp ON bp.user_id = tu.user_id
+    LEFT JOIN custom_pts cp ON cp.user_id = tu.user_id
+    ORDER BY tu.created_at DESC
   `;
   return c.json(rows);
 });
