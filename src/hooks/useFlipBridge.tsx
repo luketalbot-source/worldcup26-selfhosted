@@ -2,6 +2,27 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 
+/**
+ * Per-signal detection state. Surface in a UI diagnostic panel when we
+ * can't reach DevTools (i.e. mobile WebView debugging). Each field maps
+ * to one possible mobile/embed transport, so a screenshot tells us
+ * which mechanism the host actually uses without remote-attaching.
+ */
+export interface FlipBridgeDiag {
+  /** True if window.parent !== window (iframe embed). */
+  inIframe: boolean;
+  /** True if `FlipFlutter` showed up in `window` at any point during detection. */
+  flipFlutter: 'present-at-mount' | 'appeared-during-poll' | 'never';
+  /** iOS WKWebView native bridge. */
+  webkitMessageHandlers: boolean;
+  /** Android WebView Java->JS interface. */
+  androidInterface: boolean;
+  /** UA string truncated for the panel (full string still logged to console). */
+  userAgent: string;
+  /** ms from mount until isEmbedded resolved (or `null` if unresolved). */
+  resolvedAtMs: number | null;
+}
+
 interface FlipBridgeState {
   /**
    * Tri-state — embedded inside a Flip host (web iframe or Flutter WebView).
@@ -19,9 +40,27 @@ interface FlipBridgeState {
   bridgeReady: boolean;
   /** Last error the bridge surfaced, if any — handy for debugging in prod. */
   error: string | null;
+  /** Snapshot of all detection signals. Surfaced as a debug panel in ProfileView. */
+  diag: FlipBridgeDiag;
 }
 
-const Ctx = createContext<FlipBridgeState>({ isEmbedded: null, bridgeReady: false, error: null });
+function emptyDiag(): FlipBridgeDiag {
+  return {
+    inIframe: typeof window !== 'undefined' && window.parent !== window,
+    flipFlutter: 'never',
+    webkitMessageHandlers: false,
+    androidInterface: false,
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 120) : '',
+    resolvedAtMs: null,
+  };
+}
+
+const Ctx = createContext<FlipBridgeState>({
+  isEmbedded: null,
+  bridgeReady: false,
+  error: null,
+  diag: emptyDiag(),
+});
 
 // Prefix all bridge-related console output with this tag so Luke can filter
 // DevTools easily when debugging. Verbose in all environments — it's a small
@@ -128,6 +167,7 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
     isEmbedded: null,
     bridgeReady: false,
     error: null,
+    diag: emptyDiag(),
   });
 
   // Detection effect. Runs once on mount and polls briefly for the host
@@ -136,38 +176,87 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
   // render, so a synchronous check returns false even though the bridge
   // is going to work fine a moment later). Settles isEmbedded to true
   // as soon as the host is detected, or to false if we time out.
+  //
+  // Also captures every detection signal into state.diag so a UI panel
+  // (rendered in ProfileView for mobile debugging) can surface what's
+  // present in the WebView without needing a remote-attached console.
   useEffect(() => {
     if (typeof window === 'undefined') {
       setState((s) => ({ ...s, isEmbedded: false }));
       return;
     }
 
+    const startedAt = Date.now();
+    const w = window as unknown as {
+      webkit?: { messageHandlers?: unknown };
+      Android?: unknown;
+    };
+    const baseDiag: FlipBridgeDiag = {
+      inIframe: window.parent !== window,
+      flipFlutter: 'FlipFlutter' in window ? 'present-at-mount' : 'never',
+      webkitMessageHandlers: typeof w.webkit?.messageHandlers === 'object',
+      androidInterface: typeof w.Android !== 'undefined',
+      userAgent: navigator.userAgent.slice(0, 120),
+      resolvedAtMs: null,
+    };
+
+    console.log(`${TAG} mount diag:`, {
+      ...baseDiag,
+      fullUA: navigator.userAgent,
+      windowKeys: Object.keys(window).filter((k) =>
+        /flip|bridge|webkit|android|native|host/i.test(k),
+      ),
+    });
+
     if (checkEmbedded()) {
       const transport = 'FlipFlutter' in window ? 'flutter-webview' : 'iframe';
+      const resolvedAtMs = Date.now() - startedAt;
       console.log(`${TAG} host detected at mount (${transport})`);
-      setState((s) => ({ ...s, isEmbedded: true }));
+      setState((s) => ({
+        ...s,
+        isEmbedded: true,
+        diag: { ...baseDiag, resolvedAtMs },
+      }));
       return;
     }
 
     console.log(`${TAG} no host at mount — polling ${EMBED_DETECTION_TIMEOUT_MS}ms for late injection`);
+    setState((s) => ({ ...s, diag: baseDiag }));
+
     let settled = false;
-    const startedAt = Date.now();
     const id = setInterval(() => {
       if (settled) return;
       if (checkEmbedded()) {
         settled = true;
         clearInterval(id);
         const transport = 'FlipFlutter' in window ? 'flutter-webview' : 'iframe';
-        const ms = Date.now() - startedAt;
-        console.log(`${TAG} host appeared after ${ms}ms (${transport})`);
-        setState((s) => ({ ...s, isEmbedded: true }));
+        const resolvedAtMs = Date.now() - startedAt;
+        console.log(`${TAG} host appeared after ${resolvedAtMs}ms (${transport})`);
+        setState((s) => ({
+          ...s,
+          isEmbedded: true,
+          diag: {
+            ...s.diag,
+            flipFlutter:
+              'FlipFlutter' in window && s.diag.flipFlutter === 'never'
+                ? 'appeared-during-poll'
+                : s.diag.flipFlutter,
+            inIframe: window.parent !== window,
+            resolvedAtMs,
+          },
+        }));
         return;
       }
       if (Date.now() - startedAt >= EMBED_DETECTION_TIMEOUT_MS) {
         settled = true;
         clearInterval(id);
-        console.log(`${TAG} no host detected within ${EMBED_DETECTION_TIMEOUT_MS}ms — standalone`);
-        setState((s) => ({ ...s, isEmbedded: false }));
+        const resolvedAtMs = Date.now() - startedAt;
+        console.log(`${TAG} no host detected within ${EMBED_DETECTION_TIMEOUT_MS}ms — standalone. final diag:`, { ...baseDiag, resolvedAtMs });
+        setState((s) => ({
+          ...s,
+          isEmbedded: false,
+          diag: { ...s.diag, resolvedAtMs },
+        }));
       }
     }, EMBED_POLL_INTERVAL_MS);
     return () => {

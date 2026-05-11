@@ -19,7 +19,7 @@ export const ProfileView = () => {
   const { profile, updateAvatar } = useProfile(user?.id);
   const { stats } = useUserStats(user?.id, tenantId);
   const navigate = useNavigate();
-  const { isEmbedded } = useFlipBridge();
+  const { isEmbedded, diag, bridgeReady } = useFlipBridge();
 
   // Display name is read-only — it mirrors the OIDC host identity (see
   // upsertOidcUser on the backend). Only the avatar emoji is editable;
@@ -239,6 +239,24 @@ export const ProfileView = () => {
               </div>
             </div>
           )}
+
+          {/* Temporary Flip Bridge diagnostics. Render a screenshot-able
+              readout of every detection signal we tried, so we can debug
+              mobile transport issues without remote DevTools. Remove once
+              the mobile bridge is reliable. */}
+          <details className="text-[10px] text-muted-foreground/70 border-t border-border/40 pt-3 mt-2">
+            <summary className="cursor-pointer select-none">Bridge diagnostics</summary>
+            <pre className="mt-2 whitespace-pre-wrap break-all bg-muted/30 rounded p-2 leading-tight">
+{`isEmbedded   = ${String(isEmbedded)}
+bridgeReady  = ${String(bridgeReady)}
+inIframe     = ${diag.inIframe}
+FlipFlutter  = ${diag.flipFlutter}
+webkit.MH    = ${diag.webkitMessageHandlers}
+Android      = ${diag.androidInterface}
+resolvedAt   = ${diag.resolvedAtMs === null ? '(pending)' : diag.resolvedAtMs + 'ms'}
+UA           = ${diag.userAgent}`}
+            </pre>
+          </details>
         </div>
       </motion.div>
     </div>
