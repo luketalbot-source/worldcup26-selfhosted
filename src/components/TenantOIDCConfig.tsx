@@ -211,7 +211,7 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Send className="w-5 h-5" />
-            Share with Flip
+            App setup
           </CardTitle>
           <CardDescription>
             Pass these values to the Flip team to wire <strong>{tenantName}</strong> into
@@ -223,7 +223,7 @@ export const TenantOIDCConfig = ({ tenantId, tenantName, tenantUid }: TenantOIDC
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Send className="w-4 h-4 text-muted-foreground" />
-              Send this to your Flip Admin
+              OIDC settings for Flip Tenant Controller
             </div>
             <CopyableField
               label="OIDC Client ID"
