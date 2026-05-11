@@ -3,15 +3,25 @@ import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 
 interface FlipBridgeState {
-  /** True when the app has detected it's running inside the Flip host iframe. */
-  isEmbedded: boolean;
+  /**
+   * Tri-state — embedded inside a Flip host (web iframe or Flutter WebView).
+   *
+   * - `null`  — detection still in progress. Hide host-controlled UI
+   *             (e.g. theme picker) during this window: a brief flash of
+   *             "extra" controls on mobile looks worse than a brief
+   *             delay before they appear in true-standalone mode.
+   * - `true`  — confirmed running inside a Flip host.
+   * - `false` — confirmed standalone (no host detected within
+   *             EMBED_DETECTION_TIMEOUT_MS).
+   */
+  isEmbedded: boolean | null;
   /** True when the Flip bridge has completed its initial theme/lang handshake. */
   bridgeReady: boolean;
   /** Last error the bridge surfaced, if any — handy for debugging in prod. */
   error: string | null;
 }
 
-const Ctx = createContext<FlipBridgeState>({ isEmbedded: false, bridgeReady: false, error: null });
+const Ctx = createContext<FlipBridgeState>({ isEmbedded: null, bridgeReady: false, error: null });
 
 // Prefix all bridge-related console output with this tag so Luke can filter
 // DevTools easily when debugging. Verbose in all environments — it's a small
@@ -54,17 +64,26 @@ function resolveHostOrigin(): string {
  * 2. **Flutter WebView (mobile)** — `'FlipFlutter' in window`. The Flip
  *    mobile app injects a `FlipFlutter` JS object into the WebView and
  *    loads us as the *top-level* document, so `window.parent === window`
- *    and the iframe check fails. Without this branch the entire bridge
- *    wiring was being skipped on mobile (language never followed the host,
- *    theme reverted to next-themes defaults, etc.) — silently, because
- *    "not embedded; skipping bridge init" looked benign in the logs.
+ *    and the iframe check fails.
+ *
+ * Important wrinkle: Flutter sometimes injects `FlipFlutter` via
+ * `evaluateJavascript` *after* our React app's initial render, so a
+ * one-shot synchronous check at mount can miss it. `checkEmbedded` is
+ * called repeatedly by the polling loop below until the host appears or
+ * we time out.
  */
-function detectEmbedded(): boolean {
+function checkEmbedded(): boolean {
   if (typeof window === 'undefined') return false;
   const inIframe = window.parent !== window;
   const inFlutter = 'FlipFlutter' in window;
   return inIframe || inFlutter;
 }
+
+// How long to wait for a host to show up before deciding we're standalone.
+// 3 s comfortably absorbs Flutter's late-injection window on real devices
+// without making the standalone web app feel laggy on first paint.
+const EMBED_DETECTION_TIMEOUT_MS = 3000;
+const EMBED_POLL_INTERVAL_MS = 100;
 
 /**
  * Top-level provider that wires the Flip host's theme + language into the app.
@@ -103,14 +122,66 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
   const { i18n } = useTranslation();
 
   const [state, setState] = useState<FlipBridgeState>({
-    isEmbedded: detectEmbedded(),
+    // Tri-state. Start as null so consumers (e.g. ProfileView's theme
+    // picker) treat detection as in-progress and hide host-controlled UI
+    // until we know for sure. See the FlipBridgeState type for rationale.
+    isEmbedded: null,
     bridgeReady: false,
     error: null,
   });
 
+  // Detection effect. Runs once on mount and polls briefly for the host
+  // to appear (handles Flutter's late `FlipFlutter` injection — that
+  // object is sometimes set via evaluateJavascript *after* our first
+  // render, so a synchronous check returns false even though the bridge
+  // is going to work fine a moment later). Settles isEmbedded to true
+  // as soon as the host is detected, or to false if we time out.
   useEffect(() => {
-    if (!state.isEmbedded) {
-      console.log(`${TAG} not embedded (standalone load); skipping bridge init`);
+    if (typeof window === 'undefined') {
+      setState((s) => ({ ...s, isEmbedded: false }));
+      return;
+    }
+
+    if (checkEmbedded()) {
+      const transport = 'FlipFlutter' in window ? 'flutter-webview' : 'iframe';
+      console.log(`${TAG} host detected at mount (${transport})`);
+      setState((s) => ({ ...s, isEmbedded: true }));
+      return;
+    }
+
+    console.log(`${TAG} no host at mount — polling ${EMBED_DETECTION_TIMEOUT_MS}ms for late injection`);
+    let settled = false;
+    const startedAt = Date.now();
+    const id = setInterval(() => {
+      if (settled) return;
+      if (checkEmbedded()) {
+        settled = true;
+        clearInterval(id);
+        const transport = 'FlipFlutter' in window ? 'flutter-webview' : 'iframe';
+        const ms = Date.now() - startedAt;
+        console.log(`${TAG} host appeared after ${ms}ms (${transport})`);
+        setState((s) => ({ ...s, isEmbedded: true }));
+        return;
+      }
+      if (Date.now() - startedAt >= EMBED_DETECTION_TIMEOUT_MS) {
+        settled = true;
+        clearInterval(id);
+        console.log(`${TAG} no host detected within ${EMBED_DETECTION_TIMEOUT_MS}ms — standalone`);
+        setState((s) => ({ ...s, isEmbedded: false }));
+      }
+    }, EMBED_POLL_INTERVAL_MS);
+    return () => {
+      settled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  // Bridge wire-up effect. Fires once isEmbedded resolves to true. The
+  // detection effect above guarantees this only runs when a host is
+  // actually present (sync at mount on web iframe, after polling on
+  // Flutter mobile).
+  useEffect(() => {
+    if (state.isEmbedded !== true) {
       return;
     }
 

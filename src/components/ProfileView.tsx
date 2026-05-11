@@ -190,8 +190,13 @@ export const ProfileView = () => {
             </div>
           </div>
 
-          {/* Theme Setting — hidden when embedded in Flip (host controls it). */}
-          {!isEmbedded && (
+          {/* Theme Setting — hidden when embedded in Flip (host controls it).
+              `isEmbedded` is tri-state: null while detection is still in
+              flight, true when host confirmed, false when standalone is
+              confirmed. We only show the picker after standalone is
+              confirmed — that way mobile users never see a brief flash
+              of the picker before the bridge handshake finishes. */}
+          {isEmbedded === false && (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {theme === 'dark' ? (
