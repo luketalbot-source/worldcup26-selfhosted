@@ -85,12 +85,18 @@ export const teams: Team[] = [
   { id: 'cod', name: 'DR Congo',              code: 'COD', flag: '🇨🇩', group: 'FIFA-PO' },
 
   // Additional fixups for codes that drifted between the static seed and
-  // what football-data.org actually returns:
-  //   - Curaçao: FD uses 'CUR'; the original Group E seed had 'CUW' (IOC).
-  //     Both kept so old prediction rows referencing CUW still resolve.
-  //   - Turkey: present in fallbackTeamNames + i18n, but never had a
-  //     Team entry — so FLAGS_BY_CODE['TUR'] was undefined.
+  // what football-data.org actually returns. FD uses ISO 3166-1 alpha-3
+  // codes; this file originally used IOC codes for some teams, which
+  // for a handful of countries differ (URU vs URY, CUW vs CUR, etc.).
+  // Both kept so old prediction rows referencing the IOC code still
+  // resolve. Cross-checked against every distinct code currently in
+  // live_matches — this is the full set of drift today.
+  //   - Curaçao:  IOC CUW → FD CUR
+  //   - Uruguay:  IOC URU → FD URY
+  //   - Turkey:   already in fallbackTeamNames + i18n, but no Team
+  //               entry meant FLAGS_BY_CODE['TUR'] was undefined.
   { id: 'cur', name: 'Curaçao',               code: 'CUR', flag: '🇨🇼', group: 'EXTRA' },
+  { id: 'ury', name: 'Uruguay',               code: 'URY', flag: '🇺🇾', group: 'EXTRA' },
   { id: 'tur', name: 'Turkey',                code: 'TUR', flag: '🇹🇷', group: 'EXTRA' },
 ];
 
