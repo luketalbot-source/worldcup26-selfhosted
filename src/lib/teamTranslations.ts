@@ -69,4 +69,12 @@ export const fallbackTeamNames: Record<string, string> = {
   'UKR': 'Ukraine',
   'BOL': 'Bolivia',
   'JAM': 'Jamaica',
+  // Playoff qualifiers (Spring 2026) — added to fallback so they render
+  // sanely even if the i18n bundle for the active locale hasn't loaded
+  // the corresponding key yet.
+  'SWE': 'Sweden',
+  'CZE': 'Czechia',
+  'BIH': 'Bosnia & Herzegovina',
+  'IRQ': 'Iraq',
+  'COD': 'DR Congo',
 };
