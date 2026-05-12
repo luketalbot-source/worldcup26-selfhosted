@@ -20,6 +20,7 @@
 // Static is fine for flags — they don't change once a team is named.
 
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { teams as staticTeams } from '@/data/teams';
 import type { Team } from '@/types/match';
@@ -28,6 +29,14 @@ import type { Team } from '@/types/match';
 // from pickers. `TBD` is what the API returns for unqualified slots;
 // empty string is defence in depth.
 const PLACEHOLDER_CODES = new Set(['TBD', '???', '']);
+
+// Tournament-group names must look like 'Group A' .. 'Group L'.
+// `live_matches` historically contained dev-seed rows tagged
+// group_name='TEST' (with stage='group') that put club teams —
+// PSG, Bayern, Arsenal, Atleti — into the team picker. Filtering on
+// the canonical naming pattern keeps that kind of accidental seed
+// from leaking into UI again without needing a code change.
+const TOURNAMENT_GROUP_RE = /^Group [A-L]$/;
 
 // Build the code → flag lookup once on module load. Placeholder codes
 // in the static file are skipped so an early `TBD` row's '🏳️' flag
@@ -56,6 +65,14 @@ const FLAGS_BY_CODE: Record<string, string> = (() => {
  */
 export function useQualifiedTeams(): Team[] {
   const { matches } = useLiveMatchesContext();
+  // We sort by the *localised* team name so the visible order matches
+  // the visible labels. Without this, the picker displays "Kanada" /
+  // "Kap Verde" / "Kolumbien" mid-list because they sort by the
+  // English fallback ("Canada" / "Cape Verde" / "Colombia") even
+  // though the German labels are shown. The translation function is
+  // pulled in here so the sort updates immediately on language change
+  // without each consumer having to re-sort.
+  const { t, i18n } = useTranslation();
   return useMemo(() => {
     const byCode = new Map<string, Team>();
 
@@ -65,6 +82,8 @@ export function useQualifiedTeams(): Team[] {
       // bracket is determined — including them would re-introduce the
       // exact noise we're trying to avoid.
       if (m.stage !== 'group') continue;
+      // Also gate on the group_name shape — see TOURNAMENT_GROUP_RE.
+      if (!m.group_name || !TOURNAMENT_GROUP_RE.test(m.group_name)) continue;
 
       for (const side of ['home', 'away'] as const) {
         const code = side === 'home' ? m.home_team_code : m.away_team_code;
@@ -84,6 +103,20 @@ export function useQualifiedTeams(): Team[] {
       }
     }
 
-    return [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [matches]);
+    // Sort by the localised name. `t(`teams.${code}`, { defaultValue: '' })`
+    // returns '' when there's no translation, in which case fall back to
+    // the English `name` from live_matches — same precedence as
+    // useTeamName but inlined here so we don't pull a hook into a hook.
+    const localiseName = (team: Team): string => {
+      const key = `teams.${team.code}`;
+      const translated = t(key, { defaultValue: '' });
+      return translated && translated !== key ? translated : team.name;
+    };
+    return [...byCode.values()].sort((a, b) =>
+      localiseName(a).localeCompare(localiseName(b), i18n.language),
+    );
+    // `t` and `i18n.language` in deps so we resort when the user changes
+    // language at runtime — the picker reflows alphabetically immediately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, i18n.language]);
 }

@@ -72,6 +72,17 @@ export const teams: Team[] = [
   { id: 'cro', name: 'Croatia', code: 'CRO', flag: '🇭🇷', group: 'L' },
   { id: 'gha', name: 'Ghana', code: 'GHA', flag: '🇬🇭', group: 'L' },
   { id: 'pan', name: 'Panama', code: 'PAN', flag: '🇵🇦', group: 'L' },
+
+  // Spring 2026 playoff winners — entered live_matches via FD sync once
+  // FIFA confirmed the bracket. Group field is intentionally left as the
+  // playoff slot they won (not the WC group they joined) — useQualifiedTeams
+  // gets the real WC group_name from live_matches at runtime. This entry's
+  // purpose here is just to give FLAGS_BY_CODE a flag emoji for the code.
+  { id: 'swe', name: 'Sweden',                code: 'SWE', flag: '🇸🇪', group: 'UEFA-PO' },
+  { id: 'cze', name: 'Czechia',               code: 'CZE', flag: '🇨🇿', group: 'UEFA-PO' },
+  { id: 'bih', name: 'Bosnia & Herzegovina',  code: 'BIH', flag: '🇧🇦', group: 'UEFA-PO' },
+  { id: 'irq', name: 'Iraq',                  code: 'IRQ', flag: '🇮🇶', group: 'FIFA-PO' },
+  { id: 'cod', name: 'DR Congo',              code: 'COD', flag: '🇨🇩', group: 'FIFA-PO' },
 ];
 
 export const getTeamById = (id: string): Team | undefined => {
