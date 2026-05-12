@@ -30,13 +30,18 @@ import type { Team } from '@/types/match';
 // empty string is defence in depth.
 const PLACEHOLDER_CODES = new Set(['TBD', '???', '']);
 
-// Tournament-group names must look like 'Group A' .. 'Group L'.
-// `live_matches` historically contained dev-seed rows tagged
-// group_name='TEST' (with stage='group') that put club teams —
-// PSG, Bayern, Arsenal, Atleti — into the team picker. Filtering on
-// the canonical naming pattern keeps that kind of accidental seed
-// from leaking into UI again without needing a code change.
-const TOURNAMENT_GROUP_RE = /^Group [A-L]$/;
+// Tournament-group names are stored as the bare letter A..L (not
+// "Group A"). `live_matches` historically contained dev-seed rows
+// tagged group_name='TEST' (with stage='group') that leaked club
+// teams — PSG, Bayern, Arsenal, Atleti — into the picker. Filtering
+// on the canonical 1-letter shape keeps that kind of accidental seed
+// from leaking back in without needing a code change.
+//
+// (Previous version of this regex matched "Group A"; that's NOT what
+// the database stores and accidentally rejected every legitimate row
+// — please verify with `SELECT DISTINCT group_name FROM live_matches`
+// before changing the pattern.)
+const TOURNAMENT_GROUP_RE = /^[A-L]$/;
 
 // Build the code → flag lookup once on module load. Placeholder codes
 // in the static file are skipped so an early `TBD` row's '🏳️' flag
