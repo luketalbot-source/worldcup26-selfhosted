@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar, Pencil, Search, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,7 +63,27 @@ interface TenantUser {
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
+  const { i18n } = useTranslation();
   const navigate = useNavigate();
+
+  // Admin always renders in the browser's language — not whatever's
+  // cached in localStorage from a previous tenant-app session. Tenant
+  // app intentionally caches the host-chosen language (so Flip can
+  // drive it), but Admin lives outside that flow and a stale 'de' or
+  // 'fr' cache would otherwise persist forever for an English-speaking
+  // admin. This effect overrides the cache once on mount.
+  useEffect(() => {
+    const SUPPORTED = ['en', 'es', 'de', 'fr', 'pt', 'it'];
+    const navLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+    const resolved = SUPPORTED.includes(navLang) ? navLang : 'en';
+    if (i18n.language !== resolved) {
+      void i18n.changeLanguage(resolved);
+    }
+    // i18n.changeLanguage is stable across renders; deps left empty so
+    // this only runs once per mount of /admin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);

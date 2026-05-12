@@ -83,6 +83,15 @@ export const teams: Team[] = [
   { id: 'bih', name: 'Bosnia & Herzegovina',  code: 'BIH', flag: '🇧🇦', group: 'UEFA-PO' },
   { id: 'irq', name: 'Iraq',                  code: 'IRQ', flag: '🇮🇶', group: 'FIFA-PO' },
   { id: 'cod', name: 'DR Congo',              code: 'COD', flag: '🇨🇩', group: 'FIFA-PO' },
+
+  // Additional fixups for codes that drifted between the static seed and
+  // what football-data.org actually returns:
+  //   - Curaçao: FD uses 'CUR'; the original Group E seed had 'CUW' (IOC).
+  //     Both kept so old prediction rows referencing CUW still resolve.
+  //   - Turkey: present in fallbackTeamNames + i18n, but never had a
+  //     Team entry — so FLAGS_BY_CODE['TUR'] was undefined.
+  { id: 'cur', name: 'Curaçao',               code: 'CUR', flag: '🇨🇼', group: 'EXTRA' },
+  { id: 'tur', name: 'Turkey',                code: 'TUR', flag: '🇹🇷', group: 'EXTRA' },
 ];
 
 export const getTeamById = (id: string): Team | undefined => {
