@@ -12,6 +12,7 @@ import tenantRoutes from "./routes/tenants";
 import adminRoutes from "./routes/admin";
 import rpcRoutes from "./routes/rpc";
 import wc2026Routes from "./routes/wc2026";
+import playerRoutes from "./routes/players";
 
 const app = new Hono();
 
@@ -55,6 +56,7 @@ app.route("/api/tenants", tenantRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/rpc", rpcRoutes);
 app.route("/api/wc2026", wc2026Routes);
+app.route("/api/players", playerRoutes);
 
 export default {
   port: parseInt(process.env.PORT ?? "3000"),

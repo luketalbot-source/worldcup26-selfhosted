@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
+import { PlayerPicker } from '@/components/PlayerPicker';
 
 interface BoostAward {
   id: string;
@@ -418,14 +419,13 @@ export const AdminBoostResults = () => {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Select disabled>
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="WC2026 player list not yet finalised" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="placeholder" disabled>No players available</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="w-[200px]">
+                        <PlayerPicker
+                          value={formValue.playerName}
+                          onChange={(name) => updateFormValue(award.id, 'playerName', name)}
+                          placeholder="Select winner…"
+                        />
+                      </div>
                     )}
 
                     <Button

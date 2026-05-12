@@ -10,11 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { BoostAward, BoostPrediction, BoostResult } from '@/hooks/useBoostAwards';
 import { boostImages } from '@/assets/boost';
 import { useTeamName } from '@/hooks/useTeamName';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
+import { PlayerPicker } from '@/components/PlayerPicker';
 
 // Map award slugs to translation keys
 const getAwardTranslationKey = (slug: string): { name: string; desc: string } => {
@@ -194,35 +194,38 @@ export const BoostAwardCard = ({
                   </SelectContent>
                 </Select>
               ) : (
-                <Select disabled>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('boost.playerListNotReady')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="placeholder">Placeholder</SelectItem>
-                  </SelectContent>
-                </Select>
+                <PlayerPicker
+                  value={playerName}
+                  onChange={setPlayerName}
+                  disabled={isLocked || disabled}
+                />
               )}
 
-              {/* Save Button - visible but disabled for player type */}
+              {/* Save / Update button. The "already saved, nothing to
+                  change" path renders an inline confirmation chip for
+                  both team and player types — same pattern, same value
+                  to display, just different field. */}
               {!isLocked && !disabled && (
-                hasPrediction && !hasChanged && award.prediction_type === 'team' ? (
+                hasPrediction && !hasChanged ? (
                   <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium w-full">
                     <Check className="w-3 h-3" />
-                    {getTeamDisplay(prediction?.predicted_team_code || '')}
+                    {award.prediction_type === 'team'
+                      ? getTeamDisplay(prediction?.predicted_team_code || '')
+                      : prediction?.predicted_player_name}
                   </div>
                 ) : (
                   <motion.button
-                    whileHover={{ scale: award.prediction_type === 'player' ? 1 : 1.02 }}
-                    whileTap={{ scale: award.prediction_type === 'player' ? 1 : 0.98 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={handleSave}
-                    disabled={saving || !selectedTeam || award.prediction_type === 'player'}
+                    disabled={
+                      saving ||
+                      (award.prediction_type === 'team' ? !selectedTeam : !playerName)
+                    }
                     className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition-all ${
-                      award.prediction_type === 'player'
-                        ? 'bg-muted text-muted-foreground'
-                        : hasChanged || !hasPrediction
-                          ? 'bg-accent text-accent-foreground shadow-md'
-                          : 'bg-muted text-muted-foreground'
+                      hasChanged || !hasPrediction
+                        ? 'bg-accent text-accent-foreground shadow-md'
+                        : 'bg-muted text-muted-foreground'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {saving ? t('matchCard.saving') : (hasPrediction ? t('matchCard.update') : t('matchCard.savePrediction'))}

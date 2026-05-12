@@ -13,6 +13,7 @@ import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
 import { AdminBoostResults } from '@/components/AdminBoostResults';
 import { AdminMatchesEditor } from '@/components/AdminMatchesEditor';
+import { AdminPlayersEditor } from '@/components/AdminPlayersEditor';
 import { TenantCustomBoosts } from '@/components/TenantCustomBoosts';
 import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
 import {
@@ -711,6 +712,10 @@ const Admin = () => {
               <Calendar className="w-4 h-4" />
               Matches
             </TabsTrigger>
+            <TabsTrigger value="players" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Players
+            </TabsTrigger>
             <TabsTrigger value="boost" className="flex items-center gap-2">
               <Trophy className="w-4 h-4" />
               Boost Results
@@ -911,6 +916,10 @@ const Admin = () => {
 
           <TabsContent value="matches">
             <AdminMatchesEditor />
+          </TabsContent>
+
+          <TabsContent value="players">
+            <AdminPlayersEditor />
           </TabsContent>
 
           <TabsContent value="boost">

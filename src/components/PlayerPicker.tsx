@@ -1,0 +1,331 @@
+// Picker for "predict a player" boost types.
+//
+// Replaces the free-text Input. Free-text broke scoring at result time
+// because user-entered "Mbappe" never equality-matched the admin's
+// "Kylian Mbappé"; here both pick from the same canonical name string
+// and the equality join just works.
+//
+// Three discovery modes in one screen:
+//   1. Type-ahead search across the full roster (fastest path for users
+//      who know who they want).
+//   2. Country drilldown via a grid of flag chips (matches how fans
+//      think — "I want a Brazilian player").
+//   3. Implicit: the selected player chip stays visible outside the
+//      modal so the user always sees what they've picked.
+//
+// Renders inside a Dialog so it works on phone screens without a route
+// change; the Dialog primitive we already use scales full-screen-on-
+// mobile / centred-on-desktop out of the box.
+
+import { useMemo, useState } from 'react';
+import { Search, X, ChevronLeft, UsersRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useQualifiedPlayers, type Player } from '@/hooks/useQualifiedPlayers';
+import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
+import { useTeamName } from '@/hooks/useTeamName';
+
+// Mirror the normaliseForSearch on the backend — kept here so the
+// typeahead can match accent-insensitively without a server round-trip
+// per keystroke.
+function normaliseQuery(s: string): string {
+  return s
+    .normalize('NFD')
+    // Must match the backend's normaliseForSearch byte-for-byte —
+    // U+0300..U+036F are the Unicode combining diacritical marks that
+    // NFD decomposition splits accents into. Strip them so "Mbappé"
+    // and "Mbappe" hash to the same searchable form.
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+interface PlayerPickerProps {
+  /** Currently selected player name (canonical full_name), or '' when empty. */
+  value: string;
+  /** Called with the chosen player's full_name, or '' if cleared. */
+  onChange: (fullName: string) => void;
+  /** Disable interaction (e.g. when the boost is locked). */
+  disabled?: boolean;
+  /** Placeholder shown on the trigger button when no value is selected. */
+  placeholder?: string;
+}
+
+export const PlayerPicker = ({
+  value,
+  onChange,
+  disabled,
+  placeholder,
+}: PlayerPickerProps) => {
+  const { t } = useTranslation();
+  const { players, loading } = useQualifiedPlayers();
+  const teams = useQualifiedTeams();
+  const { getTeamName } = useTeamName();
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  // null = country grid; otherwise the team_code currently drilled into.
+  const [drillTeam, setDrillTeam] = useState<string | null>(null);
+
+  // Look up the selected player so the trigger can show "Messi · ARG"
+  // rather than just the bare name. Defensive against the roster
+  // having been wiped/re-imported between the prediction and now.
+  const selected = useMemo<Player | null>(() => {
+    if (!value) return null;
+    return players.find((p) => p.full_name === value) ?? null;
+  }, [players, value]);
+
+  // Search results — flat list across every team. Trimmed to top 40 so
+  // the scroll list stays snappy on slow phones; if a user can't find
+  // their player in the top 40 they can refine the query or drill in
+  // by country.
+  const searchResults = useMemo<Player[]>(() => {
+    const q = normaliseQuery(query);
+    if (q.length === 0) return [];
+    const ranked = players
+      .map((p) => {
+        const idx = normaliseQuery(p.full_name).indexOf(q);
+        return idx === -1 ? null : { p, score: idx };
+      })
+      .filter((x): x is { p: Player; score: number } => x !== null)
+      // Lower score (earlier match position) wins, ties broken by name.
+      .sort((a, b) => a.score - b.score || a.p.full_name.localeCompare(b.p.full_name))
+      .slice(0, 40)
+      .map((x) => x.p);
+    return ranked;
+  }, [players, query]);
+
+  // The drill-in list: every player on the selected team, sorted by
+  // shirt number first (intuitive for fans flipping through a kit
+  // poster) then name as a tiebreaker.
+  const drillResults = useMemo<Player[]>(() => {
+    if (!drillTeam) return [];
+    return players
+      .filter((p) => p.team_code === drillTeam)
+      .sort((a, b) => {
+        const sa = a.shirt_number ?? 999;
+        const sb = b.shirt_number ?? 999;
+        if (sa !== sb) return sa - sb;
+        return a.full_name.localeCompare(b.full_name);
+      });
+  }, [players, drillTeam]);
+
+  const handlePick = (player: Player) => {
+    onChange(player.full_name);
+    setOpen(false);
+    // Reset transient picker state so the next open starts clean.
+    setQuery('');
+    setDrillTeam(null);
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange('');
+  };
+
+  // What to render in the trigger button. Three states:
+  //   - selected & player still in roster → flag + name
+  //   - selected but player no longer in roster → bare name (stale pick)
+  //   - empty → placeholder
+  const renderTrigger = () => {
+    if (selected) {
+      const team = teams.find((tm) => tm.code === selected.team_code);
+      return (
+        <span className="flex items-center gap-2 truncate">
+          {team && <span className="text-base">{team.flag}</span>}
+          <span className="truncate font-medium">{selected.full_name}</span>
+          {selected.position && (
+            <span className="text-xs text-muted-foreground">{selected.position}</span>
+          )}
+        </span>
+      );
+    }
+    if (value) {
+      // We have a stored value but the matching roster row is missing —
+      // show the raw name so the user can still tell what they picked
+      // before the roster changed.
+      return <span className="truncate text-muted-foreground">{value}</span>;
+    }
+    return (
+      <span className="truncate text-muted-foreground">
+        {placeholder ?? t('boost.selectPlayer', 'Select player')}
+      </span>
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+        >
+          {renderTrigger()}
+          {value ? (
+            <X
+              role="button"
+              aria-label={t('common.clear', 'Clear')}
+              className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
+              onClick={handleClear}
+            />
+          ) : (
+            <Search className="w-4 h-4 shrink-0 opacity-60" />
+          )}
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent className="sm:max-w-md p-0 gap-0 max-h-[85vh] flex flex-col">
+        <DialogHeader className="p-4 border-b">
+          <DialogTitle className="text-base flex items-center gap-2">
+            {drillTeam ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setDrillTeam(null)}
+                  className="h-8 w-8 -ml-2"
+                  aria-label={t('common.back', 'Back')}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span>
+                  {teams.find((tm) => tm.code === drillTeam)?.flag}{' '}
+                  {getTeamName(
+                    drillTeam,
+                    teams.find((tm) => tm.code === drillTeam)?.name,
+                  )}
+                </span>
+              </>
+            ) : (
+              <>
+                <UsersRound className="w-4 h-4" />
+                {t('boost.pickPlayer', 'Pick a player')}
+              </>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Search input only shown at the top level — once you've drilled
+            into a team the list is short enough that scroll beats search. */}
+        {!drillTeam && (
+          <div className="p-3 border-b">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('boost.searchPlayers', 'Search players…')}
+                className="pl-9"
+                autoFocus
+              />
+            </div>
+          </div>
+        )}
+
+        <ScrollArea className="flex-1 min-h-0">
+          {loading ? (
+            <div className="p-6 text-sm text-center text-muted-foreground">
+              {t('common.loading', 'Loading…')}
+            </div>
+          ) : players.length === 0 ? (
+            <div className="p-6 text-sm text-center text-muted-foreground">
+              {t(
+                'boost.noPlayersLoaded',
+                'No player rosters loaded yet. Ask the admin to import squads.',
+              )}
+            </div>
+          ) : drillTeam ? (
+            <PlayerList items={drillResults} onPick={handlePick} teams={teams} />
+          ) : query ? (
+            searchResults.length === 0 ? (
+              <div className="p-6 text-sm text-center text-muted-foreground">
+                {t('boost.noPlayerMatches', 'No matches for')} "{query}"
+              </div>
+            ) : (
+              <PlayerList items={searchResults} onPick={handlePick} teams={teams} />
+            )
+          ) : (
+            <CountryGrid
+              teams={teams}
+              onPick={(code) => setDrillTeam(code)}
+            />
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ----- subcomponents kept in the same file because they aren't reused elsewhere -----
+
+interface CountryGridProps {
+  teams: ReturnType<typeof useQualifiedTeams>;
+  onPick: (teamCode: string) => void;
+}
+
+const CountryGrid = ({ teams, onPick }: CountryGridProps) => {
+  const { getTeamName } = useTeamName();
+  return (
+    <div className="grid grid-cols-2 gap-2 p-3">
+      {teams.map((tm) => (
+        <button
+          key={tm.code}
+          type="button"
+          onClick={() => onPick(tm.code)}
+          className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border hover:bg-muted text-left transition-colors"
+        >
+          <span className="text-lg">{tm.flag}</span>
+          <span className="text-sm truncate">{getTeamName(tm.code, tm.name)}</span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+interface PlayerListProps {
+  items: Player[];
+  onPick: (p: Player) => void;
+  teams: ReturnType<typeof useQualifiedTeams>;
+}
+
+const PlayerList = ({ items, onPick, teams }: PlayerListProps) => {
+  return (
+    <div className="divide-y divide-border">
+      {items.map((p) => {
+        const team = teams.find((tm) => tm.code === p.team_code);
+        return (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onPick(p)}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted text-left transition-colors"
+          >
+            <span className="text-base shrink-0">{team?.flag ?? '🏳️'}</span>
+            <span className="text-xs text-muted-foreground w-6 tabular-nums shrink-0">
+              {p.shirt_number ? `#${p.shirt_number}` : ''}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium truncate">{p.full_name}</span>
+              <span className="block text-xs text-muted-foreground truncate">
+                {team?.name ?? p.team_code}
+                {p.position ? ` · ${p.position}` : ''}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
