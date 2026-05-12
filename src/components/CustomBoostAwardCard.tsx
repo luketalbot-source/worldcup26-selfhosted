@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Check, Trophy, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,22 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { teams as allTeams } from '@/data/teams';
 import { CustomBoostAward, CustomBoostPrediction, CustomBoostResult } from '@/hooks/useCustomBoostAwards';
 import { useTeamName } from '@/hooks/useTeamName';
-
-// Get unique teams by code (filter out duplicates from test group)
-const getUniqueTeams = () => {
-  const seen = new Set<string>();
-  return allTeams
-    .filter(team => {
-      if (team.group === 'X') return false;
-      if (seen.has(team.code)) return false;
-      seen.add(team.code);
-      return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-};
+import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 
 
 interface CustomBoostAwardCardProps {
@@ -52,7 +39,7 @@ export const CustomBoostAwardCard = ({
   const [playerName, setPlayerName] = useState(prediction?.predicted_player_name || '');
   const [saving, setSaving] = useState(false);
 
-  const uniqueTeams = useMemo(() => getUniqueTeams(), []);
+  const uniqueTeams = useQualifiedTeams();
 
   const hasChanged = award.prediction_type === 'team'
     ? selectedTeam !== (prediction?.predicted_team_code || '')

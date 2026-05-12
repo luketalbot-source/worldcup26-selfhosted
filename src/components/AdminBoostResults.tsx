@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Trophy, Save, Check, RotateCcw, Settings } from 'lucide-react';
 import { api } from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { teams as allTeams } from '@/data/teams';
+import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 
 interface BoostAward {
   id: string;
@@ -41,19 +41,6 @@ interface BoostResult {
   result_team_code: string | null;
   result_player_name: string | null;
 }
-
-// Get unique teams by code (filter out duplicates from test group)
-const getUniqueTeams = () => {
-  const seen = new Set<string>();
-  return allTeams
-    .filter(team => {
-      if (team.group === 'X') return false;
-      if (seen.has(team.code)) return false;
-      seen.add(team.code);
-      return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-};
 
 export const AdminBoostResults = () => {
   const [awards, setAwards] = useState<BoostAward[]>([]);
@@ -72,7 +59,7 @@ export const AdminBoostResults = () => {
   const [savingPoints, setSavingPoints] = useState<string | null>(null);
   const [savedPointsRecently, setSavedPointsRecently] = useState<Set<string>>(new Set());
 
-  const uniqueTeams = useMemo(() => getUniqueTeams(), []);
+  const uniqueTeams = useQualifiedTeams();
 
   const fetchData = async () => {
     setLoading(true);

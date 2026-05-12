@@ -14,6 +14,7 @@ import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
 import { AdminBoostResults } from '@/components/AdminBoostResults';
 import { AdminMatchesEditor } from '@/components/AdminMatchesEditor';
 import { TenantCustomBoosts } from '@/components/TenantCustomBoosts';
+import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
 import {
   Dialog,
   DialogContent,
@@ -924,4 +925,17 @@ const Admin = () => {
   );
 };
 
-export default Admin;
+// Wrap the admin shell in LiveMatchesProvider so anything inside (e.g.
+// AdminBoostResults, TenantCustomBoosts) can use `useQualifiedTeams`,
+// which derives "all teams in the tournament" from the live matches
+// list rather than the stale static src/data/teams.ts file. The provider
+// gracefully no-ops the admin-only `sync-matches` call when the user
+// isn't logged in as admin (403 caught internally), so it's safe to
+// mount above the AdminLogin gate.
+const AdminWithProviders = () => (
+  <LiveMatchesProvider>
+    <Admin />
+  </LiveMatchesProvider>
+);
+
+export default AdminWithProviders;

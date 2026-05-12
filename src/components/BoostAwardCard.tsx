@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Check, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,23 +11,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { teams as allTeams } from '@/data/teams';
 import { BoostAward, BoostPrediction, BoostResult } from '@/hooks/useBoostAwards';
 import { boostImages } from '@/assets/boost';
 import { useTeamName } from '@/hooks/useTeamName';
-
-// Get unique teams by code (filter out duplicates from test group)
-const getUniqueTeams = () => {
-  const seen = new Set<string>();
-  return allTeams
-    .filter(team => {
-      if (team.group === 'X') return false; // Exclude test group
-      if (seen.has(team.code)) return false;
-      seen.add(team.code);
-      return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-};
+import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 
 // Map award slugs to translation keys
 const getAwardTranslationKey = (slug: string): { name: string; desc: string } => {
@@ -74,7 +61,7 @@ export const BoostAwardCard = ({
   const [playerName, setPlayerName] = useState(prediction?.predicted_player_name || '');
   const [saving, setSaving] = useState(false);
 
-  const uniqueTeams = useMemo(() => getUniqueTeams(), []);
+  const uniqueTeams = useQualifiedTeams();
 
   const hasChanged = award.prediction_type === 'team'
     ? selectedTeam !== (prediction?.predicted_team_code || '')

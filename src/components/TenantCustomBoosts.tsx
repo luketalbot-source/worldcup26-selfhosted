@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Loader2, Trash2, Image, Save, Check, RotateCcw, RefreshCw, Pencil } from 'lucide-react';
 import { api } from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +35,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { teams as allTeams } from '@/data/teams';
+import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 
 interface CustomBoost {
   id: string;
@@ -62,19 +62,6 @@ interface TenantCustomBoostsProps {
   tenantId: string;
   tenantName: string;
 }
-
-// Get unique teams by code
-const getUniqueTeams = () => {
-  const seen = new Set<string>();
-  return allTeams
-    .filter(team => {
-      if (team.group === 'X') return false;
-      if (seen.has(team.code)) return false;
-      seen.add(team.code);
-      return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-};
 
 export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsProps) => {
   const [boosts, setBoosts] = useState<CustomBoost[]>([]);
@@ -104,7 +91,7 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
   // Result form state
   const [resultValues, setResultValues] = useState<Map<string, { teamCode: string; playerName: string }>>(new Map());
 
-  const uniqueTeams = useMemo(() => getUniqueTeams(), []);
+  const uniqueTeams = useQualifiedTeams();
 
   useEffect(() => {
     fetchData();
