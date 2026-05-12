@@ -124,6 +124,35 @@ function checkEmbedded(): boolean {
 const EMBED_DETECTION_TIMEOUT_MS = 3000;
 const EMBED_POLL_INTERVAL_MS = 100;
 
+// How long we wait for a host response on bridge requests/subscriptions
+// before giving up. The bridge SDK's `makeRequest` has no native timeout
+// — if the host doesn't reply we hang forever, which silently blocked
+// `bridgeReady` from ever transitioning to true on iOS (the Flip mobile
+// app's SUBSCRIBE handler appears not to send back a confirmation).
+// 5 s is comfortably longer than any healthy round-trip but short enough
+// that a non-responsive host doesn't keep React state half-resolved.
+const BRIDGE_CALL_TIMEOUT_MS = 5000;
+
+const BRIDGE_TIMEOUT_SENTINEL = Symbol('bridge-call-timeout');
+
+/**
+ * Race a bridge promise against a timer. Returns the resolved value or
+ * the sentinel symbol on timeout — caller branches with `===
+ * BRIDGE_TIMEOUT_SENTINEL`. Sentinel-vs-value avoids the boolean-soup
+ * trap of using `null` (some bridge errors are nullish themselves).
+ */
+function withBridgeTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+): Promise<T | typeof BRIDGE_TIMEOUT_SENTINEL> {
+  return Promise.race([
+    p,
+    new Promise<typeof BRIDGE_TIMEOUT_SENTINEL>((resolve) =>
+      setTimeout(() => resolve(BRIDGE_TIMEOUT_SENTINEL), ms),
+    ),
+  ]);
+}
+
 /**
  * Top-level provider that wires the Flip host's theme + language into the app.
  *
@@ -290,18 +319,22 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
         initFlipBridge({ debug: true, hostAppOrigin: hostOrigin });
         console.log(`${TAG} initFlipBridge called`);
 
-        // Theme handshake. If the host is slow or not bridge-aware, getTheme
-        // will reject — we catch and leave the theme at whatever next-themes
-        // resolved to on its own.
+        // Theme handshake. Wrapped in withBridgeTimeout so a
+        // non-responsive host can't hang us — the bridge SDK's
+        // underlying makeRequest has no native timeout.
         try {
-          const theme = await getTheme();
-          console.log(`${TAG} getTheme →`, theme);
-          if (isBridgeError(theme)) {
-            console.warn(`${TAG} getTheme returned BridgeError:`, theme);
+          const theme = await withBridgeTimeout(getTheme(), BRIDGE_CALL_TIMEOUT_MS);
+          if (theme === BRIDGE_TIMEOUT_SENTINEL) {
+            console.warn(`${TAG} getTheme timed out after ${BRIDGE_CALL_TIMEOUT_MS}ms`);
           } else {
-            const active = theme?.activeTheme;
-            if (!cancelled && (active === 'light' || active === 'dark')) {
-              setTheme(active);
+            console.log(`${TAG} getTheme →`, theme);
+            if (isBridgeError(theme)) {
+              console.warn(`${TAG} getTheme returned BridgeError:`, theme);
+            } else {
+              const active = theme?.activeTheme;
+              if (!cancelled && (active === 'light' || active === 'dark')) {
+                setTheme(active);
+              }
             }
           }
         } catch (err) {
@@ -311,34 +344,49 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
         // Initial language handshake. getLang resolves with either a string
         // or `{ code: BridgeErrorCode }` — branch on both.
         try {
-          const lang = await getLang();
-          console.log(`${TAG} getLang →`, lang);
-          if (isBridgeError(lang)) {
-            console.warn(`${TAG} getLang returned BridgeError:`, lang);
+          const lang = await withBridgeTimeout(getLang(), BRIDGE_CALL_TIMEOUT_MS);
+          if (lang === BRIDGE_TIMEOUT_SENTINEL) {
+            console.warn(`${TAG} getLang timed out after ${BRIDGE_CALL_TIMEOUT_MS}ms`);
           } else {
-            const normalised = normaliseLang(lang);
-            if (!cancelled && normalised && i18n.language !== normalised) {
-              console.log(`${TAG} applying host language: ${normalised} (was ${i18n.language})`);
-              i18n.changeLanguage(normalised);
-            } else if (!cancelled && !normalised) {
-              console.warn(`${TAG} host language "${lang}" not in supported set — leaving as ${i18n.language}`);
+            console.log(`${TAG} getLang →`, lang);
+            if (isBridgeError(lang)) {
+              console.warn(`${TAG} getLang returned BridgeError:`, lang);
+            } else {
+              const normalised = normaliseLang(lang);
+              if (!cancelled && normalised && i18n.language !== normalised) {
+                console.log(`${TAG} applying host language: ${normalised} (was ${i18n.language})`);
+                i18n.changeLanguage(normalised);
+              } else if (!cancelled && !normalised) {
+                console.warn(`${TAG} host language "${lang}" not in supported set — leaving as ${i18n.language}`);
+              }
             }
           }
         } catch (err) {
           console.warn(`${TAG} getLang rejected:`, err);
         }
 
-        // Subscribe to future theme changes.
+        // Subscribe to future theme changes. Subscribe is also timeout-wrapped
+        // — on iOS the Flip mobile app appears not to confirm SUBSCRIBE
+        // requests, so a bare `await subscribe(...)` would hang forever and
+        // block bridgeReady from ever flipping true.
         try {
-          unsubscribeTheme = await subscribe(
-            BridgeEventType.THEME_CHANGE,
-            (event: { data?: { activeTheme?: 'light' | 'dark' } }) => {
-              const next = event.data?.activeTheme;
-              console.log(`${TAG} THEME_CHANGE →`, next);
-              if (next === 'light' || next === 'dark') setTheme(next);
-            }
+          const sub = await withBridgeTimeout(
+            subscribe(
+              BridgeEventType.THEME_CHANGE,
+              (event: { data?: { activeTheme?: 'light' | 'dark' } }) => {
+                const next = event.data?.activeTheme;
+                console.log(`${TAG} THEME_CHANGE →`, next);
+                if (next === 'light' || next === 'dark') setTheme(next);
+              },
+            ),
+            BRIDGE_CALL_TIMEOUT_MS,
           );
-          console.log(`${TAG} subscribed to THEME_CHANGE`);
+          if (sub === BRIDGE_TIMEOUT_SENTINEL) {
+            console.warn(`${TAG} subscribe(THEME_CHANGE) timed out — live host theme events won't fire`);
+          } else {
+            unsubscribeTheme = sub;
+            console.log(`${TAG} subscribed to THEME_CHANGE`);
+          }
         } catch (err) {
           console.warn(`${TAG} subscribe(THEME_CHANGE) rejected:`, err);
         }
@@ -349,21 +397,30 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
         // existing patterns — we defensively support both bare-string and
         // wrapped-object payloads.
         try {
-          unsubscribeLang = await subscribe(
-            BridgeEventType.LANG_CHANGE,
-            (event: { data?: unknown }) => {
-              // Some bridge implementations deliver the new lang as the
-              // bare event.data; others wrap it. Try both.
-              const raw = typeof event.data === 'string'
-                ? event.data
-                : (event.data as { lang?: string; activeLang?: string } | undefined)?.lang
-                    ?? (event.data as { activeLang?: string } | undefined)?.activeLang;
-              const next = normaliseLang(raw);
-              console.log(`${TAG} LANG_CHANGE →`, event.data, '→ normalised:', next);
-              if (next && i18n.language !== next) i18n.changeLanguage(next);
-            }
+          const sub = await withBridgeTimeout(
+            subscribe(
+              BridgeEventType.LANG_CHANGE,
+              (event: { data?: unknown }) => {
+                // Some bridge implementations deliver the new lang as the
+                // bare event.data; others wrap it. Try both.
+                const raw =
+                  typeof event.data === 'string'
+                    ? event.data
+                    : (event.data as { lang?: string; activeLang?: string } | undefined)?.lang ??
+                      (event.data as { activeLang?: string } | undefined)?.activeLang;
+                const next = normaliseLang(raw);
+                console.log(`${TAG} LANG_CHANGE →`, event.data, '→ normalised:', next);
+                if (next && i18n.language !== next) i18n.changeLanguage(next);
+              },
+            ),
+            BRIDGE_CALL_TIMEOUT_MS,
           );
-          console.log(`${TAG} subscribed to LANG_CHANGE`);
+          if (sub === BRIDGE_TIMEOUT_SENTINEL) {
+            console.warn(`${TAG} subscribe(LANG_CHANGE) timed out — live host language events won't fire`);
+          } else {
+            unsubscribeLang = sub;
+            console.log(`${TAG} subscribed to LANG_CHANGE`);
+          }
         } catch (err) {
           console.warn(`${TAG} subscribe(LANG_CHANGE) rejected:`, err);
         }
