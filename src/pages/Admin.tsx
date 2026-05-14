@@ -10,12 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { AdminLogin } from '@/components/AdminLogin';
 import { TenantOIDCConfig } from '@/components/TenantOIDCConfig';
 import { AdminBoostResults } from '@/components/AdminBoostResults';
 import { AdminMatchesEditor } from '@/components/AdminMatchesEditor';
 import { AdminPlayersEditor } from '@/components/AdminPlayersEditor';
 import { TenantCustomBoosts } from '@/components/TenantCustomBoosts';
+import { TenantTermsOfUseEditor } from '@/components/TenantTermsOfUseEditor';
 import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
 import {
   Dialog,
@@ -44,6 +46,7 @@ interface Tenant {
   created_at: string;
   oidc_count: number;
   allow_custom_leagues?: boolean;
+  terms_of_use?: string | null;
 }
 
 interface TenantUser {
@@ -659,6 +662,22 @@ const Admin = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              <TenantTermsOfUseEditor
+                tenantId={selectedTenant.id}
+                tenantName={selectedTenant.name}
+                value={selectedTenant.terms_of_use ?? null}
+                onSaved={(next) => {
+                  // Keep both the list and the open detail panel in sync
+                  // so navigating away and back doesn't show stale text.
+                  setTenants((ts) =>
+                    ts.map((t) =>
+                      t.id === selectedTenant.id ? { ...t, terms_of_use: next } : t,
+                    ),
+                  );
+                  setSelectedTenant({ ...selectedTenant, terms_of_use: next });
+                }}
+              />
 
               <TenantOIDCConfig
                 tenantId={selectedTenant.id}

@@ -17,6 +17,10 @@ interface Tenant {
   // just the built-in "Everyone" league (no create/join, no custom
   // leagues visible). Default true.
   allow_custom_leagues: boolean;
+  // Optional per-tenant Terms of Use. When non-empty, the nav footer
+  // surfaces a "Terms" link that opens a dialog with this text.
+  // null/empty → no link shown.
+  terms_of_use: string | null;
 }
 
 interface TenantContextType {
@@ -50,6 +54,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
           uid: string;
           name: string;
           allow_custom_leagues?: boolean;
+          terms_of_use?: string | null;
         }>(`/tenants/by-uid/${tenantUid}`);
 
         if (!tenantData) {
@@ -76,6 +81,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
           // Default true so older API responses (pre-migration) still
           // produce the full leagues experience.
           allow_custom_leagues: tenantData.allow_custom_leagues ?? true,
+          terms_of_use: tenantData.terms_of_use ?? null,
         });
         setError(null);
       } catch {

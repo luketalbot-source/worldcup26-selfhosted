@@ -99,14 +99,17 @@ export const BoostAwardCard = ({
     
     if (diff <= 0) return null;
     
+    // Each unit is rendered through its own i18next plural key so the
+    // {{time}} interpolation is fully localised (the old "{{n}} days"
+    // hardcoded English leaked through "Sperrt in 28 days" in German).
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days > 0) return t('boost.locksIn', { time: `${days} days` });
-    
+    if (days > 0) return t('boost.locksIn', { time: t('boost.daysCount', { count: days }) });
+
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return t('boost.locksIn', { time: `${hours}h` });
-    
+    if (hours > 0) return t('boost.locksIn', { time: t('boost.hoursCount', { count: hours }) });
+
     const minutes = Math.floor(diff / (1000 * 60));
-    return t('boost.locksIn', { time: `${minutes}m` });
+    return t('boost.locksIn', { time: t('boost.minutesCount', { count: minutes }) });
   };
 
   // Get the image from imports

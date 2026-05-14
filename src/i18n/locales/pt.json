@@ -9,7 +9,8 @@
     "leagues": "Ligas",
     "leaders": "Líderes",
     "me": "Eu",
-    "disclaimer": "Sem afiliação, endosso ou patrocínio da FIFA ou de qualquer organismo organizador."
+    "disclaimer": "Sem afiliação, endosso ou patrocínio da FIFA ou de qualquer organismo organizador.",
+    "terms": "Termos"
   },
   "boost": {
     "title": "Boost!",
@@ -23,6 +24,17 @@
     "noExtraBoosts": "Sem Boosts Extra ainda!",
     "noExtraBoostsDesc": "Peça aos seus admins para serem aventureiros e criarem algumas previsões boost personalizadas para o seu grupo!",
     "selectTeam": "Selecione uma equipe...",
+    "selectPlayer": "Selecionar jogador",
+    "pickPlayer": "Escolher jogador",
+    "searchPlayers": "Pesquisar jogadores…",
+    "noPlayerMatches": "Sem resultados para",
+    "noPlayersLoaded": "Ainda não há plantéis carregados. Peça ao admin para importar os elencos.",
+    "daysCount_one": "{{count}} dia",
+    "daysCount_other": "{{count}} dias",
+    "hoursCount_one": "{{count}} h",
+    "hoursCount_other": "{{count}} h",
+    "minutesCount_one": "{{count}} min",
+    "minutesCount_other": "{{count}} min",
     "playerListNotReady": "Lista de jogadores WC2026 ainda não finalizada",
     "locksIn": "Bloqueia em {{time}}",
     "locked": "Bloqueado",

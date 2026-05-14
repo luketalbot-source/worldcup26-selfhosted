@@ -79,13 +79,15 @@ export const CustomBoostAwardCard = ({
     if (diff <= 0) return null;
     
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days > 0) return t('boost.locksIn', { time: `${days} days` });
-    
+    // Each unit through its own i18next plural key — see the matching
+    // change in BoostAwardCard for the rationale.
+    if (days > 0) return t('boost.locksIn', { time: t('boost.daysCount', { count: days }) });
+
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return t('boost.locksIn', { time: `${hours}h` });
-    
+    if (hours > 0) return t('boost.locksIn', { time: t('boost.hoursCount', { count: hours }) });
+
     const minutes = Math.floor(diff / (1000 * 60));
-    return t('boost.locksIn', { time: `${minutes}m` });
+    return t('boost.locksIn', { time: t('boost.minutesCount', { count: minutes }) });
   };
   
   const lockTimeInfo = getLockTimeInfo();

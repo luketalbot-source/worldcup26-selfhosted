@@ -68,6 +68,10 @@ router.patch(
     z.object({
       name: z.string().min(1).max(120).optional(),
       allow_custom_leagues: z.boolean().optional(),
+      // Free-form Terms of Use. Nullable so the admin can clear an
+      // existing value by sending null; max 20k chars is plenty for
+      // typical legal copy without inviting abuse.
+      terms_of_use: z.string().max(20000).nullable().optional(),
     }).strict(),
   ),
   async (c) => {
@@ -88,6 +92,21 @@ router.patch(
       await sql`
         UPDATE tenants
            SET allow_custom_leagues = ${body.allow_custom_leagues},
+               updated_at = NOW()
+         WHERE id = ${id}
+      `;
+    }
+    if (body.terms_of_use !== undefined) {
+      // Empty string → store as NULL so the frontend's "is there a ToU
+      // for this tenant?" check stays a single nullness check rather
+      // than having to distinguish "" from null.
+      const value =
+        body.terms_of_use === null || body.terms_of_use.trim() === ""
+          ? null
+          : body.terms_of_use;
+      await sql`
+        UPDATE tenants
+           SET terms_of_use = ${value},
                updated_at = NOW()
          WHERE id = ${id}
       `;
