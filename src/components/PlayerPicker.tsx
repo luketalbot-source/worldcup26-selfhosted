@@ -29,7 +29,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQualifiedPlayers, type Player } from '@/hooks/useQualifiedPlayers';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { useTeamName } from '@/hooks/useTeamName';
@@ -185,8 +184,17 @@ export const PlayerPicker = ({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md p-0 gap-0 max-h-[85vh] flex flex-col">
-        <DialogHeader className="p-4 border-b">
+      {/* `!flex` is intentional: Radix DialogContent's default contains
+          `grid` and twMerge doesn't recognise the conflict — without
+          the !-important the dialog stays grid-laid-out and the
+          scroll viewport collapses to its content's natural height,
+          which is what made the country list unscrollable on mobile.
+          `overflow-hidden` clips the dialog body so the inner div is
+          the only scroll container. */}
+      <DialogContent
+        className="sm:max-w-md p-0 gap-0 max-h-[85vh] !flex flex-col overflow-hidden"
+      >
+        <DialogHeader className="p-4 border-b shrink-0">
           <DialogTitle className="text-base flex items-center gap-2">
             {drillTeam ? (
               <>
@@ -218,9 +226,11 @@ export const PlayerPicker = ({
         </DialogHeader>
 
         {/* Search input only shown at the top level — once you've drilled
-            into a team the list is short enough that scroll beats search. */}
+            into a team the list is short enough that scroll beats search.
+            `shrink-0` so flex doesn't squeeze the search input when the
+            list below has lots of content. */}
         {!drillTeam && (
-          <div className="p-3 border-b">
+          <div className="p-3 border-b shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
@@ -234,7 +244,17 @@ export const PlayerPicker = ({
           </div>
         )}
 
-        <ScrollArea className="flex-1 min-h-0">
+        {/* Native scrolling div, not Radix ScrollArea. ScrollArea uses
+            a custom non-native scrollbar implementation that swallows
+            touch events when nested inside a Radix Dialog on iOS
+            WebView (the country list became completely unscrollable on
+            phones). overscroll-contain prevents pull-to-refresh / page
+            scroll when reaching the list's edges; WebkitOverflowScrolling
+            kicks momentum scrolling on older iOS. */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {loading ? (
             <div className="p-6 text-sm text-center text-muted-foreground">
               {t('common.loading', 'Loading…')}
@@ -262,7 +282,7 @@ export const PlayerPicker = ({
               onPick={(code) => setDrillTeam(code)}
             />
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface NavigationProps {
   activeTab: string;
@@ -59,45 +58,46 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
             );
           })}
         </div>
-        {/* Trademark disclaimer. Tiny by design — visible but unobtrusive,
-            sized so it fits on a single line at the narrowest mobile widths
-            (~320px) without wrapping. Under the menu so it doesn't push the
-            tap targets around. Translated per locale; copy lives in nav.disclaimer.
-            When the current tenant has a Terms-of-Use set, a "Terms" link
-            appears inline (separated by a bullet) — opens a modal with the
-            full text. Hidden entirely when ToU is empty so default tenants
-            stay clean. */}
-        <p className="text-[9px] leading-tight text-muted-foreground/70 text-center px-2 pb-1 select-none">
-          {t('nav.disclaimer')}
-          {hasTerms && (
-            <>
-              {' · '}
-              <button
-                type="button"
-                onClick={() => setTermsOpen(true)}
-                className="underline underline-offset-2 hover:text-foreground select-none"
-              >
-                {t('nav.terms')}
-              </button>
-            </>
-          )}
-        </p>
+        {/* Footer line — Terms link only, conditional on the tenant
+            having terms set. The old trademark disclaimer was removed
+            because it didn't fit on a single line on small phones with
+            curved-edge displays and risked being clipped. When a tenant
+            opts into terms, the rendered link sits centred and
+            unobtrusive; when they don't, the row collapses entirely so
+            the nav has no dangling empty footer. */}
+        {hasTerms && (
+          <div className="text-[9px] leading-tight text-center px-2 pb-1 select-none">
+            <button
+              type="button"
+              onClick={() => setTermsOpen(true)}
+              className="underline underline-offset-2 text-muted-foreground/70 hover:text-foreground"
+            >
+              {t('nav.terms')}
+            </button>
+          </div>
+        )}
       </div>
 
       {hasTerms && (
         <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
-          <DialogContent className="sm:max-w-md max-h-[80vh] p-0 gap-0 flex flex-col">
+          <DialogContent
+            className="sm:max-w-md max-h-[80vh] p-0 gap-0 !flex flex-col overflow-hidden"
+          >
             <DialogHeader className="p-4 border-b shrink-0">
               <DialogTitle>{t('nav.terms')}</DialogTitle>
             </DialogHeader>
-            <ScrollArea className="flex-1 min-h-0">
-              {/* whitespace-pre-wrap preserves the admin's line breaks
-                  without forcing them to write HTML/Markdown — most
-                  pasted legal copy already has its own paragraph breaks. */}
+            {/* Native overflow-y-auto rather than Radix ScrollArea.
+                ScrollArea's custom scrollbar swallows touch events
+                inside Radix Dialogs on iOS WebView (verified during the
+                player-picker scroll bug), so we use the browser's own
+                scroll which works everywhere.
+                whitespace-pre-wrap preserves the admin's line breaks
+                without forcing them to write HTML/Markdown. */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words">
                 {termsOfUse}
               </div>
-            </ScrollArea>
+            </div>
           </DialogContent>
         </Dialog>
       )}
