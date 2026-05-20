@@ -752,25 +752,27 @@ async function upsertOidcUser(
   if (existing.length > 0) {
     userId = existing[0]!.user_id;
   } else {
-    // Try to match by email
-    let userRows: { id: string }[] = [];
-    if (userInfo.email) {
-      userRows = await sql<{ id: string }[]>`
-        SELECT id FROM public.users WHERE email = ${userInfo.email} LIMIT 1
-      `;
-    }
-
-    if (userRows.length > 0) {
-      userId = userRows[0]!.id;
-    } else {
-      const created = await sql<{ id: string }[]>`
-        INSERT INTO public.users (id, email, display_name, created_at)
-        VALUES (gen_random_uuid(), ${userInfo.email ?? null}, ${displayName}, NOW())
-        RETURNING id
-      `;
-      userId = created[0]!.id;
-      needsConsent = consentRequired;
-    }
+    // ALWAYS create a fresh internal user when an (tenant_id, oidc_sub)
+    // pair is new. We used to fall back to "find a user with the same
+    // email", but that silently merged multiple humans into one
+    // account whenever the Flip IdP returned a shared mailbox as the
+    // email claim — branches often share a single workspace inbox
+    // (flip@him-gmbh.com, edeka.worpswede@minden.edeka.de, etc.) and
+    // every employee logging in inherited the first person's user_id.
+    // Result: ticket 2026-05-20 "Rau GmbH sees two Dina Endress rows",
+    // and an audit found 8 tenants / 24 OIDC subjects already merged.
+    //
+    // Identity is now strictly (tenant_id, oidc_subject) → user_id.
+    // Email is metadata only; the auth.users.users_email_key UNIQUE
+    // constraint was dropped alongside this change so duplicate emails
+    // across distinct users no longer 23505-fail the insert.
+    const created = await sql<{ id: string }[]>`
+      INSERT INTO public.users (id, email, display_name, created_at)
+      VALUES (gen_random_uuid(), ${userInfo.email ?? null}, ${displayName}, NOW())
+      RETURNING id
+    `;
+    userId = created[0]!.id;
+    needsConsent = consentRequired;
 
     await sql`
       INSERT INTO oidc_identities (id, user_id, tenant_id, oidc_subject, created_at)
