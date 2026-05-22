@@ -65,7 +65,10 @@
       "woodenSpoon": "Cuillère de Bois",
       "woodenSpoonDesc": "Équipe avec la pire performance"
     },
-    "custom": "Personnalisé"
+    "custom": "Personnalisé",
+    "daysCount": "{{count}} jours",
+    "hoursCount": "{{count}} h",
+    "minutesCount": "{{count}} min"
   },
   "header": {
     "login": "Connexion",

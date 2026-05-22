@@ -224,7 +224,10 @@
       "woodenSpoon": "Wooden Spoon",
       "woodenSpoonDesc": "Team with the worst performance"
     },
-    "custom": "Custom"
+    "custom": "Custom",
+    "daysCount": "{{count}} days",
+    "hoursCount": "{{count}}h",
+    "minutesCount": "{{count}}m"
   },
   "leagues": {
     "title": "Leagues",

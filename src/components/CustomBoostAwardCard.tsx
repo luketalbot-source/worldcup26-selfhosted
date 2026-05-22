@@ -15,6 +15,7 @@ import { CustomBoostAward, CustomBoostPrediction, CustomBoostResult } from '@/ho
 import { useTeamName } from '@/hooks/useTeamName';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { PlayerPicker } from '@/components/PlayerPicker';
+import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 
 
 interface CustomBoostAwardCardProps {
@@ -36,6 +37,7 @@ export const CustomBoostAwardCard = ({
 }: CustomBoostAwardCardProps) => {
   const { t } = useTranslation();
   const { getTeamName } = useTeamName();
+  const { boostsDeadline } = useLiveMatchesContext();
   const [selectedTeam, setSelectedTeam] = useState(prediction?.predicted_team_code || '');
   const [playerName, setPlayerName] = useState(prediction?.predicted_player_name || '');
   const [saving, setSaving] = useState(false);
@@ -69,12 +71,14 @@ export const CustomBoostAwardCard = ({
     return team ? `${team.flag} ${getTeamName(team.code, team.name)}` : code;
   };
 
-  // Calculate lock time remaining
+  // Calculate lock time remaining. ALL boosts (built-in and custom) lock
+  // together at the first knockout-match kickoff — see boostsDeadline in
+  // LiveMatchesContext. Per-award lock_date columns are now ignored; the
+  // matching change is in useCustomBoostAwards.isLocked.
   const getLockTimeInfo = () => {
-    if (!award.lock_date) return null;
-    const lockDate = new Date(award.lock_date);
+    if (!boostsDeadline) return null;
     const now = new Date();
-    const diff = lockDate.getTime() - now.getTime();
+    const diff = boostsDeadline.getTime() - now.getTime();
     
     if (diff <= 0) return null;
     

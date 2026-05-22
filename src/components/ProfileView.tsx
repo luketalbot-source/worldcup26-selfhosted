@@ -176,7 +176,20 @@ export const ProfileView = () => {
               {languages.map((lang) => (
                 <button
                   key={lang.code}
-                  onClick={() => i18n.changeLanguage(lang.code)}
+                  onClick={() => {
+                    // The Flip Bridge calls i18n.changeLanguage on every
+                    // mount (from getLang) and on every host LANG_CHANGE
+                    // event — which would silently overwrite a manual
+                    // pick. Setting this flag tells the bridge to keep
+                    // its hands off; see FlipBridgeProvider for the
+                    // matching guard. Cleared if the user picks the
+                    // same language the host last announced (i.e. they
+                    // explicitly opted back into bridge-driven language).
+                    try {
+                      localStorage.setItem('flipLangOverride', '1');
+                    } catch { /* private-mode storage; safe to ignore */ }
+                    void i18n.changeLanguage(lang.code);
+                  }}
                   className={`px-2 py-1 rounded-lg text-lg transition-colors ${
                     i18n.language === lang.code
                       ? 'bg-primary/20 ring-1 ring-primary'

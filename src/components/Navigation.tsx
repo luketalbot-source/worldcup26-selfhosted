@@ -38,6 +38,23 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
     // chrome. Light mode keeps `bg-card`.
     <nav className="fixed bottom-0 left-0 right-0 bg-card dark:bg-[rgba(43,43,43,0.8)] backdrop-blur-md border-t border-border dark:border-[rgba(255,255,255,0.06)] z-50 safe-area-inset-bottom">
       <div className="max-w-[700px] mx-auto px-4">
+        {/* Terms link — sits ABOVE the menu now. The previous below-the-
+            menu position landed in the home-indicator / gesture-bar zone
+            on iPhone X+ and most modern Android devices, so taps either
+            registered as a swipe-from-bottom system gesture or missed
+            entirely. Moving it above the icons puts it in the
+            comfortably-reachable middle band. */}
+        {hasTerms && (
+          <div className="text-[10px] leading-tight text-center pt-1.5 pb-0.5 select-none">
+            <button
+              type="button"
+              onClick={() => setTermsOpen(true)}
+              className="underline underline-offset-2 text-muted-foreground/70 hover:text-foreground py-1 px-2"
+            >
+              {t('nav.terms')}
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-around py-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -58,24 +75,6 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
             );
           })}
         </div>
-        {/* Footer line — Terms link only, conditional on the tenant
-            having terms set. The old trademark disclaimer was removed
-            because it didn't fit on a single line on small phones with
-            curved-edge displays and risked being clipped. When a tenant
-            opts into terms, the rendered link sits centred and
-            unobtrusive; when they don't, the row collapses entirely so
-            the nav has no dangling empty footer. */}
-        {hasTerms && (
-          <div className="text-[9px] leading-tight text-center px-2 pb-1 select-none">
-            <button
-              type="button"
-              onClick={() => setTermsOpen(true)}
-              className="underline underline-offset-2 text-muted-foreground/70 hover:text-foreground"
-            >
-              {t('nav.terms')}
-            </button>
-          </div>
-        )}
       </div>
 
       {hasTerms && (

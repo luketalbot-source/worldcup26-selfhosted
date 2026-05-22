@@ -65,7 +65,10 @@
       "woodenSpoon": "Colher de Pau",
       "woodenSpoonDesc": "Seleção com o pior desempenho"
     },
-    "custom": "Personalizado"
+    "custom": "Personalizado",
+    "daysCount": "{{count}} dias",
+    "hoursCount": "{{count}} h",
+    "minutesCount": "{{count}} min"
   },
   "header": {
     "login": "Entrar",

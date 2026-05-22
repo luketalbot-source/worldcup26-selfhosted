@@ -65,7 +65,10 @@
       "woodenSpoon": "Cuchara de Madera",
       "woodenSpoonDesc": "Equipo con el peor rendimiento"
     },
-    "custom": "Personalizado"
+    "custom": "Personalizado",
+    "daysCount": "{{count}} días",
+    "hoursCount": "{{count}} h",
+    "minutesCount": "{{count}} min"
   },
   "header": {
     "login": "Iniciar Sesión",

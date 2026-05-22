@@ -343,26 +343,42 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
 
         // Initial language handshake. getLang resolves with either a string
         // or `{ code: BridgeErrorCode }` — branch on both.
+        //
+        // Manual-override check: if the user has explicitly picked a
+        // language via ProfileView's language picker, that pick wins
+        // over the host's announcement. Without this, every iframe
+        // mount would silently revert to the host's locale and the
+        // in-app picker would feel broken ("I clicked French, why is
+        // it German again?"). See ProfileView for where the flag is
+        // set.
+        let langOverride = false;
         try {
-          const lang = await withBridgeTimeout(getLang(), BRIDGE_CALL_TIMEOUT_MS);
-          if (lang === BRIDGE_TIMEOUT_SENTINEL) {
-            console.warn(`${TAG} getLang timed out after ${BRIDGE_CALL_TIMEOUT_MS}ms`);
-          } else {
-            console.log(`${TAG} getLang →`, lang);
-            if (isBridgeError(lang)) {
-              console.warn(`${TAG} getLang returned BridgeError:`, lang);
+          langOverride = localStorage.getItem('flipLangOverride') === '1';
+        } catch { /* private-mode storage; treat as no override */ }
+        if (langOverride) {
+          console.log(`${TAG} skipping host language sync — user has manually overridden`);
+        } else {
+          try {
+            const lang = await withBridgeTimeout(getLang(), BRIDGE_CALL_TIMEOUT_MS);
+            if (lang === BRIDGE_TIMEOUT_SENTINEL) {
+              console.warn(`${TAG} getLang timed out after ${BRIDGE_CALL_TIMEOUT_MS}ms`);
             } else {
-              const normalised = normaliseLang(lang);
-              if (!cancelled && normalised && i18n.language !== normalised) {
-                console.log(`${TAG} applying host language: ${normalised} (was ${i18n.language})`);
-                i18n.changeLanguage(normalised);
-              } else if (!cancelled && !normalised) {
-                console.warn(`${TAG} host language "${lang}" not in supported set — leaving as ${i18n.language}`);
+              console.log(`${TAG} getLang →`, lang);
+              if (isBridgeError(lang)) {
+                console.warn(`${TAG} getLang returned BridgeError:`, lang);
+              } else {
+                const normalised = normaliseLang(lang);
+                if (!cancelled && normalised && i18n.language !== normalised) {
+                  console.log(`${TAG} applying host language: ${normalised} (was ${i18n.language})`);
+                  i18n.changeLanguage(normalised);
+                } else if (!cancelled && !normalised) {
+                  console.warn(`${TAG} host language "${lang}" not in supported set — leaving as ${i18n.language}`);
+                }
               }
             }
+          } catch (err) {
+            console.warn(`${TAG} getLang rejected:`, err);
           }
-        } catch (err) {
-          console.warn(`${TAG} getLang rejected:`, err);
         }
 
         // Subscribe to future theme changes. Subscribe is also timeout-wrapped
@@ -401,6 +417,18 @@ export const FlipBridgeProvider = ({ children }: { children: ReactNode }) => {
             subscribe(
               BridgeEventType.LANG_CHANGE,
               (event: { data?: unknown }) => {
+                // Re-read the override flag on every event — the user
+                // might have set it AFTER subscribe time, in which case
+                // we still need to honour it. Reading localStorage is
+                // cheap and synchronous; no need to cache.
+                let override = false;
+                try {
+                  override = localStorage.getItem('flipLangOverride') === '1';
+                } catch { /* ignore */ }
+                if (override) {
+                  console.log(`${TAG} LANG_CHANGE ignored — user has manually overridden`);
+                  return;
+                }
                 // Some bridge implementations deliver the new lang as the
                 // bare event.data; others wrap it. Try both.
                 const raw =

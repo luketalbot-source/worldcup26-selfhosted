@@ -65,7 +65,10 @@
       "woodenSpoon": "Cucchiaio di Legno",
       "woodenSpoonDesc": "Squadra con la peggiore prestazione"
     },
-    "custom": "Personalizzato"
+    "custom": "Personalizzato",
+    "daysCount": "{{count}} giorni",
+    "hoursCount": "{{count}} h",
+    "minutesCount": "{{count}} min"
   },
   "header": {
     "login": "Accedi",

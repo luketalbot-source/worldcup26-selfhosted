@@ -65,7 +65,10 @@
       "woodenSpoon": "Holzlöffel",
       "woodenSpoonDesc": "Team mit der schwächsten Leistung"
     },
-    "custom": "Benutzerdefiniert"
+    "custom": "Benutzerdefiniert",
+    "daysCount": "{{count}} Tagen",
+    "hoursCount": "{{count}} Std.",
+    "minutesCount": "{{count}} Min."
   },
   "header": {
     "login": "Anmelden",
