@@ -17,16 +17,10 @@
 // change; the Dialog primitive we already use scales full-screen-on-
 // mobile / centred-on-desktop out of the box.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, ChevronLeft, UsersRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useQualifiedPlayers, type Player } from '@/hooks/useQualifiedPlayers';
@@ -133,6 +127,58 @@ export const PlayerPicker = ({
     onChange('');
   };
 
+  // Manual body-scroll-lock. Radix Dialog's react-remove-scroll worked
+  // fine in standalone web but was unreliable inside Flip's mobile
+  // WebView iframe — taps inside the picker either failed to scroll
+  // the list (gesture routed nowhere) or scrolled the matches view
+  // behind the picker. We now own the lock: position-fix the body at
+  // its current scrollY while open, restore it on close. Tested
+  // against the iOS WebView pattern and the standard browser case.
+  const savedScrollYRef = useRef(0);
+  useEffect(() => {
+    if (!open) return;
+    savedScrollYRef.current = window.scrollY;
+    const body = document.body;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      overflow: body.style.overflow,
+      width: body.style.width,
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${savedScrollYRef.current}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    return () => {
+      // Restore every property we touched, then jump back to the
+      // pre-open scroll position. Without the restoration step the
+      // page would snap to the top when the picker closes.
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.overflow = prev.overflow;
+      body.style.width = prev.width;
+      window.scrollTo(0, savedScrollYRef.current);
+    };
+  }, [open]);
+
+  // Close on Escape (Radix Dialog gave us this for free; we wire it
+  // up manually now). Only attached while open to keep listener-count
+  // off the body in the common case.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
   // What to render in the trigger button. Three states:
   //   - selected & player still in roster → flag + name
   //   - selected but player no longer in roster → bare name (stale pick)
@@ -166,144 +212,159 @@ export const PlayerPicker = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled}
-          className="w-full justify-between font-normal"
-        >
-          {renderTrigger()}
-          {value ? (
-            <X
-              role="button"
-              aria-label={t('common.clear', 'Clear')}
-              className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
-              onClick={handleClear}
-            />
-          ) : (
-            <Search className="w-4 h-4 shrink-0 opacity-60" />
-          )}
-        </Button>
-      </DialogTrigger>
-
-      {/* `!flex` is intentional: Radix DialogContent's default contains
-          `grid` and twMerge doesn't recognise the conflict — without
-          the !-important the dialog stays grid-laid-out and the
-          scroll viewport collapses to its content's natural height,
-          which is what made the country list unscrollable on mobile.
-          `overflow-hidden` clips the dialog body so the inner div is
-          the only scroll container. */}
-      <DialogContent
-        // `dvh` (dynamic viewport height) not `vh` — iOS Safari/WebView
-        // computes `vh` against the full window including chrome that's
-        // sometimes hidden, so 85vh frequently resolves to "taller than
-        // visible" inside an embedded iframe. dvh tracks the visible
-        // viewport, keeping the dialog inside the gesture-reachable
-        // area on mobile.
-        //
-        // `touch-action: pan-y` on the wrapper hints to the browser
-        // that the dialog itself should handle vertical drags rather
-        // than punting them to whichever scroller it considers
-        // "outer" — which in an iframe is the host page.
-        style={{ touchAction: 'pan-y' }}
-        className="sm:max-w-md p-0 gap-0 max-h-[85dvh] !flex flex-col overflow-hidden"
+    <>
+      {/* Trigger button is a plain <Button>; opening the modal is just
+          a state toggle now (no Radix-managed portal). */}
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        className="w-full justify-between font-normal"
       >
-        <DialogHeader className="p-4 border-b shrink-0">
-          <DialogTitle className="text-base flex items-center gap-2">
-            {drillTeam ? (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setDrillTeam(null)}
-                  className="h-8 w-8 -ml-2"
-                  aria-label={t('common.back', 'Back')}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="inline-flex items-center gap-1.5">
-                  <Flag code={drillTeam} className="w-4" />
-                  {getTeamName(
-                    drillTeam,
-                    teams.find((tm) => tm.code === drillTeam)?.name,
-                  )}
-                </span>
-              </>
-            ) : (
-              <>
-                <UsersRound className="w-4 h-4" />
-                {t('boost.pickPlayer', 'Pick a player')}
-              </>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Search input only shown at the top level — once you've drilled
-            into a team the list is short enough that scroll beats search.
-            `shrink-0` so flex doesn't squeeze the search input when the
-            list below has lots of content. */}
-        {!drillTeam && (
-          <div className="p-3 border-b shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('boost.searchPlayers', 'Search players…')}
-                className="pl-9"
-                autoFocus
-              />
-            </div>
-          </div>
+        {renderTrigger()}
+        {value ? (
+          <X
+            role="button"
+            aria-label={t('common.clear', 'Clear')}
+            className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
+            onClick={handleClear}
+          />
+        ) : (
+          <Search className="w-4 h-4 shrink-0 opacity-60" />
         )}
+      </Button>
 
-        {/* Native scrolling div, not Radix ScrollArea. ScrollArea uses
-            a custom non-native scrollbar implementation that swallows
-            touch events when nested inside a Radix Dialog on iOS
-            WebView (the country list became completely unscrollable on
-            phones). overscroll-contain prevents pull-to-refresh / page
-            scroll when reaching the list's edges; WebkitOverflowScrolling
-            kicks momentum scrolling on older iOS. `touch-action: pan-y`
-            tells the browser explicitly that this element is the
-            vertical scroll target — without it, iOS WebView sometimes
-            routes the drag to the underlying page's scroller. */}
-        <div
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
-          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
-        >
-          {loading ? (
-            <div className="p-6 text-sm text-center text-muted-foreground">
-              {t('common.loading', 'Loading…')}
+      {/* Custom modal rendered via portal at the document root.
+          Bypasses Radix Dialog because Radix's react-remove-scroll
+          stack was unreliable on iOS WebView inside Flip's iframe:
+          either no scroll worked, or the gesture scrolled the
+          matches view behind. By doing the body-lock ourselves (see
+          the useEffect above) and laying out the modal with explicit
+          fixed positioning (top:0 right:0 bottom:0 left:0 → flex
+          column), every browser we tested honours the inner
+          overflow-y-auto without surprises. */}
+      {open && createPortal(
+        <div className="fixed inset-0 z-50">
+          {/* Backdrop — tap-to-close. Plain div instead of Radix
+              Overlay, so backdrop and content live in the same
+              event tree and we don't have to fight Radix's pointer-
+              event handling. */}
+          <div
+            className="absolute inset-0 bg-black/80"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Content wrapper. Pinned via insets — top/bottom 8px on
+              mobile, more breathing room with the responsive `sm:`
+              utilities. Explicit `flex flex-col` plus `min-h-0`
+              cascading children gives the inner scroller a definite
+              parent height to work with, which is what flex+vh
+              inside Radix Dialog kept failing to provide on iOS
+              WebView. `touch-action: pan-y` declares this subtree
+              as the vertical-scroll target so the browser doesn't
+              route drags up to the iframe parent. */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="player-picker-title"
+            className="absolute inset-x-2 top-2 bottom-2 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85dvh] bg-background rounded-lg shadow-lg border flex flex-col overflow-hidden"
+            style={{ touchAction: 'pan-y' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b shrink-0 flex items-center justify-between gap-2">
+              <h2 id="player-picker-title" className="text-base flex items-center gap-2 font-semibold">
+                {drillTeam ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDrillTeam(null)}
+                      className="h-8 w-8 -ml-2"
+                      aria-label={t('common.back', 'Back')}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Flag code={drillTeam} className="w-4" />
+                      {getTeamName(
+                        drillTeam,
+                        teams.find((tm) => tm.code === drillTeam)?.name,
+                      )}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <UsersRound className="w-4 h-4" />
+                    {t('boost.pickPlayer', 'Pick a player')}
+                  </>
+                )}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label={t('common.close', 'Close')}
+                className="p-1 rounded hover:bg-muted text-muted-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          ) : players.length === 0 ? (
-            <div className="p-6 text-sm text-center text-muted-foreground">
-              {t(
-                'boost.noPlayersLoaded',
-                'No player rosters loaded yet. Ask the admin to import squads.',
+
+            {!drillTeam && (
+              <div className="p-3 border-b shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t('boost.searchPlayers', 'Search players…')}
+                    className="pl-9"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Native scrolling div, with explicit `touch-action: pan-y`
+                so iOS WebView doesn't punt drags up to the parent
+                iframe. `min-h-0` is critical — without it the flex
+                child can refuse to shrink and the overflow never
+                triggers. */}
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+            >
+              {loading ? (
+                <div className="p-6 text-sm text-center text-muted-foreground">
+                  {t('common.loading', 'Loading…')}
+                </div>
+              ) : players.length === 0 ? (
+                <div className="p-6 text-sm text-center text-muted-foreground">
+                  {t(
+                    'boost.noPlayersLoaded',
+                    'No player rosters loaded yet. Ask the admin to import squads.',
+                  )}
+                </div>
+              ) : drillTeam ? (
+                <PlayerList items={drillResults} onPick={handlePick} teams={teams} />
+              ) : query ? (
+                searchResults.length === 0 ? (
+                  <div className="p-6 text-sm text-center text-muted-foreground">
+                    {t('boost.noPlayerMatches', 'No matches for')} "{query}"
+                  </div>
+                ) : (
+                  <PlayerList items={searchResults} onPick={handlePick} teams={teams} />
+                )
+              ) : (
+                <CountryGrid teams={teams} onPick={(code) => setDrillTeam(code)} />
               )}
             </div>
-          ) : drillTeam ? (
-            <PlayerList items={drillResults} onPick={handlePick} teams={teams} />
-          ) : query ? (
-            searchResults.length === 0 ? (
-              <div className="p-6 text-sm text-center text-muted-foreground">
-                {t('boost.noPlayerMatches', 'No matches for')} "{query}"
-              </div>
-            ) : (
-              <PlayerList items={searchResults} onPick={handlePick} teams={teams} />
-            )
-          ) : (
-            <CountryGrid
-              teams={teams}
-              onPick={(code) => setDrillTeam(code)}
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 };
 
