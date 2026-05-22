@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
+import { Flag } from '@/components/Flag';
 
 interface CustomBoost {
   id: string;
@@ -517,7 +518,10 @@ export const TenantCustomBoosts = ({ tenantId, tenantName }: TenantCustomBoostsP
                         <SelectContent>
                           {uniqueTeams.map((team) => (
                             <SelectItem key={team.id} value={team.code}>
-                              {team.flag} {team.name}
+                              <span className="inline-flex items-center gap-1.5">
+                                <Flag code={team.code} className="w-4" />
+                                <span>{team.name}</span>
+                              </span>
                             </SelectItem>
                           ))}
                         </SelectContent>

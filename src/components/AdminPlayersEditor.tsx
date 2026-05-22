@@ -38,6 +38,7 @@ import {
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { refreshPlayers } from '@/hooks/useQualifiedPlayers';
 import { useTeamName } from '@/hooks/useTeamName';
+import { Flag } from '@/components/Flag';
 
 interface CountRow {
   team_code: string;
@@ -291,7 +292,7 @@ export const AdminPlayersEditor = () => {
                     }`}
                   >
                     <span className="flex items-center gap-2 truncate">
-                      <span>{tm.flag}</span>
+                      <Flag code={tm.code} className="w-4 shrink-0" />
                       <span className="truncate">{getTeamName(tm.code, tm.name)}</span>
                     </span>
                     <span

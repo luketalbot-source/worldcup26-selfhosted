@@ -8,6 +8,7 @@ import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
 import { getFlagUrl } from '@/lib/flagUtils';
 import { useMatchTime } from '@/hooks/useMatchTime';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
+import { Flag } from '@/components/Flag';
 import { useTeamName } from '@/hooks/useTeamName';
 
 interface KnockoutMatchCardProps {
@@ -120,7 +121,7 @@ export const KnockoutMatchCard = ({
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-r from-muted to-white flex items-center justify-center">
-              <span className="text-4xl opacity-30">{match.homeTeam.flag}</span>
+              <Flag code={match.homeTeam.code} className="w-12 opacity-30" />
             </div>
           )}
         </div>
@@ -139,7 +140,7 @@ export const KnockoutMatchCard = ({
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-l from-muted to-white flex items-center justify-center">
-              <span className="text-4xl opacity-30">{match.awayTeam.flag}</span>
+              <Flag code={match.awayTeam.code} className="w-12 opacity-30" />
             </div>
           )}
         </div>

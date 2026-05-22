@@ -8,6 +8,7 @@ import { getFlagUrl } from '@/lib/flagUtils';
 import { useMatchTime, getEffectiveMatchStatus } from '@/hooks/useMatchTime';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { useTeamName } from '@/hooks/useTeamName';
+import { Flag } from '@/components/Flag';
 
 interface MatchCardProps {
   match: Match;
@@ -115,7 +116,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-r from-muted to-white flex items-center justify-center">
-              <span className="text-4xl opacity-30">{match.homeTeam.flag}</span>
+              <Flag code={match.homeTeam.code} className="w-12 opacity-30" />
             </div>
           )}
         </div>
@@ -134,7 +135,7 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-l from-muted to-white flex items-center justify-center">
-              <span className="text-4xl opacity-30">{match.awayTeam.flag}</span>
+              <Flag code={match.awayTeam.code} className="w-12 opacity-30" />
             </div>
           )}
         </div>

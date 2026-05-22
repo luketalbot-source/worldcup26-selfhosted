@@ -16,6 +16,8 @@ import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { useTeams } from '@/hooks/useTeams';
+import { Flag } from '@/components/Flag';
+import { getFlagIconCode } from '@/lib/teamFlagCode';
 
 const VISIBLE_MS = 4000; // total time the overlay stays on screen
 
@@ -39,8 +41,12 @@ export const GoalCelebration = () => {
   if (!active) return null;
 
   const scorer = active.scoredBy === 'home' ? active.homeTeam : active.awayTeam;
+  // Resolve the team metadata only as a name-fallback; the flag itself
+  // comes from <Flag code=...> below so it renders identically across
+  // platforms (no Windows emoji-letter fallback).
   const scoringTeamMeta = getTeamByCode(scorer.code);
-  const flag = scoringTeamMeta?.flag ?? '⚽';
+  void scoringTeamMeta; // (still referenced for future score-board variants)
+  const hasFlag = !!getFlagIconCode(scorer.code);
 
   return (
     <AnimatePresence>
@@ -90,12 +96,19 @@ export const GoalCelebration = () => {
         {/* Main stack — flag, GOAL!!!, team, score */}
         <div className="relative flex flex-col items-center gap-3 text-center px-6">
           <motion.div
-            className="text-7xl md:text-8xl"
             initial={{ scale: 0, rotate: -30 }}
             animate={{ scale: [0, 1.4, 1], rotate: [0, 10, -10, 0] }}
             transition={{ duration: 0.7, ease: 'backOut' }}
+            className="flex items-center justify-center"
           >
-            {flag}
+            {hasFlag ? (
+              <Flag code={scorer.code} className="w-32 md:w-44 shadow-2xl" />
+            ) : (
+              // Unknown team code: keep the ⚽ fallback rather than a
+              // grey rectangle; goals from synthetic / test data still
+              // celebrate visibly.
+              <span className="text-7xl md:text-8xl">⚽</span>
+            )}
           </motion.div>
 
           <motion.h1

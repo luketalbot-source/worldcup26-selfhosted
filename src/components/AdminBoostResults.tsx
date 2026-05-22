@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { PlayerPicker } from '@/components/PlayerPicker';
+import { Flag } from '@/components/Flag';
 
 interface BoostAward {
   id: string;
@@ -231,8 +232,14 @@ export const AdminBoostResults = () => {
   };
 
   const getTeamDisplay = (code: string) => {
-    const team = uniqueTeams.find(t => t.code === code);
-    return team ? `${team.flag} ${team.name}` : code;
+    const team = uniqueTeams.find((t) => t.code === code);
+    if (!team) return code;
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Flag code={team.code} className="w-4" />
+        <span>{team.name}</span>
+      </span>
+    );
   };
 
   if (loading) {
@@ -413,7 +420,10 @@ export const AdminBoostResults = () => {
                         <SelectContent>
                           {uniqueTeams.map((team) => (
                             <SelectItem key={team.id} value={team.code}>
-                              {team.flag} {team.name}
+                              <span className="inline-flex items-center gap-1.5">
+                                <Flag code={team.code} className="w-4" />
+                                <span>{team.name}</span>
+                              </span>
                             </SelectItem>
                           ))}
                         </SelectContent>

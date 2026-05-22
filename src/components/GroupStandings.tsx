@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import { GroupStanding } from '@/types/match';
 import { useTeamName } from '@/hooks/useTeamName';
+import { Flag } from '@/components/Flag';
 
 interface GroupStandingsProps {
   standings: GroupStanding[];
@@ -77,7 +78,7 @@ export const GroupStandings = ({ standings, group }: GroupStandingsProps) => {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl">{standing.team.flag}</span>
+                          <Flag code={standing.team.code} className="w-5" />
                           <span className="font-medium text-foreground">{getTeamName(standing.team.code, standing.team.name)}</span>
                         </div>
                       </td>

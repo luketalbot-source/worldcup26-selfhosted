@@ -16,6 +16,7 @@ import { useTeamName } from '@/hooks/useTeamName';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
+import { Flag } from '@/components/Flag';
 
 // Map award slugs to translation keys
 const getAwardTranslationKey = (slug: string): { name: string; desc: string } => {
@@ -87,9 +88,18 @@ export const BoostAwardCard = ({
     setSaving(false);
   };
 
+  // Returns JSX so the flag is a real SVG component rather than the
+  // emoji (which broke on Windows / Android). Callers render it as a
+  // child node anywhere JSX is accepted.
   const getTeamDisplay = (code: string) => {
-    const team = uniqueTeams.find(t => t.code === code);
-    return team ? `${team.flag} ${getTeamName(team.code, team.name)}` : code;
+    const team = uniqueTeams.find((t) => t.code === code);
+    if (!team) return code;
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Flag code={team.code} className="w-4" />
+        <span>{getTeamName(team.code, team.name)}</span>
+      </span>
+    );
   };
 
   // Calculate lock time remaining. ALL boosts share one deadline =
@@ -196,7 +206,10 @@ export const BoostAwardCard = ({
                   <SelectContent>
                     {uniqueTeams.map((team) => (
                       <SelectItem key={team.id} value={team.code}>
-                        {team.flag} {getTeamName(team.code, team.name)}
+                        <span className="inline-flex items-center gap-1.5">
+                          <Flag code={team.code} className="w-4" />
+                          <span>{getTeamName(team.code, team.name)}</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

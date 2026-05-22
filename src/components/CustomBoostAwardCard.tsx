@@ -16,6 +16,7 @@ import { useTeamName } from '@/hooks/useTeamName';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
+import { Flag } from '@/components/Flag';
 
 
 interface CustomBoostAwardCardProps {
@@ -67,8 +68,14 @@ export const CustomBoostAwardCard = ({
   };
 
   const getTeamDisplay = (code: string) => {
-    const team = uniqueTeams.find(t => t.code === code);
-    return team ? `${team.flag} ${getTeamName(team.code, team.name)}` : code;
+    const team = uniqueTeams.find((t) => t.code === code);
+    if (!team) return code;
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Flag code={team.code} className="w-4" />
+        <span>{getTeamName(team.code, team.name)}</span>
+      </span>
+    );
   };
 
   // Calculate lock time remaining. ALL boosts (built-in and custom) lock
@@ -178,7 +185,10 @@ export const CustomBoostAwardCard = ({
                   <SelectContent>
                     {uniqueTeams.map((team) => (
                       <SelectItem key={team.id} value={team.code}>
-                        {team.flag} {getTeamName(team.code, team.name)}
+                        <span className="inline-flex items-center gap-1.5">
+                          <Flag code={team.code} className="w-4" />
+                          <span>{getTeamName(team.code, team.name)}</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

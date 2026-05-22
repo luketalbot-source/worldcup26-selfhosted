@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import { useQualifiedPlayers, type Player } from '@/hooks/useQualifiedPlayers';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { useTeamName } from '@/hooks/useTeamName';
+import { Flag } from '@/components/Flag';
 
 // Mirror the normaliseForSearch on the backend — kept here so the
 // typeahead can match accent-insensitively without a server round-trip
@@ -140,7 +141,7 @@ export const PlayerPicker = ({
       const team = teams.find((tm) => tm.code === selected.team_code);
       return (
         <span className="flex items-center gap-2 truncate">
-          {team && <span className="text-base">{team.flag}</span>}
+          {team && <Flag code={team.code} className="w-4" />}
           <span className="truncate font-medium">{selected.full_name}</span>
           {selected.position && (
             <span className="text-xs text-muted-foreground">{selected.position}</span>
@@ -208,8 +209,8 @@ export const PlayerPicker = ({
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <span>
-                  {teams.find((tm) => tm.code === drillTeam)?.flag}{' '}
+                <span className="inline-flex items-center gap-1.5">
+                  <Flag code={drillTeam} className="w-4" />
                   {getTeamName(
                     drillTeam,
                     teams.find((tm) => tm.code === drillTeam)?.name,
@@ -306,7 +307,7 @@ const CountryGrid = ({ teams, onPick }: CountryGridProps) => {
           onClick={() => onPick(tm.code)}
           className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border hover:bg-muted text-left transition-colors"
         >
-          <span className="text-lg">{tm.flag}</span>
+          <Flag code={tm.code} className="w-5 shrink-0" />
           <span className="text-sm truncate">{getTeamName(tm.code, tm.name)}</span>
         </button>
       ))}
@@ -332,7 +333,7 @@ const PlayerList = ({ items, onPick, teams }: PlayerListProps) => {
             onClick={() => onPick(p)}
             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted text-left transition-colors"
           >
-            <span className="text-base shrink-0">{team?.flag ?? '🏳️'}</span>
+            <Flag code={p.team_code} className="w-5 shrink-0" />
             <span className="text-xs text-muted-foreground w-6 tabular-nums shrink-0">
               {p.shirt_number ? `#${p.shirt_number}` : ''}
             </span>
