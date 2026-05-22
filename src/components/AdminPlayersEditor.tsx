@@ -16,7 +16,7 @@
 // is invalidated via refreshPlayers() after each successful import.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Trash2, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Save, Trash2, Upload, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, ApiError } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -127,6 +127,7 @@ export const AdminPlayersEditor = () => {
   const [replace, setReplace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchCounts = async () => {
     setCountsLoading(true);
@@ -204,18 +205,68 @@ export const AdminPlayersEditor = () => {
     }
   };
 
+  // Pulls every team's squad from football-data.org in a single API
+  // round-trip and replaces our live_players rows per team. Manual
+  // paste-imports (above) and this button can coexist: a paste-import
+  // overrides FD's data for that team until the admin clicks Sync
+  // again, at which point FD becomes canonical again. Mid-tournament
+  // workflow is "sync once when FIFA's final 25-player cuts publish,
+  // then paste-fix individual rows if FD lags on a transfer/injury".
+  const handleSyncFromFd = async () => {
+    setSyncing(true);
+    try {
+      const res = await api.post<{
+        teams_in_response: number;
+        teams_synced: number;
+        rows_inserted: number;
+        skipped: string[];
+      }>('/players/admin/sync-from-fd');
+      const skippedNote =
+        res.skipped.length > 0 ? ` — skipped ${res.skipped.length} (${res.skipped.join(', ')})` : '';
+      toast.success(
+        `Synced ${res.rows_inserted} players across ${res.teams_synced}/${res.teams_in_response} teams${skippedNote}`,
+      );
+      refreshPlayers();
+      await fetchCounts();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Sync failed';
+      toast.error(msg);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="w-5 h-5" />
-            Player rosters
-          </CardTitle>
-          <CardDescription>
-            Squads aren't covered by football-data.org's free tier — paste them in here once and
-            the boost player picker will use them. Re-paste to update.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Player rosters
+              </CardTitle>
+              <CardDescription className="mt-1.5">
+                Pull every team's squad from football-data.org with one click, or paste a specific
+                roster below for fine-grained control. Either path feeds the boost player picker.
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={handleSyncFromFd}
+              disabled={syncing}
+              className="shrink-0"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Sync from football-data.org
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Team grid with per-team counts */}

@@ -4,7 +4,6 @@ import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 import { emitMatchEvent, type LiveMatchEvent, type MatchGoal } from "../lib/matchEvents";
-import { normaliseForSearch } from "../lib/normalise";
 
 // Re-fetch the full live_matches row + its goals for SSE emission. Used
 // from any code path that mutates either the match itself OR its goal
@@ -172,40 +171,16 @@ function mapStage(apiStage: string): string {
 }
 
 // Football-Data.org /competitions/WC/teams response. Populated once FIFA
-// finalises the roster (post-playoffs, post-March 2026). As of late May
-// 2026 the same payload now carries inline `squad` arrays for every
-// team — drives the auto-population of live_players below.
-interface FootballDataSquadMember {
-  id: number;
-  name: string;
-  firstName?: string;
-  lastName?: string;
-  position?: string;          // "Goalkeeper" | "Defence" | "Midfield" | "Offence"
-  dateOfBirth?: string;       // ISO date, "1986-06-16"
-  shirtNumber?: number | null;
-}
+// finalises the roster (post-playoffs, post-March 2026). The payload
+// also carries inline `squad` arrays but those are consumed by the
+// dedicated POST /players/admin/sync-from-fd endpoint, NOT here — the
+// match-sync route stays narrowly scoped to matches+teams.
 interface FootballDataTeam {
   id: number;
   name: string;
   shortName?: string;
   tla: string;
   crest?: string;
-  squad?: FootballDataSquadMember[];
-}
-
-// FD's verbose position labels compress to the standard 2-letter codes
-// the boost picker shows. Free-text fallback when FD hands us something
-// outside the known set (e.g. "Right Winger") so we never lose data —
-// just display it un-normalised in that case.
-const FD_POSITION_TO_CODE: Record<string, string> = {
-  Goalkeeper: "GK",
-  Defence: "DF",
-  Midfield: "MF",
-  Offence: "FW",
-};
-function normalisePosition(s: string | null | undefined): string | null {
-  if (!s) return null;
-  return FD_POSITION_TO_CODE[s] ?? s;
 }
 
 // Derive each team's group_name by looking at the first group-stage fixture
@@ -232,7 +207,6 @@ interface SyncState {
   finishedAt: string | null;
   matchesUpdated: number;
   teamsUpdated: number;
-  playersUpdated: number;
   totalMatches: number;
   error: string | null;
 }
@@ -242,7 +216,6 @@ const syncState: SyncState = {
   finishedAt: null,
   matchesUpdated: 0,
   teamsUpdated: 0,
-  playersUpdated: 0,
   totalMatches: 0,
   error: null,
 };
@@ -253,7 +226,6 @@ async function runSync(apiKey: string): Promise<void> {
   syncState.finishedAt = null;
   syncState.matchesUpdated = 0;
   syncState.teamsUpdated = 0;
-  syncState.playersUpdated = 0;
   syncState.totalMatches = 0;
   syncState.error = null;
 
@@ -400,64 +372,8 @@ async function runSync(apiKey: string): Promise<void> {
         } catch (err) {
           console.error(`[sync-matches] team ${team.tla} failed:`, err);
         }
-
-        // Squad sync. FD now (May 2026 onwards) ships inline `squad` arrays
-        // on every team in the /competitions/WC/teams response — so the
-        // same call that gave us team metadata now also gives us the full
-        // 25-35-player roster per nation. We mirror it into live_players
-        // so the boost player picker has up-to-date rosters without the
-        // admin pasting each squad manually.
-        //
-        // Replace-mode (DELETE then INSERT in a per-team transaction):
-        //   - FD is canonical for who's currently in the squad. If a
-        //     player drops out (injury → replaced), they should disappear
-        //     from our picker, not linger as a stale option.
-        //   - Wrapped in sql.begin() so a half-inserted squad never
-        //     reaches the picker; consumer either sees the old roster or
-        //     the new one, never a partial mix.
-        //
-        // Defensive: only replace when FD returned >0 players. A 0-row
-        // squad almost certainly means transient FD weirdness, not "team
-        // disbanded their squad" — preserving the previous data is the
-        // safer fallback than wiping.
-        const squad = (team.squad ?? []).filter((p) => p?.name && p.name.trim().length > 0);
-        if (squad.length === 0) continue;
-        try {
-          await sql.begin(async (tx) => {
-            await tx`DELETE FROM public.live_players WHERE team_code = ${team.tla}`;
-            for (const p of squad) {
-              const fullName = p.name.trim();
-              // ON CONFLICT DO NOTHING guards the rare case where FD lists
-              // two players with the same exact `name` within one squad
-              // (last-name-only entries on a team with two same-surname
-              // siblings). Keeps the first; downstream we'd need first/
-              // last name combined to disambiguate, but that's a future
-              // problem.
-              await tx`
-                INSERT INTO public.live_players (
-                  team_code, full_name, searchable, position, shirt_number, date_of_birth, updated_at
-                ) VALUES (
-                  ${team.tla},
-                  ${fullName},
-                  ${normaliseForSearch(fullName)},
-                  ${normalisePosition(p.position)},
-                  ${typeof p.shirtNumber === "number" ? p.shirtNumber : null},
-                  ${p.dateOfBirth ?? null},
-                  NOW()
-                )
-                ON CONFLICT (team_code, full_name) DO NOTHING
-              `;
-            }
-          });
-          syncState.playersUpdated += squad.length;
-        } catch (err) {
-          console.error(`[sync-matches] squad for ${team.tla} failed:`, err);
-        }
       }
-      console.log(
-        `[sync-matches] teams done: ${syncState.teamsUpdated}/${teams.length}; ` +
-        `players upserted: ${syncState.playersUpdated}`
-      );
+      console.log(`[sync-matches] teams done: ${syncState.teamsUpdated}/${teams.length}`);
     }
 
     syncState.status = "success";

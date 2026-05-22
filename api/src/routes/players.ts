@@ -132,6 +132,128 @@ router.delete("/admin/by-team/:teamCode", requireAdmin, async (c) => {
   return c.json({ team_code: teamCode, deleted: result.length });
 });
 
+// FD's verbose position labels compress to standard 2-letter codes
+// where we know the mapping; anything we don't recognise (e.g.
+// "Attacking Midfield" — FD started shipping granular labels in
+// May 2026) passes through verbatim so we never lose information.
+const FD_POSITION_TO_CODE: Record<string, string> = {
+  Goalkeeper: "GK",
+  Defence: "DF",
+  Midfield: "MF",
+  Offence: "FW",
+};
+function normalisePosition(s: string | null | undefined): string | null {
+  if (!s) return null;
+  return FD_POSITION_TO_CODE[s] ?? s;
+}
+
+// Admin: one-button sync of every team's roster from football-data.org.
+// FD's /competitions/WC/teams payload now (May 2026 onwards) ships
+// inline `squad` arrays for every team — verified 48/48 populated,
+// ~1200 rows total. This endpoint pulls that data once, replaces every
+// team's roster atomically, and reports back what changed.
+//
+// Why a manual button instead of folding into the match-sync auto-run:
+// admins want explicit control over WHEN squads refresh — particularly
+// late in the tournament when FIFA's 25-player final cut publishes
+// and an admin wants to "freeze" the picker on the official roster
+// rather than have it shift mid-tournament from FD's churn. The
+// admin-pasted entries from AdminPlayersEditor remain a separate path
+// for one-off fixes; this button is the bulk-refresh.
+router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "FOOTBALL_DATA_API_KEY not configured on this server" }, 500);
+  }
+
+  let fdResp: Response;
+  try {
+    fdResp = await fetch("https://api.football-data.org/v4/competitions/WC/teams", {
+      headers: { "X-Auth-Token": apiKey },
+    });
+  } catch (err) {
+    return c.json(
+      { error: `Could not reach football-data.org: ${err instanceof Error ? err.message : String(err)}` },
+      502,
+    );
+  }
+  if (!fdResp.ok) {
+    return c.json(
+      { error: `football-data.org returned ${fdResp.status}: ${await fdResp.text()}` },
+      fdResp.status === 429 ? 429 : 502,
+    );
+  }
+
+  const data = (await fdResp.json()) as {
+    teams?: Array<{
+      tla?: string;
+      squad?: Array<{
+        name?: string;
+        position?: string;
+        shirtNumber?: number | null;
+        dateOfBirth?: string;
+      }>;
+    }>;
+  };
+  const teams = data.teams ?? [];
+
+  let teamsTouched = 0;
+  let rowsInserted = 0;
+  const skipped: string[] = [];
+
+  for (const team of teams) {
+    if (!team.tla) continue;
+    // Defensive: a 0-row squad from FD almost always indicates a
+    // transient glitch, not "team disbanded" — keep yesterday's data
+    // rather than wiping a usable roster. Surfaced in `skipped` so
+    // the admin can see why a team's count didn't change.
+    const squad = (team.squad ?? []).filter((p) => p?.name && p.name.trim().length > 0);
+    if (squad.length === 0) {
+      skipped.push(team.tla);
+      continue;
+    }
+    try {
+      // Per-team transaction: a DELETE-then-INSERT outside a
+      // transaction would briefly show an empty roster to anyone
+      // hitting GET /players during the gap. sql.begin() guarantees
+      // the rebuild is atomic — readers see either the old set or
+      // the new set, never an intermediate state.
+      await sql.begin(async (tx) => {
+        await tx`DELETE FROM public.live_players WHERE team_code = ${team.tla!}`;
+        for (const p of squad) {
+          const fullName = p.name!.trim();
+          await tx`
+            INSERT INTO public.live_players (
+              team_code, full_name, searchable, position, shirt_number, date_of_birth, updated_at
+            ) VALUES (
+              ${team.tla!},
+              ${fullName},
+              ${normaliseForSearch(fullName)},
+              ${normalisePosition(p.position)},
+              ${typeof p.shirtNumber === "number" ? p.shirtNumber : null},
+              ${p.dateOfBirth ?? null},
+              NOW()
+            )
+            ON CONFLICT (team_code, full_name) DO NOTHING
+          `;
+        }
+      });
+      teamsTouched++;
+      rowsInserted += squad.length;
+    } catch (err) {
+      console.error(`[players/sync-from-fd] squad for ${team.tla} failed:`, err);
+      skipped.push(team.tla);
+    }
+  }
+
+  return c.json({
+    teams_in_response: teams.length,
+    teams_synced: teamsTouched,
+    rows_inserted: rowsInserted,
+    skipped, // TLAs we didn't touch (empty squad from FD, or per-team error)
+  });
+});
+
 // Admin: counts per team — drives the "what's loaded?" widget in the
 // admin Players panel.
 router.get("/admin/counts", requireAdmin, async (c) => {
