@@ -13,6 +13,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
+import { normaliseForSearch } from "../lib/normalise";
 
 const router = new Hono<AuthEnv>();
 
@@ -23,24 +24,6 @@ interface PlayerRow {
   position: string | null;
   shirt_number: number | null;
   date_of_birth: string | null;
-}
-
-// Normalise a name to its searchable form. Lowercased and accent-stripped
-// using the standard Unicode decomposition + diacritic-removal trick, so
-// "Lionel Messi" and "lionel messi" and "Lìónél Mëssi" all collapse to
-// the same string. Runs both at import time (writes the column) and at
-// query time (in the typeahead) so the comparison is consistent.
-function normaliseForSearch(s: string): string {
-  return s
-    .normalize("NFD")
-    // U+0300..U+036F — Unicode combining diacritical marks. NFD splits
-    // an accented char like "é" into "e" + this codepoint, then we drop
-    // the mark. Explicit unicode escapes keep the regex source-encoding
-    // agnostic (literal combining chars in source files have surprised
-    // both linters and editors in the past).
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
 }
 
 // Public read — every signed-in user needs this to render the picker.
