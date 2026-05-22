@@ -33,6 +33,7 @@ import { useQualifiedPlayers, type Player } from '@/hooks/useQualifiedPlayers';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { useTeamName } from '@/hooks/useTeamName';
 import { Flag } from '@/components/Flag';
+import { translatePlayerPosition } from '@/lib/playerPositions';
 
 // Mirror the normaliseForSearch on the backend — kept here so the
 // typeahead can match accent-insensitively without a server round-trip
@@ -144,7 +145,9 @@ export const PlayerPicker = ({
           {team && <Flag code={team.code} className="w-4" />}
           <span className="truncate font-medium">{selected.full_name}</span>
           {selected.position && (
-            <span className="text-xs text-muted-foreground">{selected.position}</span>
+            <span className="text-xs text-muted-foreground">
+              {translatePlayerPosition(selected.position, t)}
+            </span>
           )}
         </span>
       );
@@ -322,10 +325,18 @@ interface PlayerListProps {
 }
 
 const PlayerList = ({ items, onPick, teams }: PlayerListProps) => {
+  const { t } = useTranslation();
+  const { getTeamName } = useTeamName();
   return (
     <div className="divide-y divide-border">
       {items.map((p) => {
         const team = teams.find((tm) => tm.code === p.team_code);
+        // Use the i18n-aware team name + position so this list reads
+        // natively in the active locale ("Belgien · Rechtsaußen", not
+        // "Belgium · Right Winger"). Country and position both fall
+        // back to their raw value if no translation exists.
+        const countryLabel = getTeamName(p.team_code, team?.name);
+        const positionLabel = translatePlayerPosition(p.position, t);
         return (
           <button
             key={p.id}
@@ -340,8 +351,8 @@ const PlayerList = ({ items, onPick, teams }: PlayerListProps) => {
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-medium truncate">{p.full_name}</span>
               <span className="block text-xs text-muted-foreground truncate">
-                {team?.name ?? p.team_code}
-                {p.position ? ` · ${p.position}` : ''}
+                {countryLabel}
+                {positionLabel ? ` · ${positionLabel}` : ''}
               </span>
             </span>
           </button>

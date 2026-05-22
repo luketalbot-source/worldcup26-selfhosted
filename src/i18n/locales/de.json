@@ -334,5 +334,21 @@
     "BIH": "Bosnien-Herzegowina",
     "IRQ": "Irak",
     "COD": "DR Kongo"
+  },
+  "positions": {
+    "goalkeeper": "Torwart",
+    "defender": "Abwehrspieler",
+    "midfielder": "Mittelfeldspieler",
+    "forward": "Stürmer",
+    "centreBack": "Innenverteidiger",
+    "leftBack": "Linker Verteidiger",
+    "rightBack": "Rechter Verteidiger",
+    "defensiveMidfield": "Defensives Mittelfeld",
+    "centralMidfield": "Zentrales Mittelfeld",
+    "attackingMidfield": "Offensives Mittelfeld",
+    "leftWinger": "Linksaußen",
+    "rightWinger": "Rechtsaußen",
+    "centreForward": "Mittelstürmer",
+    "secondStriker": "Hängende Spitze"
   }
 }
