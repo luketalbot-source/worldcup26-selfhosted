@@ -92,7 +92,10 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
                 scroll which works everywhere.
                 whitespace-pre-wrap preserves the admin's line breaks
                 without forcing them to write HTML/Markdown. */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+              style={{ touchAction: 'pan-y' }}
+            >
               <div className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words">
                 {termsOfUse}
               </div>

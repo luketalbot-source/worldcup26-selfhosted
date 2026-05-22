@@ -196,7 +196,19 @@ export const PlayerPicker = ({
           `overflow-hidden` clips the dialog body so the inner div is
           the only scroll container. */}
       <DialogContent
-        className="sm:max-w-md p-0 gap-0 max-h-[85vh] !flex flex-col overflow-hidden"
+        // `dvh` (dynamic viewport height) not `vh` — iOS Safari/WebView
+        // computes `vh` against the full window including chrome that's
+        // sometimes hidden, so 85vh frequently resolves to "taller than
+        // visible" inside an embedded iframe. dvh tracks the visible
+        // viewport, keeping the dialog inside the gesture-reachable
+        // area on mobile.
+        //
+        // `touch-action: pan-y` on the wrapper hints to the browser
+        // that the dialog itself should handle vertical drags rather
+        // than punting them to whichever scroller it considers
+        // "outer" — which in an iframe is the host page.
+        style={{ touchAction: 'pan-y' }}
+        className="sm:max-w-md p-0 gap-0 max-h-[85dvh] !flex flex-col overflow-hidden"
       >
         <DialogHeader className="p-4 border-b shrink-0">
           <DialogTitle className="text-base flex items-center gap-2">
@@ -254,10 +266,13 @@ export const PlayerPicker = ({
             WebView (the country list became completely unscrollable on
             phones). overscroll-contain prevents pull-to-refresh / page
             scroll when reaching the list's edges; WebkitOverflowScrolling
-            kicks momentum scrolling on older iOS. */}
+            kicks momentum scrolling on older iOS. `touch-action: pan-y`
+            tells the browser explicitly that this element is the
+            vertical scroll target — without it, iOS WebView sometimes
+            routes the drag to the underlying page's scroller. */}
         <div
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
         >
           {loading ? (
             <div className="p-6 text-sm text-center text-muted-foreground">
