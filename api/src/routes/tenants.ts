@@ -122,19 +122,35 @@ router.get("/by-uid/:uid", async (c) => {
   // Inline `user_count` via a correlated subquery so the tenant
   // resolve (called on every page mount) already carries the
   // headline number the LeaguesView shows next to "All players".
-  // One round-trip; index on oidc_identities.tenant_id is already
-  // there. COUNT(DISTINCT user_id) over oidc_identities, not
-  // COUNT(*) on users — `users` isn't tenant-scoped (a single
-  // internal user can be linked to multiple tenants via separate
-  // oidc_identities rows), but we want this tenant's distinct
-  // members only.
+  // One round-trip; existing indexes on the three source columns
+  // (oidc_identities.tenant_id, predictions.tenant_id, leagues
+  // .tenant_id) keep it cheap.
+  //
+  // Union of three sources because no single table is a complete
+  // membership list:
+  //   - oidc_identities: every OIDC-authed user (most prod tenants)
+  //   - predictions: every user who's submitted at least one pick
+  //     in this tenant — covers OTP-auth tenants that don't
+  //     populate oidc_identities, plus dev-login users
+  //   - league_members ∘ leagues: every user who's joined a league
+  //     here, even if they haven't predicted yet
+  //
+  // DISTINCT user_id collapses the overlap. The outer COUNT then
+  // gives one bigint we cast to int on the JS side.
   const rows = await sql<Array<Record<string, unknown> & { user_count: bigint }>>`
     SELECT t.*,
            (
-             SELECT COUNT(DISTINCT oi.user_id)
-               FROM public.oidc_identities oi
-              WHERE oi.tenant_id = t.id
-           )::bigint AS user_count
+             SELECT COUNT(DISTINCT user_id)::bigint FROM (
+               SELECT user_id FROM public.oidc_identities WHERE tenant_id = t.id
+               UNION
+               SELECT user_id FROM public.predictions WHERE tenant_id = t.id
+               UNION
+               SELECT lm.user_id
+                 FROM public.league_members lm
+                 JOIN public.leagues l ON l.id = lm.league_id
+                WHERE l.tenant_id = t.id
+             ) AS distinct_members
+           ) AS user_count
       FROM public.tenants t
      WHERE t.uid = ${uid}
      LIMIT 1
