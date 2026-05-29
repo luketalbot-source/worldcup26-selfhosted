@@ -119,9 +119,29 @@ router.patch(
 
 router.get("/by-uid/:uid", async (c) => {
   const uid = c.req.param("uid");
-  const rows = await sql`SELECT * FROM tenants WHERE uid = ${uid} LIMIT 1`;
+  // Inline `user_count` via a correlated subquery so the tenant
+  // resolve (called on every page mount) already carries the
+  // headline number the LeaguesView shows next to "All players".
+  // One round-trip; index on oidc_identities.tenant_id is already
+  // there. COUNT(DISTINCT user_id) over oidc_identities, not
+  // COUNT(*) on users — `users` isn't tenant-scoped (a single
+  // internal user can be linked to multiple tenants via separate
+  // oidc_identities rows), but we want this tenant's distinct
+  // members only.
+  const rows = await sql<Array<Record<string, unknown> & { user_count: bigint }>>`
+    SELECT t.*,
+           (
+             SELECT COUNT(DISTINCT oi.user_id)
+               FROM public.oidc_identities oi
+              WHERE oi.tenant_id = t.id
+           )::bigint AS user_count
+      FROM public.tenants t
+     WHERE t.uid = ${uid}
+     LIMIT 1
+  `;
   if (rows.length === 0) return c.json({ error: "Tenant not found" }, 404);
-  return c.json(rows[0]);
+  const row = rows[0]!;
+  return c.json({ ...row, user_count: Number(row.user_count) });
 });
 
 router.get("/:id/oidc-config", async (c) => {

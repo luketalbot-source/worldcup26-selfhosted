@@ -21,6 +21,11 @@ interface Tenant {
   // surfaces a "Terms" link that opens a dialog with this text.
   // null/empty → no link shown.
   terms_of_use: string | null;
+  // Distinct count of OIDC users linked to this tenant. Surfaced next
+  // to "All players" in the LeaguesView header for the Everyone
+  // league. Computed server-side in the same call as the rest of the
+  // tenant fields, so it costs zero extra round-trips at mount time.
+  user_count: number;
 }
 
 interface TenantContextType {
@@ -55,6 +60,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
           name: string;
           allow_custom_leagues?: boolean;
           terms_of_use?: string | null;
+          user_count?: number;
         }>(`/tenants/by-uid/${tenantUid}`);
 
         if (!tenantData) {
@@ -82,6 +88,9 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
           // produce the full leagues experience.
           allow_custom_leagues: tenantData.allow_custom_leagues ?? true,
           terms_of_use: tenantData.terms_of_use ?? null,
+          // Default 0 if a pre-deploy api response omits the field —
+          // the LeaguesView only shows the count when > 0 anyway.
+          user_count: tenantData.user_count ?? 0,
         });
         setError(null);
       } catch {

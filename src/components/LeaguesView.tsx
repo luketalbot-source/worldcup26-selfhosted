@@ -277,8 +277,17 @@ const ExpandableLeagueCard = ({
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              {isEveryone 
-                ? (isDevMode ? 'Testing with 1,000 synthetic users' : t('leagues.everyoneSubtitle'))
+              {isEveryone
+                ? isDevMode
+                  ? 'Testing with 1,000 synthetic users'
+                  : // Append the tenant-wide member count next to the
+                    // "All players" label so a user can see at a glance
+                    // how big the pool they're competing against is.
+                    // tenant.user_count is fetched alongside the rest
+                    // of the tenant data — no extra round-trip.
+                    `${t('leagues.everyoneSubtitle')}${
+                      tenant?.user_count ? ` (${tenant.user_count})` : ''
+                    }`
                 : `${league.member_count || 0} ${(league.member_count || 0) === 1 ? t('leagues.member') : t('leagues.members')}`
               }
             </p>
