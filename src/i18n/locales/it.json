@@ -108,7 +108,10 @@
     "noPredictionSubmitted": "Nessun pronostico inviato",
     "exactScore": "Esatto! +3 pts",
     "correctResult": "Risultato corretto +1 pt",
-    "wrongResult": "Sbagliato · 0 pts"
+    "wrongResult": "Sbagliato · 0 pts",
+    "daysShort": "g",
+    "hoursShort": "h",
+    "minutesShort": "min"
   },
   "standings": {
     "title": "Classifica Girone {{letter}}",

@@ -108,7 +108,10 @@
     "noPredictionSubmitted": "Sin predicción",
     "exactScore": "¡Exacto! +3 pts",
     "correctResult": "Resultado correcto +1 pt",
-    "wrongResult": "Incorrecto · 0 pts"
+    "wrongResult": "Incorrecto · 0 pts",
+    "daysShort": "d",
+    "hoursShort": "h",
+    "minutesShort": "min"
   },
   "standings": {
     "title": "Clasificación Grupo {{letter}}",

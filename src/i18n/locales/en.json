@@ -50,7 +50,10 @@
     "noPredictionSubmitted": "No prediction submitted",
     "exactScore": "Exact! +3 pts",
     "correctResult": "Correct result +1 pt",
-    "wrongResult": "Wrong · 0 pts"
+    "wrongResult": "Wrong · 0 pts",
+    "daysShort": "d",
+    "hoursShort": "h",
+    "minutesShort": "m"
   },
   "standings": {
     "title": "Group {{letter}} Standings",

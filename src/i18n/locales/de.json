@@ -108,7 +108,10 @@
     "noPredictionSubmitted": "Kein Tipp abgegeben",
     "exactScore": "Exakt! +3 Pkt",
     "correctResult": "Richtiges Ergebnis +1 Pkt",
-    "wrongResult": "Falsch · 0 Pkt"
+    "wrongResult": "Falsch · 0 Pkt",
+    "daysShort": "T",
+    "hoursShort": "Std",
+    "minutesShort": "Min"
   },
   "standings": {
     "title": "Gruppe {{letter}} Tabelle",

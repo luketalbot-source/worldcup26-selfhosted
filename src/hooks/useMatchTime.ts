@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { differenceInMinutes, parse } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
+import i18n from '@/i18n/config';
 
 // Legacy fallback — older/static match data was stored as "June 11, 2026"
 // + "15:00" ET. New data from the API arrives as UTC ISO strings (match_date),
@@ -67,13 +69,22 @@ function formatLocalParts(date: Date): { localDate: string; localTime: string } 
 }
 
 function formatCountdown(minutesUntilLock: number): string {
-  if (minutesUntilLock <= 0) return 'Locked';
+  // Reads the active locale's short abbreviations for day/hour/minute
+  // from i18n directly — formatCountdown isn't a hook so we can't call
+  // useTranslation here, but `i18n.t` returns the current bundle's
+  // value synchronously. Falls back to the hardcoded English short
+  // form when the key is missing (defensive — every shipped locale
+  // populates these under matchCard.daysShort/hoursShort/minutesShort).
+  if (minutesUntilLock <= 0) return i18n.t('matchCard.locked', { defaultValue: 'Locked' });
+  const d = i18n.t('matchCard.daysShort', { defaultValue: 'd' });
+  const h = i18n.t('matchCard.hoursShort', { defaultValue: 'h' });
+  const m = i18n.t('matchCard.minutesShort', { defaultValue: 'm' });
   const days = Math.floor(minutesUntilLock / (60 * 24));
   const hours = Math.floor((minutesUntilLock % (60 * 24)) / 60);
   const minutes = minutesUntilLock % 60;
-  if (days >= 1) return `${days}d`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+  if (days >= 1) return `${days}${d}`;
+  if (hours > 0) return `${hours}${h} ${minutes}${m}`;
+  return `${minutes}${m}`;
 }
 
 /**
@@ -87,6 +98,11 @@ function formatCountdown(minutesUntilLock: number): string {
  */
 export const useMatchTime = (dateStr: string, timeStr?: string): MatchTimeResult => {
   const [now, setNow] = useState(new Date());
+  // i18n.language in the dep array so the countdown text re-renders
+  // when the user switches locale — formatCountdown reads from the
+  // i18n bundle synchronously, so without this dep the memo would
+  // serve a stale-locale string until the next minute tick.
+  const { i18n: i18nInstance } = useTranslation();
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60000);
@@ -108,7 +124,8 @@ export const useMatchTime = (dateStr: string, timeStr?: string): MatchTimeResult
           : 'normal';
 
     return { localDate, localTime, isLocked, minutesUntilLock, countdownText, matchDateTime, urgency };
-  }, [dateStr, timeStr, now]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateStr, timeStr, now, i18nInstance.language]);
 };
 
 export const isMatchLocked = (dateStr: string, timeStr: string | undefined, status: string): boolean => {

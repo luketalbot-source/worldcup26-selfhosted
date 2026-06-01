@@ -108,7 +108,10 @@
     "noPredictionSubmitted": "Nenhum palpite enviado",
     "exactScore": "Exato! +3 pts",
     "correctResult": "Resultado correto +1 pt",
-    "wrongResult": "Errado · 0 pts"
+    "wrongResult": "Errado · 0 pts",
+    "daysShort": "d",
+    "hoursShort": "h",
+    "minutesShort": "min"
   },
   "standings": {
     "title": "Classificação Grupo {{letter}}",
