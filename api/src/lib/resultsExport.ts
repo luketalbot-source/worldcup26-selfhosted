@@ -41,8 +41,15 @@ interface BoostResult {
   result_player_name: string | null;
 }
 
-interface CustomBoost extends BoostAward {
-  // custom boosts have the same shape, different table
+// Custom boosts have a different shape than built-ins: their schema uses
+// `title` rather than `name` and has no `slug` column — we synthesise a
+// header-safe slug from the title (or fall back to a short id-suffix)
+// when building the CSV columns below.
+interface CustomBoost {
+  id: string;
+  title: string;
+  points_value: number;
+  prediction_type: "team" | "player";
 }
 
 interface CustomBoostResult {
@@ -168,13 +175,36 @@ export async function buildResultsCsv(
   `;
   const boostResults = new Map(boostResultRows.map((r) => [r.award_id, r]));
 
-  // 4) Tenant-scoped custom boosts.
+  // 4) Tenant-scoped custom boosts. Schema uses `title` (not `name`)
+  //    and has no `slug` column — slug is synthesised from the title
+  //    below at header-build time.
   const customBoosts = await sql<CustomBoost[]>`
-    SELECT id, slug, name, points_value, prediction_type
+    SELECT id, title, points_value, prediction_type
       FROM public.tenant_custom_boosts
      WHERE tenant_id = ${tenantId}
-     ORDER BY display_order ASC, slug ASC
+     ORDER BY display_order ASC, title ASC
   `;
+
+  // Header-safe slug from a free-text title: NFD-decompose accents,
+  // lowercase, replace runs of non-alnum with '-', trim, cap length.
+  // Collisions resolved by suffixing with the row's index (rare in
+  // practice — admins tend to name boosts uniquely).
+  const slugify = (s: string): string =>
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "boost";
+  const customSlugs: string[] = [];
+  const seenSlugs = new Set<string>();
+  customBoosts.forEach((cb, i) => {
+    let s = slugify(cb.title);
+    if (seenSlugs.has(s)) s = `${s}-${i + 1}`;
+    seenSlugs.add(s);
+    customSlugs.push(s);
+  });
 
   // 5) Custom boost results — scoped to this tenant's custom boosts.
   const customResultRows = await sql<CustomBoostResult[]>`
@@ -383,11 +413,14 @@ export async function buildResultsCsv(
     headerCols.push(`boost_${b.slug}_pts`);
   });
 
-  // Per custom boost: 3 columns. custom_{slug}_{suffix}
-  customBoosts.forEach((b) => {
-    headerCols.push(`custom_${b.slug}_pred`);
-    headerCols.push(`custom_${b.slug}_actual`);
-    headerCols.push(`custom_${b.slug}_pts`);
+  // Per custom boost: 3 columns. custom_{slug}_{suffix} — slug
+  // synthesised from the boost title (see above) since the table has
+  // no slug column.
+  customBoosts.forEach((_b, i) => {
+    const s = customSlugs[i]!;
+    headerCols.push(`custom_${s}_pred`);
+    headerCols.push(`custom_${s}_actual`);
+    headerCols.push(`custom_${s}_pts`);
   });
 
   // ─── data rows ──────────────────────────────────────────────────────────

@@ -435,7 +435,19 @@ router.get("/:id/results-export.csv", requireAdmin, async (c) => {
   if (tenantRows.length === 0) return c.json({ error: "Tenant not found" }, 404);
   const tenant = tenantRows[0]!;
 
-  const csv = await buildResultsCsv(sql, tenantId);
+  let csv: string;
+  try {
+    csv = await buildResultsCsv(sql, tenantId);
+  } catch (err) {
+    // Hono's default 500 hides the actual error message. Log it
+    // explicitly so the api pod logs surface column-name typos /
+    // schema mismatches without us having to grep the stack trace.
+    console.error("[results-export] failed for tenant", tenantId, err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Export failed" },
+      500,
+    );
+  }
 
   // Filename: "<tenant-uid>-results-<YYYY-MM-DD>.csv". uid already
   // URL-safe (the "<slug>-<12-hex>" form created at tenant insert) so
