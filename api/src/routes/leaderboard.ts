@@ -37,7 +37,38 @@ router.get("/", async (c) => {
                    ELSE 0
                  END
                ) AS pts,
-               COUNT(*) AS pred_count
+               COUNT(*) AS pred_count,
+               -- Tiebreak: exact-score picks (3pt outcomes).
+               SUM(
+                 CASE
+                   WHEN lm2.home_score IS NULL OR lm2.away_score IS NULL THEN 0
+                   WHEN ap.predicted_home_score = lm2.home_score AND ap.predicted_away_score = lm2.away_score THEN 1
+                   ELSE 0
+                 END
+               ) AS exact_count,
+               -- Tiebreak: correct-result-but-not-exact picks (1pt outcomes).
+               -- Mutually exclusive with exact_count above so a single
+               -- correct exact pick isn't counted twice during ranking.
+               SUM(
+                 CASE
+                   WHEN lm2.home_score IS NULL OR lm2.away_score IS NULL THEN 0
+                   WHEN ap.predicted_home_score = lm2.home_score AND ap.predicted_away_score = lm2.away_score THEN 0
+                   WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm2.home_score - lm2.away_score) THEN 1
+                   ELSE 0
+                 END
+               ) AS correct_count,
+               -- Tiebreak: total absolute goal-diff vs actuals, summed
+               -- across every SCORED prediction. Lower = closer to
+               -- reality. Unplayed matches contribute 0 so an
+               -- early-stage user isn't penalised for kick-offs that
+               -- haven't happened yet.
+               SUM(
+                 CASE
+                   WHEN lm2.home_score IS NULL OR lm2.away_score IS NULL THEN 0
+                   ELSE ABS(ap.predicted_home_score - lm2.home_score)
+                      + ABS(ap.predicted_away_score - lm2.away_score)
+                 END
+               ) AS goal_diff_sum
         FROM all_preds ap
         INNER JOIN live_matches lm2 ON lm2.match_id = ap.match_id
         GROUP BY ap.user_id
@@ -56,7 +87,8 @@ router.get("/", async (c) => {
                    WHEN br.result_player_name IS NOT NULL AND abp.predicted_player_name = br.result_player_name THEN ba.points_value
                    ELSE 0
                  END
-               ) AS pts
+               ) AS pts,
+               COUNT(*) AS pred_count
         FROM all_boost_preds abp
         INNER JOIN boost_awards ba ON ba.id = abp.award_id
         LEFT JOIN boost_results br ON br.award_id = abp.award_id
@@ -77,7 +109,8 @@ router.get("/", async (c) => {
                    WHEN cbr.result_player_name IS NOT NULL AND acp.predicted_player_name = cbr.result_player_name THEN cb2.points_value
                    ELSE 0
                  END
-               ) AS pts
+               ) AS pts,
+               COUNT(*) AS pred_count
         FROM all_custom_preds acp
         INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
         LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
@@ -90,17 +123,45 @@ router.get("/", async (c) => {
         lu.is_creator,
         COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) AS points,
         COALESCE(mp.pred_count, 0) AS total_predictions,
-        -- Tiebreak: more match predictions wins. Encourages engagement and
-        -- makes "I called more games" the next-best signal after raw points.
+        -- Tie-break detail columns surfaced in the response so the UI
+        -- could one day render a "why are you ranked here" tooltip.
+        -- Additive vs the previous shape — existing callers ignore them.
+        COALESCE(mp.exact_count, 0)   AS exact_count,
+        COALESCE(mp.correct_count, 0) AS correct_count,
+        COALESCE(mp.goal_diff_sum, 0) AS goal_diff_sum,
+        COALESCE(mp.pred_count, 0)
+          + COALESCE(bp.pred_count, 0)
+          + COALESCE(cp.pred_count, 0) AS total_picks,
+        -- Multi-stage tiebreak:
+        --   1. total points              (DESC)
+        --   2. exact-score predictions   (DESC)
+        --   3. correct-result predictions (DESC, 1pt outcomes only)
+        --   4. goal-difference sum       (ASC — closer to reality wins)
+        --   5. total picks across matches + boosts + custom (DESC)
+        --
+        -- Users with no scored matches get goal_diff_sum=0, which
+        -- could otherwise tie them with a perfect predictor. The
+        -- exact/correct counts ahead of it handle that — both are
+        -- also 0 for a no-predictions user, so they fall through.
         RANK() OVER (
           ORDER BY COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) DESC,
-                   COALESCE(mp.pred_count, 0) DESC
+                   COALESCE(mp.exact_count, 0)   DESC,
+                   COALESCE(mp.correct_count, 0) DESC,
+                   COALESCE(mp.goal_diff_sum, 0) ASC,
+                   COALESCE(mp.pred_count, 0)
+                     + COALESCE(bp.pred_count, 0)
+                     + COALESCE(cp.pred_count, 0) DESC
         ) AS rank
       FROM league_users lu
       LEFT JOIN match_pts mp ON mp.user_id = lu.user_id
       LEFT JOIN boost_pts bp ON bp.user_id = lu.user_id
       LEFT JOIN custom_pts cp ON cp.user_id = lu.user_id
-      ORDER BY points DESC, total_predictions DESC, lu.display_name ASC
+      ORDER BY points DESC,
+               exact_count DESC,
+               correct_count DESC,
+               goal_diff_sum ASC,
+               total_picks DESC,
+               lu.display_name ASC
     `;
     return c.json(rows);
   }
@@ -130,7 +191,35 @@ router.get("/", async (c) => {
                  ELSE 0
                END
              ) AS pts,
-             COUNT(*) AS pred_count
+             COUNT(*) AS pred_count,
+             -- Tiebreak: exact-score picks (3pt outcomes). See the
+             -- league query above for the full rationale.
+             SUM(
+               CASE
+                 WHEN lm.home_score IS NULL OR lm.away_score IS NULL THEN 0
+                 WHEN ap.predicted_home_score = lm.home_score AND ap.predicted_away_score = lm.away_score THEN 1
+                 ELSE 0
+               END
+             ) AS exact_count,
+             -- Tiebreak: correct-result-but-not-exact picks (1pt
+             -- outcomes), mutually exclusive with exact_count.
+             SUM(
+               CASE
+                 WHEN lm.home_score IS NULL OR lm.away_score IS NULL THEN 0
+                 WHEN ap.predicted_home_score = lm.home_score AND ap.predicted_away_score = lm.away_score THEN 0
+                 WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm.home_score - lm.away_score) THEN 1
+                 ELSE 0
+               END
+             ) AS correct_count,
+             -- Tiebreak: total absolute goal-diff vs actuals.
+             -- Lower = closer to reality. Unplayed matches contribute 0.
+             SUM(
+               CASE
+                 WHEN lm.home_score IS NULL OR lm.away_score IS NULL THEN 0
+                 ELSE ABS(ap.predicted_home_score - lm.home_score)
+                    + ABS(ap.predicted_away_score - lm.away_score)
+               END
+             ) AS goal_diff_sum
       FROM all_preds ap
       INNER JOIN live_matches lm ON lm.match_id = ap.match_id
       GROUP BY ap.user_id
@@ -149,7 +238,8 @@ router.get("/", async (c) => {
                  WHEN br.result_player_name IS NOT NULL AND abp.predicted_player_name = br.result_player_name THEN ba.points_value
                  ELSE 0
                END
-             ) AS pts
+             ) AS pts,
+             COUNT(*) AS pred_count
       FROM all_boost_preds abp
       INNER JOIN boost_awards ba ON ba.id = abp.award_id
       LEFT JOIN boost_results br ON br.award_id = abp.award_id
@@ -170,7 +260,8 @@ router.get("/", async (c) => {
                  WHEN cbr.result_player_name IS NOT NULL AND acp.predicted_player_name = cbr.result_player_name THEN cb2.points_value
                  ELSE 0
                END
-             ) AS pts
+             ) AS pts,
+             COUNT(*) AS pred_count
       FROM all_custom_preds acp
       INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
       LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
@@ -182,16 +273,35 @@ router.get("/", async (c) => {
       tu.avatar_emoji,
       COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) AS points,
       COALESCE(mp.pred_count, 0) AS total_predictions,
-      -- Tiebreak: more match predictions wins (see league query above).
+      -- Detail columns surfaced in the response for future UI use.
+      -- Additive vs the previous shape — existing callers ignore them.
+      COALESCE(mp.exact_count, 0)   AS exact_count,
+      COALESCE(mp.correct_count, 0) AS correct_count,
+      COALESCE(mp.goal_diff_sum, 0) AS goal_diff_sum,
+      COALESCE(mp.pred_count, 0)
+        + COALESCE(bp.pred_count, 0)
+        + COALESCE(cp.pred_count, 0) AS total_picks,
+      -- 5-stage tiebreak — see league query above for the rationale
+      -- and edge-case discussion.
       RANK() OVER (
         ORDER BY COALESCE(mp.pts, 0) + COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) DESC,
-                 COALESCE(mp.pred_count, 0) DESC
+                 COALESCE(mp.exact_count, 0)   DESC,
+                 COALESCE(mp.correct_count, 0) DESC,
+                 COALESCE(mp.goal_diff_sum, 0) ASC,
+                 COALESCE(mp.pred_count, 0)
+                   + COALESCE(bp.pred_count, 0)
+                   + COALESCE(cp.pred_count, 0) DESC
       ) AS rank
     FROM tenant_users tu
     LEFT JOIN match_pts mp ON mp.user_id = tu.user_id
     LEFT JOIN boost_pts bp ON bp.user_id = tu.user_id
     LEFT JOIN custom_pts cp ON cp.user_id = tu.user_id
-    ORDER BY points DESC, total_predictions DESC, tu.display_name ASC
+    ORDER BY points DESC,
+             exact_count DESC,
+             correct_count DESC,
+             goal_diff_sum ASC,
+             total_picks DESC,
+             tu.display_name ASC
   `;
   return c.json(rows);
 });
