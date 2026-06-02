@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, type AuthEnv } from "../auth/middleware";
+import { buildResultsCsv } from "../lib/resultsExport";
 
 const router = new Hono<AuthEnv>();
 
@@ -411,6 +412,50 @@ router.get("/:id/users", requireAdmin, async (c) => {
     ORDER BY tu.created_at DESC
   `;
   return c.json(rows);
+});
+
+// GET /tenants/:id/results-export.csv
+//
+// Wide-format CSV dump of every member's predictions in this tenant —
+// one row per user, columns laid out as:
+//   identity → leaderboard summary → per-match → per built-in boost
+//   → per custom boost.
+//
+// Heavy work (six SELECTs + per-user pivot) is in lib/resultsExport.ts
+// so the route stays a thin orchestrator: auth-gate, fetch the
+// tenant's slug for the filename, hand off, set headers.
+router.get("/:id/results-export.csv", requireAdmin, async (c) => {
+  const tenantId = c.req.param("id");
+
+  // Look up the tenant for the filename slug; if missing, 404 before
+  // doing the expensive export work.
+  const tenantRows = await sql<{ uid: string; name: string }[]>`
+    SELECT uid, name FROM public.tenants WHERE id = ${tenantId} LIMIT 1
+  `;
+  if (tenantRows.length === 0) return c.json({ error: "Tenant not found" }, 404);
+  const tenant = tenantRows[0]!;
+
+  const csv = await buildResultsCsv(sql, tenantId);
+
+  // Filename: "<tenant-uid>-results-<YYYY-MM-DD>.csv". uid already
+  // URL-safe (the "<slug>-<12-hex>" form created at tenant insert) so
+  // no further escaping is needed.
+  const today = new Date().toISOString().slice(0, 10);
+  const filename = `${tenant.uid}-results-${today}.csv`;
+
+  return new Response(csv, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      // Quote the filename so commas / spaces inside future tenant
+      // slugs don't break Content-Disposition parsing.
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      // No-cache: results are dynamic (matches finishing, points
+      // recomputing), and admins re-pull this throughout the
+      // tournament. Avoid intermediaries serving stale data.
+      "Cache-Control": "no-store",
+    },
+  });
 });
 
 export default router;

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar, Pencil, Search, X } from 'lucide-react';
+import { Plus, Trash2, Copy, ExternalLink, Loader2, Shield, ArrowLeft, Users, Settings, Trophy, Star, Calendar, Pencil, Search, X, Download } from 'lucide-react';
+import { getAccessToken } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -117,6 +118,7 @@ const Admin = () => {
   const [userToDelete, setUserToDelete] = useState<TenantUser | null>(null);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [deleteUserConfirmation, setDeleteUserConfirmation] = useState('');
+  const [exportingResults, setExportingResults] = useState(false);
 
   // Set document title
   useEffect(() => {
@@ -270,6 +272,62 @@ const Admin = () => {
       setDeleteUserConfirmation('');
     } catch {
       toast.error('Failed to delete user');
+    }
+  };
+
+  // Results export — fetch the CSV via the admin endpoint and trigger
+  // a browser download. We can't use a plain <a href="..." download>
+  // because the endpoint is JWT-gated (Authorization header, not a
+  // cookie) — browser navigation wouldn't carry the token. So we
+  // fetch as a blob with the right auth, then synthesise a download
+  // via an in-memory object URL.
+  const handleExportResults = async () => {
+    if (!selectedTenant) return;
+    setExportingResults(true);
+    try {
+      const apiBase = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
+      const token = getAccessToken();
+      const res = await fetch(
+        `${apiBase}/tenants/${selectedTenant.id}/results-export.csv`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: 'include',
+        },
+      );
+      if (!res.ok) {
+        // Backend returns JSON-shaped errors; surface its message if present.
+        const body = await res.text();
+        let msg = `Export failed (${res.status})`;
+        try {
+          const parsed = JSON.parse(body) as { error?: string };
+          if (parsed.error) msg = parsed.error;
+        } catch {
+          /* not JSON, keep default */
+        }
+        toast.error(msg);
+        return;
+      }
+      const blob = await res.blob();
+      // Mirror the server's filename convention (tenant uid +
+      // date) so re-downloads don't collide and historical
+      // exports survive in the user's Downloads folder with a
+      // sortable name.
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `${selectedTenant.uid}-results-${today}.csv`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${filename}`);
+    } catch (err) {
+      console.error('[results-export] failed', err);
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExportingResults(false);
     }
   };
 
@@ -526,11 +584,33 @@ const Admin = () => {
             <TabsContent value="users">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Users ({tenantUsers.length})
-                  </CardTitle>
-                  <CardDescription>Manage users in this tenant</CardDescription>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        Users ({tenantUsers.length})
+                      </CardTitle>
+                      <CardDescription className="mt-1.5">Manage users in this tenant</CardDescription>
+                    </div>
+                    {/* Wide-format CSV dump: every user × every match
+                        prediction (with points) × every boost pick. See
+                        api/src/lib/resultsExport.ts for the shape. */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportResults}
+                      disabled={exportingResults || tenantUsers.length === 0}
+                      className="shrink-0"
+                    >
+                      {exportingResults ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-2" />
+                      )}
+                      Results export
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {loadingUsers ? (
