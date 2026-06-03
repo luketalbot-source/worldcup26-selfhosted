@@ -43,6 +43,16 @@ export interface LiveMatch {
   away_team_code: string;
   home_score: number | null;
   away_score: number | null;
+  // Penalty-shootout result (knockout matches that went to PSO only).
+  // Both null for regulation/ET-decided matches. Doesn't affect scoring
+  // — purely informational for the UI badge.
+  penalty_home_score?: number | null;
+  penalty_away_score?: number | null;
+  // FD's match.score.duration. Null for unplayed matches; once decided:
+  //   REGULAR          — full-time finish (no badge)
+  //   EXTRA_TIME       — won in ET (show "AET")
+  //   PENALTY_SHOOTOUT — went to pens (show "AET" + pen score line)
+  duration?: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' | null;
   match_date: string;
   venue: string | null;
   city: string | null;

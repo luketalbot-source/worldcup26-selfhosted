@@ -111,7 +111,9 @@
     "wrongResult": "Sbagliato · 0 pts",
     "daysShort": "g",
     "hoursShort": "h",
-    "minutesShort": "min"
+    "minutesShort": "min",
+    "aet": "d.t.s.",
+    "wonOnPens": "{{winner}} {{score}} ai rigori"
   },
   "standings": {
     "title": "Classifica Girone {{letter}}",

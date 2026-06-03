@@ -135,6 +135,12 @@ export const useDynamicKnockout = () => {
         },
         homeScore: live.home_score ?? m.homeScore,
         awayScore: live.away_score ?? m.awayScore,
+        // PSO + duration only apply to knockout — group hooks skip
+        // these fields. Undefined for unplayed / regulation finishes
+        // so the badge code can early-return cleanly.
+        penaltyHomeScore: live.penalty_home_score ?? undefined,
+        penaltyAwayScore: live.penalty_away_score ?? undefined,
+        duration: live.duration ?? undefined,
         status: mapApiStatus(live.status),
       };
     });

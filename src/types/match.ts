@@ -35,6 +35,14 @@ export interface Match {
   group?: string;
   homeScore?: number;
   awayScore?: number;
+  // Penalty-shootout result (knockouts that went to PSO only). Both
+  // null/undefined for regulation/ET-decided matches. Not used in
+  // scoring — purely informational for the AET/PSO badge.
+  penaltyHomeScore?: number | null;
+  penaltyAwayScore?: number | null;
+  // FD's duration enum, surfaced through the MatchesView mapping so
+  // cards can render a small badge when the match needed ET / PSO.
+  duration?: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' | null;
   status: 'upcoming' | 'live' | 'finished';
   goals?: MatchGoal[];
 }

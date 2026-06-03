@@ -111,7 +111,9 @@
     "wrongResult": "Errado · 0 pts",
     "daysShort": "d",
     "hoursShort": "h",
-    "minutesShort": "min"
+    "minutesShort": "min",
+    "aet": "a.p.",
+    "wonOnPens": "{{winner}} {{score}} nos pênaltis"
   },
   "standings": {
     "title": "Classificação Grupo {{letter}}",

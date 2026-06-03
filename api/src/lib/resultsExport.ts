@@ -25,6 +25,12 @@ interface Match {
   away_team_name: string;
   home_score: number | null;
   away_score: number | null;
+  // PSO + duration — surfaced in two extra columns per match in the
+  // CSV so an admin pulling the export sees how knockouts were
+  // actually decided alongside the regulation+ET score.
+  penalty_home_score: number | null;
+  penalty_away_score: number | null;
+  duration: "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT" | null;
 }
 
 interface BoostAward {
@@ -156,7 +162,8 @@ export async function buildResultsCsv(
     SELECT match_id, match_date,
            home_team_code, home_team_name,
            away_team_code, away_team_name,
-           home_score, away_score
+           home_score, away_score,
+           penalty_home_score, penalty_away_score, duration
       FROM public.live_matches
      ORDER BY match_date ASC, match_id ASC
   `;
@@ -396,14 +403,19 @@ export async function buildResultsCsv(
     "goal_diff_sum",
   ];
 
-  // Per-match: 4 columns. M{n}_{date}_{HOME}_{AWAY}_{suffix}
+  // Per-match: 6 columns. M{n}_{date}_{HOME}_{AWAY}_{suffix}
   matches.forEach((m, i) => {
     const idx = i + 1;
     const base = `M${idx}_${fmtDate(m.match_date)}_${m.home_team_code}_${m.away_team_code}`;
-    headerCols.push(`${base}_actual`); // "2-1" / blank
-    headerCols.push(`${base}_pred`);   // "2-1" / blank
-    headerCols.push(`${base}_pts`);    // 3 / 1 / 0 / blank
-    headerCols.push(`${base}_kickoff`); // ISO date for reference
+    headerCols.push(`${base}_actual`);   // "2-1" regulation+ET score / blank
+    headerCols.push(`${base}_pred`);     // "2-1" / blank
+    headerCols.push(`${base}_pts`);      // 3 / 1 / 0 / blank
+    headerCols.push(`${base}_kickoff`);  // ISO date for reference
+    // Match duration + penalty shootout result. duration is one of
+    // REGULAR / EXTRA_TIME / PENALTY_SHOOTOUT (FD's enum), blank for
+    // unplayed matches. pens = "5-4" when PSO happened, blank otherwise.
+    headerCols.push(`${base}_duration`);
+    headerCols.push(`${base}_pens`);
   });
 
   // Per built-in boost: 3 columns. boost_{slug}_{suffix}
@@ -451,6 +463,15 @@ export async function buildResultsCsv(
       row.push(predStr);
       row.push(pts);
       row.push(m.match_date);
+      // Duration is FD's enum verbatim (REGULAR / EXTRA_TIME /
+      // PENALTY_SHOOTOUT) — easier to filter on in Excel/Sheets
+      // than a localised string. Pens column "5-4" or blank.
+      row.push(m.duration ?? "");
+      const pens =
+        m.penalty_home_score !== null && m.penalty_away_score !== null
+          ? `${m.penalty_home_score}-${m.penalty_away_score}`
+          : "";
+      row.push(pens);
     }
 
     for (const b of boosts) {

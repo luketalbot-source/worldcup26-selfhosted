@@ -53,7 +53,9 @@
     "wrongResult": "Wrong · 0 pts",
     "daysShort": "d",
     "hoursShort": "h",
-    "minutesShort": "m"
+    "minutesShort": "m",
+    "aet": "AET",
+    "wonOnPens": "{{winner}} {{score}} on pens"
   },
   "standings": {
     "title": "Group {{letter}} Standings",

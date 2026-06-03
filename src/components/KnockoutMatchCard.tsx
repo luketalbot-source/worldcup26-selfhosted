@@ -181,13 +181,42 @@ export const KnockoutMatchCard = ({
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
             {(isFinished || isLive) ? (
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
-                <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
-                <div className="text-lg text-muted-foreground font-light">-</div>
-                <div className="text-2xl font-bold text-foreground w-8 text-center">{displayAwayScore}</div>
-                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
-              </div>
+              <>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                  <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
+                  <div className="text-lg text-muted-foreground font-light">-</div>
+                  <div className="text-2xl font-bold text-foreground w-8 text-center">{displayAwayScore}</div>
+                  <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                </div>
+                {/* AET / PSO annotation. Renders only on knockout
+                    matches that needed extra time or penalties; FD's
+                    `duration` flag drives the visibility. The score
+                    above is the regulation+ET total — this line tells
+                    a reader who actually advanced. Both labels go
+                    through i18n so the abbreviation matches local
+                    convention (de: n.V., fr: a.p., it: d.t.s., …). */}
+                {(match.duration === 'EXTRA_TIME' || match.duration === 'PENALTY_SHOOTOUT') && (
+                  <div className="mt-1 text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    {(() => {
+                      const aet = t('matchCard.aet', 'AET');
+                      if (
+                        match.duration === 'PENALTY_SHOOTOUT' &&
+                        match.penaltyHomeScore != null &&
+                        match.penaltyAwayScore != null
+                      ) {
+                        const homeWon = match.penaltyHomeScore > match.penaltyAwayScore;
+                        const winner = homeWon ? homeTeamName : awayTeamName;
+                        const score = homeWon
+                          ? `${match.penaltyHomeScore}–${match.penaltyAwayScore}`
+                          : `${match.penaltyAwayScore}–${match.penaltyHomeScore}`;
+                        return `${aet} · ${t('matchCard.wonOnPens', { winner, score })}`;
+                      }
+                      return aet;
+                    })()}
+                  </div>
+                )}
+              </>
             ) : isMatchLocked ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>

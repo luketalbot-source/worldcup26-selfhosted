@@ -33,6 +33,11 @@ export const useLiveMatches = () => {
             ...match,
             homeScore: liveMatch.home_score ?? undefined,
             awayScore: liveMatch.away_score ?? undefined,
+            // PSO + duration: undefined for unplayed / regulation
+            // matches so the badge code can early-return cleanly.
+            penaltyHomeScore: liveMatch.penalty_home_score ?? undefined,
+            penaltyAwayScore: liveMatch.penalty_away_score ?? undefined,
+            duration: liveMatch.duration ?? undefined,
             status: mapApiStatus(liveMatch.status),
           };
         }
@@ -102,6 +107,9 @@ export const useLiveMatches = () => {
           group: row.group_name ?? undefined,
           homeScore: row.home_score ?? undefined,
           awayScore: row.away_score ?? undefined,
+          penaltyHomeScore: row.penalty_home_score ?? undefined,
+          penaltyAwayScore: row.penalty_away_score ?? undefined,
+          duration: row.duration ?? undefined,
           status,
           goals: row.goals ?? [],
         };
@@ -143,6 +151,9 @@ export const useLiveMatches = () => {
             },
             homeScore: liveMatch.home_score ?? undefined,
             awayScore: liveMatch.away_score ?? undefined,
+            penaltyHomeScore: liveMatch.penalty_home_score ?? undefined,
+            penaltyAwayScore: liveMatch.penalty_away_score ?? undefined,
+            duration: liveMatch.duration ?? undefined,
             status: mapApiStatus(liveMatch.status),
           };
         }

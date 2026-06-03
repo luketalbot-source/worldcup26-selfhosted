@@ -107,7 +107,17 @@ interface FootballDataMatch {
   group: string | null;
   homeTeam: { id: number; name: string; shortName: string; tla: string };
   awayTeam: { id: number; name: string; shortName: string; tla: string };
-  score: { fullTime: { home: number | null; away: number | null } };
+  // FD's score object carries more than fullTime — `duration` flags
+  // whether the match went to extra time or penalties, and `penalties`
+  // gives the shootout result on knockouts that needed one. Both are
+  // optional: REGULAR matches have no penalties object, scheduled
+  // matches have null scores. We surface them on live_matches so the
+  // UI can show "AET" / "5-4 PSO Spain" without inventing the data.
+  score: {
+    fullTime: { home: number | null; away: number | null };
+    duration?: "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT";
+    penalties?: { home: number | null; away: number | null };
+  };
   venue: string | null;
   // Present on TIER_TWO+ keys. Each entry has `minute`, optional
   // `injuryTime`, `type` (REGULAR/PENALTY/OWN/...), and `team`/`scorer`/
@@ -272,10 +282,17 @@ async function runSync(apiKey: string): Promise<void> {
           match.awayTeam?.tla ||
           match.awayTeam?.shortName?.substring(0, 3).toUpperCase() ||
           "TBD";
+        // Penalty-shootout result + duration come from FD's `score`
+        // object alongside fullTime. Both null for unplayed / regulation-
+        // ended matches — the columns are nullable.
+        const penHome = match.score?.penalties?.home ?? null;
+        const penAway = match.score?.penalties?.away ?? null;
+        const duration = match.score?.duration ?? null;
         const upserted = await sql`
           INSERT INTO public.live_matches (
             match_id, api_match_id, home_team_name, home_team_code,
             away_team_name, away_team_code, home_score, away_score,
+            penalty_home_score, penalty_away_score, duration,
             match_date, venue, city, stage, group_name, status, last_updated
           ) VALUES (
             ${generateMatchId(match)},
@@ -286,6 +303,9 @@ async function runSync(apiKey: string): Promise<void> {
             ${awayCode},
             ${match.score?.fullTime?.home ?? null},
             ${match.score?.fullTime?.away ?? null},
+            ${penHome},
+            ${penAway},
+            ${duration},
             ${match.utcDate ?? null},
             ${match.venue ?? null},
             ${null},
@@ -304,6 +324,12 @@ async function runSync(apiKey: string): Promise<void> {
             away_team_code = EXCLUDED.away_team_code,
             home_score     = EXCLUDED.home_score,
             away_score     = EXCLUDED.away_score,
+            -- PSO fields update with the rest. manual_override below
+            -- still blocks the whole UPDATE on overridden rows, so an
+            -- admin-edited "AET (1-0)" survives the next FD sync.
+            penalty_home_score = EXCLUDED.penalty_home_score,
+            penalty_away_score = EXCLUDED.penalty_away_score,
+            duration           = EXCLUDED.duration,
             match_date     = EXCLUDED.match_date,
             venue          = EXCLUDED.venue,
             -- city is admin-only (FD doesn't supply it), but releasing an
@@ -445,6 +471,15 @@ const matchPatchSchema = z.object({
   // Differentiate from undefined (= field not in body, leave alone).
   home_score: z.number().int().nullable().optional(),
   away_score: z.number().int().nullable().optional(),
+  // Penalty-shootout result — used to display "Spain win 5-4 on
+  // pens" beneath the AET score. Doesn't enter the scoring math.
+  // Same null-vs-undefined semantics as home_score/away_score.
+  penalty_home_score: z.number().int().min(0).nullable().optional(),
+  penalty_away_score: z.number().int().min(0).nullable().optional(),
+  // Match duration. Constrained to FD's enum values so a typo
+  // doesn't slip into the DB and confuse the badge-rendering logic
+  // on the frontend.
+  duration: z.enum(["REGULAR", "EXTRA_TIME", "PENALTY_SHOOTOUT"]).nullable().optional(),
   match_date: z.string().datetime().optional(),
   venue: z.string().max(128).nullable().optional(),
   city: z.string().max(64).nullable().optional(),
@@ -483,6 +518,9 @@ router.patch(
     if (has("away_team_code")) bind("away_team_code", body.away_team_code);
     if (has("home_score"))     bind("home_score",     body.home_score);
     if (has("away_score"))     bind("away_score",     body.away_score);
+    if (has("penalty_home_score")) bind("penalty_home_score", body.penalty_home_score);
+    if (has("penalty_away_score")) bind("penalty_away_score", body.penalty_away_score);
+    if (has("duration"))       bind("duration",       body.duration);
     if (has("match_date"))     bind("match_date",     body.match_date);
     if (has("venue"))          bind("venue",          body.venue);
     if (has("city"))           bind("city",           body.city);

@@ -111,7 +111,9 @@
     "wrongResult": "Falsch · 0 Pkt",
     "daysShort": "T",
     "hoursShort": "Std",
-    "minutesShort": "Min"
+    "minutesShort": "Min",
+    "aet": "n.V.",
+    "wonOnPens": "{{winner}} {{score}} im Elfmeterschießen"
   },
   "standings": {
     "title": "Gruppe {{letter}} Tabelle",

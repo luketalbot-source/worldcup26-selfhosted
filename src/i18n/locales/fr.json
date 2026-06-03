@@ -111,7 +111,9 @@
     "wrongResult": "Incorrect · 0 pts",
     "daysShort": "j",
     "hoursShort": "h",
-    "minutesShort": "min"
+    "minutesShort": "min",
+    "aet": "a.p.",
+    "wonOnPens": "{{winner}} {{score}} aux tirs au but"
   },
   "standings": {
     "title": "Classement Groupe {{letter}}",

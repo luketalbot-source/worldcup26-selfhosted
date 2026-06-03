@@ -111,7 +111,9 @@
     "wrongResult": "Incorrecto · 0 pts",
     "daysShort": "d",
     "hoursShort": "h",
-    "minutesShort": "min"
+    "minutesShort": "min",
+    "aet": "PRR",
+    "wonOnPens": "{{winner}} {{score}} en penales"
   },
   "standings": {
     "title": "Clasificación Grupo {{letter}}",

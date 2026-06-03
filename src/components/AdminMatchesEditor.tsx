@@ -52,6 +52,12 @@ interface AdminMatch {
   away_team_code: string;
   home_score: number | null;
   away_score: number | null;
+  // Penalty-shootout result + match duration. PSO scores nullable so
+  // unplayed and regulation-decided matches stay null. `duration` is
+  // FD's enum, stored verbatim; null until the match is played.
+  penalty_home_score: number | null;
+  penalty_away_score: number | null;
+  duration: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' | null;
   match_date: string;
   venue: string | null;
   city: string | null;
@@ -214,7 +220,11 @@ export const AdminMatchesEditor = () => {
     const patch: Record<string, unknown> = {};
     const keys: (keyof AdminMatch)[] = [
       'home_team_name', 'home_team_code', 'away_team_name', 'away_team_code',
-      'home_score', 'away_score', 'match_date', 'venue', 'city',
+      'home_score', 'away_score',
+      // PSO + duration ride alongside the regulation score so an admin
+      // can fix all of them in a single Save.
+      'penalty_home_score', 'penalty_away_score', 'duration',
+      'match_date', 'venue', 'city',
       'stage', 'group_name', 'status',
     ];
     for (const k of keys) {
@@ -543,6 +553,63 @@ export const AdminMatchesEditor = () => {
                     onChange={(e) => {
                       const v = e.target.value;
                       updateDraft('away_score', v === '' ? null : Math.max(0, parseInt(v, 10) || 0));
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Match duration — REGULAR for group + most knockouts;
+                  EXTRA_TIME / PENALTY_SHOOTOUT only apply to knockouts
+                  that needed them. Empty option = leave the field null
+                  (unplayed match / not yet decided). */}
+              <div className="space-y-1.5">
+                <Label>Duration</Label>
+                <Select
+                  value={draft.duration ?? 'unset'}
+                  onValueChange={(v) =>
+                    updateDraft('duration', v === 'unset' ? null : (v as AdminMatch['duration']))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unset">— (unset / unplayed)</SelectItem>
+                    <SelectItem value="REGULAR">REGULAR — finished in 90 min</SelectItem>
+                    <SelectItem value="EXTRA_TIME">EXTRA_TIME — decided in ET</SelectItem>
+                    <SelectItem value="PENALTY_SHOOTOUT">PENALTY_SHOOTOUT — went to pens</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Penalty-shootout scores. Only ever relevant when
+                  duration = PENALTY_SHOOTOUT, but we leave the inputs
+                  always editable — admins can fill them ahead of
+                  setting duration without the UI fighting them. */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Pens — Home</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="(no shootout)"
+                    value={draft.penalty_home_score ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      updateDraft('penalty_home_score', v === '' ? null : Math.max(0, parseInt(v, 10) || 0));
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Pens — Away</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="(no shootout)"
+                    value={draft.penalty_away_score ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      updateDraft('penalty_away_score', v === '' ? null : Math.max(0, parseInt(v, 10) || 0));
                     }}
                   />
                 </div>
