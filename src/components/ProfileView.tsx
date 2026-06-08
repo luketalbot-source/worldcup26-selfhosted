@@ -10,6 +10,13 @@ import { useFlipBridge } from '@/hooks/useFlipBridge';
 import { useNavigate } from 'react-router-dom';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { languages } from '@/lib/constants';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export const ProfileView = () => {
   const { t, i18n } = useTranslation();
@@ -166,41 +173,47 @@ export const ProfileView = () => {
         <h3 className="font-semibold text-foreground mb-4">{t('profile.settings')}</h3>
 
         <div className="space-y-4">
-          {/* Language Setting */}
+          {/* Language Setting. Was a horizontal row of flag buttons —
+              fine at 6 languages, but expanding to 14 (CEE rollout)
+              overflowed on every reasonable phone width. Now a
+              Select-style trigger that shows the active flag + name
+              and opens a scrollable list on tap. Same flipLangOverride
+              flag semantics as before — manual pick wins over what
+              the Flip host announces on subsequent mounts. */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Globe className="w-5 h-5 text-muted-foreground" />
               <span className="text-sm text-foreground">{t('profile.language')}</span>
             </div>
-            <div className="flex gap-1 flex-wrap justify-end">
-              {languages.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => {
-                    // The Flip Bridge calls i18n.changeLanguage on every
-                    // mount (from getLang) and on every host LANG_CHANGE
-                    // event — which would silently overwrite a manual
-                    // pick. Setting this flag tells the bridge to keep
-                    // its hands off; see FlipBridgeProvider for the
-                    // matching guard. Cleared if the user picks the
-                    // same language the host last announced (i.e. they
-                    // explicitly opted back into bridge-driven language).
-                    try {
-                      localStorage.setItem('flipLangOverride', '1');
-                    } catch { /* private-mode storage; safe to ignore */ }
-                    void i18n.changeLanguage(lang.code);
-                  }}
-                  className={`px-2 py-1 rounded-lg text-lg transition-colors ${
-                    i18n.language === lang.code
-                      ? 'bg-primary/20 ring-1 ring-primary'
-                      : 'hover:bg-muted'
-                  }`}
-                  title={lang.name}
-                >
-                  {lang.flag}
-                </button>
-              ))}
-            </div>
+            <Select
+              value={i18n.language}
+              onValueChange={(code) => {
+                // The Flip Bridge calls i18n.changeLanguage on every
+                // mount (from getLang) and on every host LANG_CHANGE
+                // event — which would silently overwrite a manual
+                // pick. Setting this flag tells the bridge to keep
+                // its hands off; see FlipBridgeProvider for the
+                // matching guard.
+                try {
+                  localStorage.setItem('flipLangOverride', '1');
+                } catch { /* private-mode storage; safe to ignore */ }
+                void i18n.changeLanguage(code);
+              }}
+            >
+              <SelectTrigger className="w-auto min-w-[120px] h-9 gap-2">
+                <SelectValue placeholder={t('profile.language')} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[60vh]">
+                {languages.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="text-base">{lang.flag}</span>
+                      <span>{lang.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Theme Setting — hidden when embedded in Flip (host controls it).

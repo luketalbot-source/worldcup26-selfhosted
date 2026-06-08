@@ -8,6 +8,14 @@ import de from './locales/de.json';
 import fr from './locales/fr.json';
 import pt from './locales/pt.json';
 import it from './locales/it.json';
+import pl from './locales/pl.json';
+import hr from './locales/hr.json';
+import cs from './locales/cs.json';
+import sk from './locales/sk.json';
+import sl from './locales/sl.json';
+import bg from './locales/bg.json';
+import hu from './locales/hu.json';
+import ro from './locales/ro.json';
 
 const resources = {
   en: { translation: en },
@@ -16,6 +24,14 @@ const resources = {
   fr: { translation: fr },
   pt: { translation: pt },
   it: { translation: it },
+  pl: { translation: pl },
+  hr: { translation: hr },
+  cs: { translation: cs },
+  sk: { translation: sk },
+  sl: { translation: sl },
+  bg: { translation: bg },
+  hu: { translation: hu },
+  ro: { translation: ro },
 };
 
 i18n
@@ -24,7 +40,16 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
-    supportedLngs: ['en', 'es', 'de', 'fr', 'pt', 'it'],
+    supportedLngs: [
+      'en', 'es', 'de', 'fr', 'pt', 'it',
+      // June 2026: Central / Eastern European tenants. Each locale was
+      // built by deep-merging a per-language overrides table on top of
+      // the English base (see scripts that lived at /tmp/build-locales.py
+      // when this batch landed), so any string the override table didn't
+      // cover automatically falls back to English at runtime without
+      // exploding into untranslated-key references.
+      'pl', 'hr', 'cs', 'sk', 'sl', 'bg', 'hu', 'ro',
+    ],
     interpolation: {
       escapeValue: false,
     },

@@ -179,7 +179,13 @@ function isBridgeError(v: unknown): v is { code: string } {
 // to our supported 2-letter set. Unsupported codes return null so we
 // don't call i18n.changeLanguage with garbage that'd just fall back to
 // `en` and lose information.
-const SUPPORTED = new Set(['en', 'es', 'de', 'fr', 'pt', 'it']);
+//
+// Keep this in sync with `supportedLngs` in src/i18n/config.ts and the
+// languages array in src/lib/constants.ts.
+const SUPPORTED = new Set([
+  'en', 'es', 'de', 'fr', 'pt', 'it',
+  'pl', 'hr', 'cs', 'sk', 'sl', 'bg', 'hu', 'ro',
+]);
 function normaliseLang(raw: unknown): string | null {
   if (typeof raw !== 'string' || raw.length < 2) return null;
   const short = raw.slice(0, 2).toLowerCase();
