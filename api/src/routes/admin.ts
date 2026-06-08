@@ -130,6 +130,18 @@ interface FootballDataMatch {
     team?: { id?: number; name?: string };
     scorer?: { id?: number; name?: string };
   }>;
+  // Also TIER_TWO+. Mirror shape to goals — same team/player envelope
+  // plus a `card` enum. Persisted into match_bookings for the Stats tab
+  // discipline panel. `card` values FD uses:
+  //   YELLOW         → 'yellow'
+  //   YELLOW_RED     → 'second_yellow' (a 2nd yellow → automatic red)
+  //   RED            → 'red'
+  bookings?: Array<{
+    minute: number;
+    team?: { id?: number; name?: string };
+    player?: { id?: number; name?: string };
+    card?: string;
+  }>;
 }
 
 // Replace match_goals for a given match with whatever FD currently
@@ -152,6 +164,43 @@ async function syncGoalsFromFD(
     await sql`
       INSERT INTO public.match_goals (match_id, minute, player_name, team_side)
       VALUES (${matchId}, ${g.minute}, ${g.scorer.name}, ${isHome ? 'home' : 'away'})
+    `;
+  }
+}
+
+// Same pattern as syncGoalsFromFD — FD's bookings array wins, we
+// overwrite anything we had before. Maps FD's card enum to our internal
+// values. Unknown card strings are dropped (defensively skipped rather
+// than crashing the whole match sync).
+function mapCard(card: string | undefined): 'yellow' | 'second_yellow' | 'red' | null {
+  switch ((card ?? '').toUpperCase()) {
+    case 'YELLOW':
+      return 'yellow';
+    case 'YELLOW_RED':
+      return 'second_yellow';
+    case 'RED':
+      return 'red';
+    default:
+      return null;
+  }
+}
+
+async function syncBookingsFromFD(
+  matchId: string,
+  match: FootballDataMatch,
+): Promise<void> {
+  const fdBookings = match.bookings ?? [];
+  await sql`DELETE FROM public.match_bookings WHERE match_id = ${matchId}`;
+  if (fdBookings.length === 0) return;
+  const homeName = match.homeTeam?.name ?? '';
+  for (const b of fdBookings) {
+    if (!b.player?.name || b.minute == null) continue;
+    const cardType = mapCard(b.card);
+    if (!cardType) continue;
+    const isHome = b.team?.name === homeName;
+    await sql`
+      INSERT INTO public.match_bookings (match_id, minute, player_name, team_side, card_type)
+      VALUES (${matchId}, ${b.minute}, ${b.player.name}, ${isHome ? 'home' : 'away'}, ${cardType})
     `;
   }
 }
@@ -354,6 +403,9 @@ async function runSync(apiKey: string): Promise<void> {
           // no row, so we don't touch the goals either.
           const upMatchId = (upserted[0] as { match_id: string }).match_id;
           await syncGoalsFromFD(upMatchId, match);
+          // Same lock semantics for bookings — manual_override gates the
+          // whole derived event set, not just the score row.
+          await syncBookingsFromFD(upMatchId, match);
           const enriched = await fetchMatchWithGoals(upMatchId);
           if (enriched) emitMatchEvent(enriched);
         }

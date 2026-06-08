@@ -64,6 +64,16 @@ interface FastestGoal {
   opponent_name: string;
 }
 
+interface WorstDiscipline {
+  team_code: string;
+  team_name: string;
+  yellow: number;
+  second_yellow: number;
+  red: number;
+  total_cards: number;
+  score: number;
+}
+
 interface TournamentStats {
   totals: {
     goals: number;
@@ -72,12 +82,18 @@ interface TournamentStats {
     per_match: number;
     yellow_cards: number;
     red_cards: number;
+    // Phase 2 — cards per match (rolling average). May be absent on
+    // older API responses if the user has a stale tab open during a
+    // deploy; default to 0 in the consumer.
+    cards_per_match?: number;
   };
   top_scorers: TopScorer[];
   team_goals: TeamGoals[];
   clean_sheets: CleanSheet[];
   biggest_win: BiggestWin | null;
   fastest_goal: FastestGoal | null;
+  // Phase 2. null when no bookings have been recorded yet.
+  worst_discipline?: WorstDiscipline | null;
 }
 
 // Tone for the "stage so far" sub-headline. Pulled off the highest
@@ -385,6 +401,75 @@ export const StatsView = () => {
         </Tile>
       </div>
 
+      {/* Discipline panel — Phase 2. Two stat tiles (yellow / red),
+          plus a worst-discipline footer that only renders once at
+          least one team has a card on the board. Dims when there are
+          no bookings yet so the panel still occupies its layout slot. */}
+      <Section title={`📒 ${t('stats.discipline')}`}>
+        <div className="bg-card rounded-2xl shadow-card border border-border/50 p-4 grid grid-cols-2 gap-4">
+          <div className={hasAnyBookings(stats) ? '' : 'opacity-60'}>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-4 bg-yellow-400 rounded-sm" aria-hidden />
+              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
+                {t('stats.yellowCards')}
+              </span>
+            </div>
+            <div className="text-2xl font-extrabold tabular-nums text-foreground">
+              {stats?.totals.yellow_cards ?? 0}
+            </div>
+            {hasAnyBookings(stats) && stats!.totals.cards_per_match != null && (
+              <div className="text-[11px] text-muted-foreground mt-1">
+                {t('stats.cardsPerMatch', {
+                  value: stats!.totals.cards_per_match.toFixed(1),
+                })}
+              </div>
+            )}
+          </div>
+          <div className={hasAnyBookings(stats) ? '' : 'opacity-60'}>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-4 bg-destructive rounded-sm" aria-hidden />
+              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
+                {t('stats.redCards')}
+              </span>
+            </div>
+            <div className="text-2xl font-extrabold tabular-nums text-foreground">
+              {stats?.totals.red_cards ?? 0}
+            </div>
+            {hasAnyBookings(stats) && matchesPlayed > 0 && stats!.totals.red_cards > 0 && (
+              <div className="text-[11px] text-muted-foreground mt-1">
+                {t('stats.redCardEvery', {
+                  count: Math.max(
+                    1,
+                    Math.round(matchesPlayed / stats!.totals.red_cards),
+                  ),
+                })}
+              </div>
+            )}
+          </div>
+          {stats?.worst_discipline && (
+            <div className="col-span-2 pt-3 border-t border-border/40 flex items-center gap-2 text-xs flex-wrap">
+              <span className="text-muted-foreground mr-auto">
+                {t('stats.worstDiscipline')}
+              </span>
+              <Flag
+                code={stats.worst_discipline.team_code}
+                className="w-4 shrink-0"
+                label={stats.worst_discipline.team_name}
+              />
+              <span className="font-semibold text-foreground truncate">
+                {stats.worst_discipline.team_name}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span className="tabular-nums text-foreground">
+                {t('stats.cardsCount', {
+                  count: stats.worst_discipline.total_cards,
+                })}
+              </span>
+            </div>
+          )}
+        </div>
+      </Section>
+
       {/* Quiet error footer — surfaced only when the fetch actually
           failed, separate from the "no goals yet" empty state. */}
       {error && (
@@ -395,6 +480,13 @@ export const StatsView = () => {
     </motion.div>
   );
 };
+
+// Discipline tiles light up the moment any booking exists. We treat
+// "any card recorded" as the trigger because that's the data signal —
+// not "the tournament has reached the knockout stage" or similar
+// time-based heuristic.
+const hasAnyBookings = (s: TournamentStats | null): boolean =>
+  !!s && (s.totals.yellow_cards + s.totals.red_cards) > 0;
 
 // ─── Tiny presentation components (kept in-file; not reused) ─────────
 

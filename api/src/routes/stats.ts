@@ -1,14 +1,17 @@
 // Tournament-wide stats endpoint powering the "Matchday Update" /
-// Stats tab in the user-facing app. Pulled aggregates straight off the
-// live_matches + match_goals tables we already maintain — no new
-// schema for Phase 1.
+// Stats tab in the user-facing app. Aggregates straight off the
+// live_matches + match_goals + match_bookings tables we maintain — no
+// background materialised views, the data volume is tiny.
 //
-// Phase 2 will add a `today` mode + discipline (yellow/red cards from a
-// new `match_bookings` table fed by FD's bookings array). For now the
-// endpoint always returns tournament-wide totals and leaves cards = 0;
-// the frontend renders a dimmed-zero block when both card counts are
-// zero so the placeholder is identical whether Phase 2 has shipped or
-// not.
+// Phase 1 (May 2026): totals, scorers, team-goals, clean sheets,
+//                     biggest win, fastest goal.
+// Phase 2 (Jun 2026): discipline panel — yellow/red counts derived from
+//                     match_bookings, plus the team with the worst
+//                     discipline score (red counted ×3).
+//
+// A future Phase 3 might add a `today` mode that pivots all of these
+// to a single matchday — schema already supports it, only the SQL +
+// frontend toggle would need to come along.
 
 import { Hono } from "hono";
 import { sql } from "../db";
@@ -56,6 +59,20 @@ interface FastestGoal {
   match_id: string;
   opponent_code: string;
   opponent_name: string;
+}
+
+// Worst-discipline team — red weighted ×3 vs yellow ×1 + second_yellow
+// ×2 (since a second yellow is "a yellow plus its consequence"). Picks
+// the highest score; ties broken alphabetically by team code so the
+// result is stable across reloads.
+interface WorstDiscipline {
+  team_code: string;
+  team_name: string;
+  yellow: number;
+  second_yellow: number;
+  red: number;
+  total_cards: number;
+  score: number;
 }
 
 // Public — same auth posture as /api/matches. Anyone with a tenant page
@@ -179,11 +196,71 @@ router.get("/tournament", async (c) => {
   `;
   const fastestGoal = fastestRows[0] ?? null;
 
+  // 7) Discipline totals — counts off match_bookings. A "second_yellow"
+  //    counts toward the YELLOW total (it IS a yellow) AND the RED
+  //    total (it triggers a sending-off). That matches how Wikipedia /
+  //    UEFA report tournament-wide card counts.
+  const cardTotalsRows = await sql<
+    { yellow: number; red: number }[]
+  >`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE card_type IN ('yellow', 'second_yellow')
+      )::int AS yellow,
+      COUNT(*) FILTER (
+        WHERE card_type IN ('red', 'second_yellow')
+      )::int AS red
+    FROM public.match_bookings
+  `;
+  const cardTotals = cardTotalsRows[0] ?? { yellow: 0, red: 0 };
+
+  // 8) Worst-discipline team. Per-team-side aggregation joined to the
+  //    match for the team code/name, then ranked by a weighted score:
+  //      yellow=1, second_yellow=2, red=3
+  //    Picks the single worst — frontend shows the headline; runners-up
+  //    aren't surfaced.
+  const worstRows = await sql<WorstDiscipline[]>`
+    SELECT team_code, team_name,
+           SUM(CASE WHEN card_type = 'yellow'        THEN 1 ELSE 0 END)::int AS yellow,
+           SUM(CASE WHEN card_type = 'second_yellow' THEN 1 ELSE 0 END)::int AS second_yellow,
+           SUM(CASE WHEN card_type = 'red'           THEN 1 ELSE 0 END)::int AS red,
+           COUNT(*)::int AS total_cards,
+           SUM(
+             CASE card_type
+               WHEN 'yellow'        THEN 1
+               WHEN 'second_yellow' THEN 2
+               WHEN 'red'           THEN 3
+               ELSE 0
+             END
+           )::int AS score
+      FROM (
+        SELECT mb.card_type,
+               CASE WHEN mb.team_side = 'home' THEN lm.home_team_code
+                    ELSE lm.away_team_code
+               END AS team_code,
+               CASE WHEN mb.team_side = 'home' THEN lm.home_team_name
+                    ELSE lm.away_team_name
+               END AS team_name
+          FROM public.match_bookings mb
+          JOIN public.live_matches lm ON lm.match_id = mb.match_id
+      ) per_team
+     GROUP BY team_code, team_name
+     ORDER BY score DESC, team_code ASC
+     LIMIT 1
+  `;
+  const worstDiscipline = worstRows[0] ?? null;
+
   // Average per match — JS-side so we don't have to do an avg with a
   // NULLIF dance in SQL. Returns 0 cleanly when nothing's been played.
   const perMatch =
     totals.matches_played > 0
       ? Number((totals.total_goals / totals.matches_played).toFixed(2))
+      : 0;
+  const cardsPerMatch =
+    totals.matches_played > 0
+      ? Number(
+          ((cardTotals.yellow + cardTotals.red) / totals.matches_played).toFixed(2),
+        )
       : 0;
 
   return c.json({
@@ -192,17 +269,16 @@ router.get("/tournament", async (c) => {
       matches_played: totals.matches_played,
       matches_scheduled: totals.matches_scheduled,
       per_match: perMatch,
-      // Phase 2: real numbers from match_bookings. For now hard-zero so
-      // the frontend always has a number to render and the "is the
-      // tournament started?" branch is data-driven.
-      yellow_cards: 0,
-      red_cards: 0,
+      yellow_cards: cardTotals.yellow,
+      red_cards: cardTotals.red,
+      cards_per_match: cardsPerMatch,
     },
     top_scorers: topScorers,
     team_goals: teamGoals,
     clean_sheets: cleanSheets,
     biggest_win: biggestWin,
     fastest_goal: fastestGoal,
+    worst_discipline: worstDiscipline,
   });
 });
 
