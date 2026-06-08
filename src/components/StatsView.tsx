@@ -1,0 +1,480 @@
+// "Matchday Update" — the tournament-wide stats tab.
+//
+// Lives behind the `tournamentStarted` gate in <Navigation>: the nav
+// item doesn't render until the opening fixture has kicked off. By the
+// time this view mounts, at least one match is in progress — but goals
+// might not yet exist, hence the explicit empty state below.
+//
+// Pulls everything from a single endpoint (GET /api/stats/tournament)
+// so re-paint on a goal SSE is one fetch, not five. SSE itself isn't
+// wired here yet — we refetch on mount and on every goal celebrated by
+// LiveMatchesContext, which is plenty fresh for a stats roll-up that
+// nobody will be watching second-by-second.
+//
+// Visual reference: /tmp/matchday-update.html "Variant A". Layout is
+// 1:1 with the mockup; copy lives in i18n for the 14-language rollout.
+
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { Loader2 } from 'lucide-react';
+import { api, ApiError } from '@/lib/apiClient';
+import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
+import { Flag } from './Flag';
+
+interface TopScorer {
+  player_name: string;
+  team_code: string;
+  team_name: string;
+  goals: number;
+}
+
+interface TeamGoals {
+  team_code: string;
+  team_name: string;
+  goals: number;
+}
+
+interface CleanSheet {
+  team_code: string;
+  team_name: string;
+  count: number;
+}
+
+interface BiggestWin {
+  match_id: string;
+  home_team_code: string;
+  home_team_name: string;
+  away_team_code: string;
+  away_team_name: string;
+  home_score: number;
+  away_score: number;
+  margin: number;
+  stage: string;
+  group_name: string | null;
+}
+
+interface FastestGoal {
+  player_name: string;
+  team_code: string;
+  team_name: string;
+  minute: number;
+  match_id: string;
+  opponent_code: string;
+  opponent_name: string;
+}
+
+interface TournamentStats {
+  totals: {
+    goals: number;
+    matches_played: number;
+    matches_scheduled: number;
+    per_match: number;
+    yellow_cards: number;
+    red_cards: number;
+  };
+  top_scorers: TopScorer[];
+  team_goals: TeamGoals[];
+  clean_sheets: CleanSheet[];
+  biggest_win: BiggestWin | null;
+  fastest_goal: FastestGoal | null;
+}
+
+// Tone for the "stage so far" sub-headline. Pulled off the highest
+// stage we've seen any match begin — gives the user a one-glance sense
+// of where we are in the tournament without having to compute it
+// downstream.
+const STAGE_ORDER = [
+  'group',
+  'round_of_32',
+  'round_of_16',
+  'quarter_final',
+  'semi_final',
+  'third_place',
+  'final',
+] as const;
+
+// Podium-medal tints for ranks 1/2/3 in the top-scorer list. Anything
+// after 3rd gets the muted "rest of pack" token.
+const RANK_STYLES = [
+  'bg-amber-400 text-amber-900',
+  'bg-slate-300 text-slate-700 dark:bg-slate-200 dark:text-slate-800',
+  'bg-orange-700/70 text-orange-100',
+];
+
+export const StatsView = () => {
+  const { t } = useTranslation();
+  const { matches, goalQueue } = useLiveMatchesContext();
+  const [stats, setStats] = useState<TournamentStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Re-trigger fetch on every goal celebrated by the global context so
+  // a scorer's name appears here within a second of the goal popup
+  // dismissing. We key off goalQueue.length which monotonically grows
+  // while a goal is queued — cheap to track without a custom event.
+  const goalTick = goalQueue.length;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setError(null);
+        const data = await api.get<TournamentStats>('/stats/tournament');
+        if (!cancelled) setStats(data);
+      } catch (e) {
+        if (!cancelled) {
+          // Surface ApiError detail when present; otherwise fall back
+          // to a generic copy. Either way, the empty-state UI is fine
+          // to keep showing — we just won't have live numbers.
+          setError(e instanceof ApiError ? e.message : 'load_failed');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [goalTick]);
+
+  // Derived: which tournament stage is the headline. Picks the
+  // FURTHEST stage any match has reached (i.e. once QF starts, the
+  // header says "Quarter-finals"), then defaults to group stage early.
+  const currentStage = useMemo(() => {
+    if (matches.length === 0) return 'group';
+    const stages = new Set(matches.map((m) => m.stage));
+    let best = 'group';
+    for (const s of STAGE_ORDER) {
+      if (stages.has(s)) best = s;
+    }
+    return best;
+  }, [matches]);
+
+  if (loading && !stats) {
+    return (
+      <div className="space-y-4 max-w-[700px] mx-auto">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  // No stats payload at all — show empty state. Treats network failure
+  // the same as "endpoint returned no goals yet" because the user
+  // experience is identical: there's nothing to see, here's what's
+  // coming.
+  const hasAnyGoals = (stats?.totals.goals ?? 0) > 0;
+  const matchesPlayed = stats?.totals.matches_played ?? 0;
+  const matchesScheduled = stats?.totals.matches_scheduled ?? matches.length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-4 max-w-[700px] mx-auto"
+    >
+      {/* Header card — same gradient feel as the Profile header so
+          the user gets a consistent "this is a destination" cue across
+          tabs that aren't pure lists. */}
+      <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
+        <div className="gradient-navy px-5 pt-6 pb-5">
+          <div className="text-[11px] uppercase tracking-widest text-white/70 font-semibold mb-1">
+            ⚡ {t('stats.title')}
+            <span className="text-white/30 mx-2">·</span>
+            <span className="text-white/80">{t(`stats.stage.${currentStage}`)}</span>
+          </div>
+          <h2 className="text-2xl font-extrabold text-white">
+            {hasAnyGoals ? t('stats.heroTitle') : t('stats.heroTitleEmpty')}
+          </h2>
+          <p className="text-sm text-white/70 mt-1">
+            {hasAnyGoals
+              ? t('stats.heroSubtitle', {
+                  played: matchesPlayed,
+                  remaining: Math.max(matchesScheduled - matchesPlayed, 0),
+                })
+              : t('stats.heroSubtitleEmpty')}
+          </p>
+        </div>
+
+        {/* Hero metrics — three across; dim out when there's nothing
+            to show so the page reads as "ready and waiting" not "broken". */}
+        <div className="px-5 py-5 grid grid-cols-3 gap-3">
+          <HeroStat
+            value={stats?.totals.goals ?? 0}
+            label={t('stats.goals')}
+            dim={!hasAnyGoals}
+          />
+          <HeroStat
+            value={hasAnyGoals ? stats!.totals.per_match.toFixed(1) : '—'}
+            label={t('stats.perMatch')}
+            dim={!hasAnyGoals}
+          />
+          {/* Cards block — Phase 2 brings real numbers via match_bookings.
+              For now both totals are always 0, so the block dims with the
+              rest of the empty state but still occupies the slot to keep
+              the layout stable when Phase 2 ships. */}
+          <HeroStat
+            value={stats?.totals.red_cards ?? 0}
+            label={t('stats.redCards')}
+            dim={!hasAnyGoals}
+            accent="red"
+          />
+        </div>
+      </div>
+
+      {/* Top scorers */}
+      <Section title={`⚽ ${t('stats.topScorers')}`}>
+        {stats && stats.top_scorers.length > 0 ? (
+          <div className="bg-card rounded-2xl shadow-card border border-border/50 divide-y divide-border/40">
+            {stats.top_scorers.slice(0, 5).map((scorer, idx) => (
+              <div
+                key={`${scorer.player_name}-${scorer.team_code}`}
+                className="px-4 py-3 flex items-center gap-3"
+              >
+                <div
+                  className={`w-7 h-7 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 ${
+                    RANK_STYLES[idx] ?? 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {idx + 1}
+                </div>
+                <Flag code={scorer.team_code} className="w-5 shrink-0" label={scorer.team_name} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate text-foreground">
+                    {scorer.player_name}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {scorer.team_name}
+                  </div>
+                </div>
+                <div className="text-xl font-extrabold tabular-nums text-foreground">
+                  {scorer.goals}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Friendly empty-state placeholder. "First goals incoming"
+          // copy matches the mockup; tone-matches the rest of the
+          // app's empty states (Boost view shows similar copy until
+          // picks land).
+          <EmptyTile
+            emoji="⚽"
+            title={t('stats.empty.scorersTitle')}
+            subtitle={t('stats.empty.scorersSubtitle')}
+          />
+        )}
+      </Section>
+
+      {/* Team stats grid — four 2×2 tiles. Each tile self-dims when its
+          data is missing so the grid never collapses. */}
+      <div className="grid grid-cols-2 gap-3">
+        <Tile
+          label={t('stats.mostGoals')}
+          hasData={!!stats && stats.team_goals.length > 0}
+        >
+          {stats && stats.team_goals[0] && (
+            <>
+              <div className="flex items-center gap-2">
+                <Flag
+                  code={stats.team_goals[0].team_code}
+                  className="w-5 shrink-0"
+                  label={stats.team_goals[0].team_name}
+                />
+                <span className="font-semibold text-sm text-foreground truncate">
+                  {stats.team_goals[0].team_name}
+                </span>
+              </div>
+              <div className="text-xl font-extrabold mt-1 tabular-nums text-foreground">
+                {stats.team_goals[0].goals}
+              </div>
+            </>
+          )}
+        </Tile>
+
+        <Tile
+          label={t('stats.cleanestDefence')}
+          hasData={!!stats && stats.clean_sheets.length > 0}
+        >
+          {stats && stats.clean_sheets[0] && (
+            <>
+              <div className="flex items-center gap-2">
+                <Flag
+                  code={stats.clean_sheets[0].team_code}
+                  className="w-5 shrink-0"
+                  label={stats.clean_sheets[0].team_name}
+                />
+                <span className="font-semibold text-sm text-foreground truncate">
+                  {stats.clean_sheets[0].team_name}
+                </span>
+              </div>
+              <div className="text-xl font-extrabold mt-1 tabular-nums text-foreground">
+                {stats.clean_sheets[0].count}{' '}
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t('stats.cleanSheetsLabel', {
+                    count: stats.clean_sheets[0].count,
+                  })}
+                </span>
+              </div>
+            </>
+          )}
+        </Tile>
+
+        <Tile
+          label={t('stats.biggestWin')}
+          hasData={!!stats?.biggest_win}
+        >
+          {stats?.biggest_win && (
+            <>
+              <div className="flex items-center gap-2 text-sm">
+                <Flag
+                  code={stats.biggest_win.home_team_code}
+                  className="w-5 shrink-0"
+                  label={stats.biggest_win.home_team_name}
+                />
+                <span className="font-extrabold tabular-nums text-foreground">
+                  {stats.biggest_win.home_score}
+                </span>
+                <span className="text-muted-foreground">–</span>
+                <span className="font-extrabold tabular-nums text-foreground">
+                  {stats.biggest_win.away_score}
+                </span>
+                <Flag
+                  code={stats.biggest_win.away_team_code}
+                  className="w-5 shrink-0"
+                  label={stats.biggest_win.away_team_name}
+                />
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1">
+                {stats.biggest_win.group_name
+                  ? `${t('stats.stage.group')} ${stats.biggest_win.group_name}`
+                  : t(`stats.stage.${stats.biggest_win.stage}`, {
+                      defaultValue: stats.biggest_win.stage,
+                    })}
+              </div>
+            </>
+          )}
+        </Tile>
+
+        <Tile
+          label={t('stats.fastestGoal')}
+          hasData={!!stats?.fastest_goal}
+        >
+          {stats?.fastest_goal && (
+            <>
+              <div className="text-sm font-semibold text-foreground truncate">
+                {stats.fastest_goal.player_name}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
+                <Flag
+                  code={stats.fastest_goal.team_code}
+                  className="w-3.5 shrink-0"
+                  label={stats.fastest_goal.team_name}
+                />
+                <span className="tabular-nums">{stats.fastest_goal.minute}'</span>
+                <span>·</span>
+                <span className="truncate">
+                  {stats.fastest_goal.team_code} – {stats.fastest_goal.opponent_code}
+                </span>
+              </div>
+            </>
+          )}
+        </Tile>
+      </div>
+
+      {/* Quiet error footer — surfaced only when the fetch actually
+          failed, separate from the "no goals yet" empty state. */}
+      {error && (
+        <p className="text-[11px] text-center text-muted-foreground/70">
+          {t('stats.loadError')}
+        </p>
+      )}
+    </motion.div>
+  );
+};
+
+// ─── Tiny presentation components (kept in-file; not reused) ─────────
+
+const HeroStat = ({
+  value,
+  label,
+  dim = false,
+  accent,
+}: {
+  value: number | string;
+  label: string;
+  dim?: boolean;
+  accent?: 'red';
+}) => (
+  <div
+    className={`bg-muted rounded-xl p-4 text-center ${dim ? 'opacity-60' : ''}`}
+  >
+    <div className="text-2xl font-extrabold tabular-nums text-foreground">
+      {value}
+    </div>
+    <div
+      className={`text-[11px] uppercase mt-1 tracking-wider ${
+        accent === 'red' ? 'text-destructive' : 'text-muted-foreground'
+      }`}
+    >
+      {label}
+    </div>
+  </div>
+);
+
+const Section = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <div>
+    <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2 px-1">
+      {title}
+    </h3>
+    {children}
+  </div>
+);
+
+const EmptyTile = ({
+  emoji,
+  title,
+  subtitle,
+}: {
+  emoji: string;
+  title: string;
+  subtitle: string;
+}) => (
+  <div className="bg-card rounded-2xl shadow-card border border-border/50 p-6 text-center">
+    <div className="text-4xl mb-2" aria-hidden>
+      {emoji}
+    </div>
+    <div className="text-sm font-semibold text-foreground">{title}</div>
+    <div className="text-xs text-muted-foreground mt-1">{subtitle}</div>
+  </div>
+);
+
+const Tile = ({
+  label,
+  hasData,
+  children,
+}: {
+  label: string;
+  hasData: boolean;
+  children: React.ReactNode;
+}) => (
+  <div
+    className={`bg-card rounded-2xl shadow-card border border-border/50 p-4 ${
+      hasData ? '' : 'opacity-60'
+    }`}
+  >
+    <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">
+      {label}
+    </div>
+    {hasData ? children : <div className="text-xl font-extrabold text-muted-foreground/40">—</div>}
+  </div>
+);

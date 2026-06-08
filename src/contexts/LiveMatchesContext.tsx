@@ -109,6 +109,13 @@ interface ContextValue {
   // stage and the start of KO. Null while we're still loading matches or
   // if no knockout fixture is yet in the table.
   boostsDeadline: Date | null;
+  // True once the earliest fixture's kickoff has passed (i.e. the
+  // tournament is underway). Gates the user-facing Stats tab so the nav
+  // doesn't show a "Stats" entry with nothing to show during the run-up
+  // — once the opening match starts we have at least *one* live match
+  // worth aggregating. Recomputed via a 60s tick so it flips without
+  // a manual refresh right at kickoff.
+  tournamentStarted: boolean;
 }
 
 const Ctx = createContext<ContextValue | null>(null);
@@ -365,6 +372,28 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     return new Date(Math.min(...koDates));
   }, [matches]);
 
+  // "Has the tournament kicked off yet?" — kickoff of the earliest
+  // scheduled match. We tick `now` on a 60s interval so the gate flips
+  // automatically the first minute after the opening whistle without
+  // needing a manual refetch. Cheap: a single setState per minute.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const tournamentStarted = useMemo<boolean>(() => {
+    if (matches.length === 0) return false;
+    const earliest = matches
+      .map((m) => new Date(m.match_date).getTime())
+      .filter((t) => Number.isFinite(t))
+      .reduce<number | null>(
+        (min, t) => (min === null || t < min ? t : min),
+        null,
+      );
+    if (earliest === null) return false;
+    return earliest <= now;
+  }, [matches, now]);
+
   return (
     <Ctx.Provider
       value={{
@@ -379,6 +408,7 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
         goalQueue,
         dismissGoal,
         boostsDeadline,
+        tournamentStarted,
       }}
     >
       {children}

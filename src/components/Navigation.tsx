@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { Calendar, Users, User, Rocket } from 'lucide-react';
+import { Calendar, Users, User, Rocket, BarChart3 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTenant } from '@/contexts/TenantContext';
+import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,7 @@ interface NavigationProps {
 export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const { t } = useTranslation();
   const { tenant } = useTenant();
+  const { tournamentStarted } = useLiveMatchesContext();
   const [termsOpen, setTermsOpen] = useState(false);
 
   // Trim before deciding visibility — a whitespace-only ToU shouldn't
@@ -25,9 +27,17 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const termsOfUse = tenant?.terms_of_use?.trim() ?? '';
   const hasTerms = termsOfUse.length > 0;
 
+  // Stats tab only appears once the opening fixture has kicked off —
+  // anything sooner would be a 4-tab nav padded with an empty page.
+  // Order: Matches · Boost · (Stats) · Leagues · Me. Stats slots into
+  // the middle so the bookend tabs (Matches / Me) stay anchored as
+  // users build muscle memory.
   const tabs = [
     { id: 'matches', labelKey: 'nav.matches', icon: Calendar },
     { id: 'boost', labelKey: 'nav.boost', icon: Rocket },
+    ...(tournamentStarted
+      ? [{ id: 'stats', labelKey: 'nav.stats', icon: BarChart3 }]
+      : []),
     { id: 'leagues', labelKey: 'nav.leagues', icon: Users },
     { id: 'profile', labelKey: 'nav.me', icon: User },
   ];

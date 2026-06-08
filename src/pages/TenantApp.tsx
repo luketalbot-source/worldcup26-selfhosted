@@ -5,6 +5,7 @@ import { MatchesView } from '@/components/MatchesView';
 import { BoostView } from '@/components/BoostView';
 import { LeaguesView } from '@/components/LeaguesView';
 import { ProfileView } from '@/components/ProfileView';
+import { StatsView } from '@/components/StatsView';
 import { GoalCelebration } from '@/components/GoalCelebration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
@@ -118,6 +119,8 @@ const TenantApp = () => {
         return <MatchesView />;
       case 'boost':
         return <BoostView />;
+      case 'stats':
+        return <StatsView />;
       case 'leagues':
         return <LeaguesView />;
       case 'profile':
