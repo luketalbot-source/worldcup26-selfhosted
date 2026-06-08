@@ -379,10 +379,20 @@
   },
   "stats": {
     "title": "Matchday Update",
-    "heroTitle": "The tournament so far",
-    "heroTitleEmpty": "The tournament is live!",
-    "heroSubtitle": "{{played}} matches played · {{remaining}} remaining",
-    "heroSubtitleEmpty": "First match under way · stats land as they happen",
+    "hero": {
+      "preKickoff": {
+        "title": "The tournament starts soon",
+        "subtitle": "Stats appear here as matches kick off"
+      },
+      "liveNoGoals": {
+        "title": "The tournament is live!",
+        "subtitle": "First match under way · stats land as they happen"
+      },
+      "underway": {
+        "title": "The tournament so far",
+        "subtitle": "{{played}} matches played · {{remaining}} remaining"
+      }
+    },
     "goals": "Goals",
     "perMatch": "Per match",
     "redCards": "Red cards",
@@ -408,11 +418,11 @@
     },
     "stage": {
       "group": "Group stage",
-      "round_of_32": "Round of 32",
-      "round_of_16": "Round of 16",
-      "quarter_final": "Quarter-finals",
-      "semi_final": "Semi-finals",
-      "third_place": "Third-place play-off",
+      "round32": "Round of 32",
+      "round16": "Round of 16",
+      "quarter": "Quarter-finals",
+      "semi": "Semi-finals",
+      "third": "Third-place play-off",
       "final": "Final"
     }
   }

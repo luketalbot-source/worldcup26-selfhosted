@@ -96,17 +96,20 @@ interface TournamentStats {
   worst_discipline?: WorstDiscipline | null;
 }
 
-// Tone for the "stage so far" sub-headline. Pulled off the highest
-// stage we've seen any match begin — gives the user a one-glance sense
-// of where we are in the tournament without having to compute it
-// downstream.
+// Stage values as they're stored in live_matches.stage (set by
+// mapStage() in admin.ts). Earlier these used "round_of_32" /
+// "quarter_final" / etc. — a hangover from the FD enum names — which
+// silently mismatched the DB, so the stage-detection walk only ever
+// matched 'group' and 'final' and reported "FINAL" the moment fixtures
+// loaded. Keep these as the authoritative ordering and the i18n keys
+// MUST mirror them 1:1.
 const STAGE_ORDER = [
   'group',
-  'round_of_32',
-  'round_of_16',
-  'quarter_final',
-  'semi_final',
-  'third_place',
+  'round32',
+  'round16',
+  'quarter',
+  'semi',
+  'third',
   'final',
 ] as const;
 
@@ -155,18 +158,54 @@ export const StatsView = () => {
     };
   }, [goalTick]);
 
-  // Derived: which tournament stage is the headline. Picks the
-  // FURTHEST stage any match has reached (i.e. once QF starts, the
-  // header says "Quarter-finals"), then defaults to group stage early.
+  // Tick `now` once a minute so kick-off-time-based derivations (which
+  // stage are we in, has anything started yet) advance on their own
+  // without a manual refresh — the tab is open for long stretches.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Has the tournament actually kicked off? Defined by data: at least
+  // one match's kickoff time has elapsed. (The Nav-tab gate is looser
+  // — it just checks fixtures-loaded — but the hero copy and stage
+  // headline care about kickoff, not fixture-availability.)
+  const anyMatchStarted = useMemo(
+    () => matches.some((m) => new Date(m.match_date).getTime() <= now),
+    [matches, now],
+  );
+
+  // Headline tournament stage. We can't just take the furthest stage
+  // that appears in `matches` — every fixture is in the table from day
+  // one, so that'd report "Final" before kick-off. Two rules instead:
+  //   - If anything has started: highest stage among matches that have
+  //     started (in-progress or finished).
+  //   - Pre-kickoff: earliest unplayed stage, i.e. group stage at the
+  //     beginning, then round32 once group is done, etc.
   const currentStage = useMemo(() => {
     if (matches.length === 0) return 'group';
-    const stages = new Set(matches.map((m) => m.stage));
-    let best = 'group';
-    for (const s of STAGE_ORDER) {
-      if (stages.has(s)) best = s;
+    const startedStages = new Set(
+      matches
+        .filter((m) => new Date(m.match_date).getTime() <= now)
+        .map((m) => m.stage),
+    );
+    if (startedStages.size > 0) {
+      let best = 'group';
+      for (const s of STAGE_ORDER) {
+        if (startedStages.has(s)) best = s;
+      }
+      return best;
     }
-    return best;
-  }, [matches]);
+    // Nothing has kicked off — walk forwards through STAGE_ORDER and
+    // pick the FIRST stage that still has unplayed fixtures. Stable
+    // across reloads, no dependency on per-row status.
+    const remaining = new Set(matches.map((m) => m.stage));
+    for (const s of STAGE_ORDER) {
+      if (remaining.has(s)) return s;
+    }
+    return 'group';
+  }, [matches, now]);
 
   if (loading && !stats) {
     return (
@@ -186,6 +225,18 @@ export const StatsView = () => {
   const matchesPlayed = stats?.totals.matches_played ?? 0;
   const matchesScheduled = stats?.totals.matches_scheduled ?? matches.length;
 
+  // Three header states, ordered by how much data we have to show:
+  //   - 'preKickoff' — fixtures loaded but no match has started yet
+  //   - 'liveNoGoals' — at least one match has kicked off, no goals yet
+  //   - 'underway' — we have goals, show the rolling summary
+  // Each state has its own title + subtitle key so translators can
+  // reword tone per locale (e.g. "Coming up" framing in German etc.).
+  const heroState: 'preKickoff' | 'liveNoGoals' | 'underway' = hasAnyGoals
+    ? 'underway'
+    : anyMatchStarted
+      ? 'liveNoGoals'
+      : 'preKickoff';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -203,15 +254,15 @@ export const StatsView = () => {
             <span className="text-white/80">{t(`stats.stage.${currentStage}`)}</span>
           </div>
           <h2 className="text-2xl font-extrabold text-white">
-            {hasAnyGoals ? t('stats.heroTitle') : t('stats.heroTitleEmpty')}
+            {t(`stats.hero.${heroState}.title`)}
           </h2>
           <p className="text-sm text-white/70 mt-1">
-            {hasAnyGoals
-              ? t('stats.heroSubtitle', {
+            {heroState === 'underway'
+              ? t('stats.hero.underway.subtitle', {
                   played: matchesPlayed,
                   remaining: Math.max(matchesScheduled - matchesPlayed, 0),
                 })
-              : t('stats.heroSubtitleEmpty')}
+              : t(`stats.hero.${heroState}.subtitle`)}
           </p>
         </div>
 
