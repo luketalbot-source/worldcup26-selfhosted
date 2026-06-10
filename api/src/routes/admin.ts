@@ -426,26 +426,51 @@ async function runSync(apiKey: string): Promise<void> {
         if (!team.tla) continue;
         const group = groupMap.get(team.tla) ?? null;
         try {
-          await sql`
-            INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
-            VALUES (
-              gen_random_uuid(),
-              ${team.tla},
-              ${team.name ?? team.tla},
-              ${team.shortName ?? team.name ?? team.tla},
-              ${team.crest ?? null},
-              ${group},
-              ${team.id ?? null},
-              NOW()
-            )
-            ON CONFLICT (tla) DO UPDATE SET
-              name        = EXCLUDED.name,
-              short_name  = EXCLUDED.short_name,
-              crest_url   = EXCLUDED.crest_url,
-              group_name  = EXCLUDED.group_name,
-              fd_team_id  = EXCLUDED.fd_team_id,
-              updated_at  = NOW()
-          `;
+          // FD's numeric team id is the STABLE key; the TLA is not — FD
+          // renamed Uruguay URU→URY and Curaçao CUR→CUW mid-tournament
+          // (June 2026). The old tla-keyed upsert missed the conflict on
+          // the renamed TLA and slammed into the fd_team_id unique
+          // instead, erroring on every sync (~1/min of Postgres log
+          // noise) and leaving the teams row permanently stale. So:
+          // update by fd_team_id first; only fall back to the tla upsert
+          // for rows that predate fd_team_id backfill (or teams FD sends
+          // without an id).
+          let updated: readonly unknown[] = [];
+          if (team.id != null) {
+            updated = await sql`
+              UPDATE public.teams SET
+                tla         = ${team.tla},
+                name        = ${team.name ?? team.tla},
+                short_name  = ${team.shortName ?? team.name ?? team.tla},
+                crest_url   = ${team.crest ?? null},
+                group_name  = ${group},
+                updated_at  = NOW()
+              WHERE fd_team_id = ${team.id}
+              RETURNING id
+            `;
+          }
+          if (updated.length === 0) {
+            await sql`
+              INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
+              VALUES (
+                gen_random_uuid(),
+                ${team.tla},
+                ${team.name ?? team.tla},
+                ${team.shortName ?? team.name ?? team.tla},
+                ${team.crest ?? null},
+                ${group},
+                ${team.id ?? null},
+                NOW()
+              )
+              ON CONFLICT (tla) DO UPDATE SET
+                name        = EXCLUDED.name,
+                short_name  = EXCLUDED.short_name,
+                crest_url   = EXCLUDED.crest_url,
+                group_name  = EXCLUDED.group_name,
+                fd_team_id  = EXCLUDED.fd_team_id,
+                updated_at  = NOW()
+            `;
+          }
           syncState.teamsUpdated++;
         } catch (err) {
           console.error(`[sync-matches] team ${team.tla} failed:`, err);
