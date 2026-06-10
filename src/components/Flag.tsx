@@ -178,14 +178,15 @@ export const CardFlagBackground = ({
   const [imgFailed, setImgFailed] = useState(false);
   const url = code ? getLocalFlagUrl(code) : null;
 
+  // The 60% wash lives on the CONTAINER, not the layers. When each
+  // layer carried its own opacity-60, the PNG was 40% see-through and
+  // the simplified SVG ghosted through it (doubled Morocco star,
+  // mismatched Haiti crest — customer screenshot, June 2026). With
+  // full-opacity layers inside a translucent wrapper, the opaque PNG
+  // completely hides the SVG underneath once it paints.
   return (
-    <>
-      <Flag
-        code={code}
-        label={label}
-        cover
-        className="absolute inset-0 w-full h-full opacity-60"
-      />
+    <div className="absolute inset-0 opacity-60">
+      <Flag code={code} label={label} cover className="absolute inset-0 w-full h-full" />
       {url && !imgFailed && (
         <img
           src={url}
@@ -193,9 +194,9 @@ export const CardFlagBackground = ({
           aria-hidden
           loading="lazy"
           onError={() => setImgFailed(true)}
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
+          className="absolute inset-0 w-full h-full object-cover object-center"
         />
       )}
-    </>
+    </div>
   );
 };
