@@ -42,12 +42,14 @@ export function tlaToFlag(tla: string): string {
 }
 
 // FIFA-TLA → ISO 3166-1 alpha-2 map. Used for both emoji and CDN flag URLs.
-// Exported so flagUtils.ts can stay in sync with a single source of truth.
+// Used by tlaToFlag (emoji flags). The flagcdn.com image path that also
+// consumed this table was removed June 2026 — match cards now render
+// bundled SVGs via <Flag> (src/components/Flag.tsx) instead of CDN PNGs.
 export const TLA_TO_ISO2: Record<string, string> = {
   // Americas
-  MEX: 'MX', USA: 'US', CAN: 'CA', BRA: 'BR', ARG: 'AR', URU: 'UY', PAR: 'PY',
+  MEX: 'MX', USA: 'US', CAN: 'CA', BRA: 'BR', ARG: 'AR', URU: 'UY', URY: 'UY', PAR: 'PY',
   COL: 'CO', ECU: 'EC', CHI: 'CL', BOL: 'BO', PER: 'PE', VEN: 'VE',
-  HAI: 'HT', JAM: 'JM', CRC: 'CR', PAN: 'PA', CUR: 'CW', // CUR is FD's TLA for Curaçao
+  HAI: 'HT', JAM: 'JM', CRC: 'CR', PAN: 'PA', CUR: 'CW', CUW: 'CW', // FD renamed CUR→CUW (and URU→URY) June 2026; keep both
   // Europe
   GER: 'DE', FRA: 'FR', ESP: 'ES', POR: 'PT', ITA: 'IT', NED: 'NL', BEL: 'BE',
   SUI: 'CH', AUT: 'AT', DEN: 'DK', SWE: 'SE', NOR: 'NO', FIN: 'FI', ISL: 'IS',

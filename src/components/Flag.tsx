@@ -101,14 +101,25 @@ interface FlagProps {
    * not a visible label.
    */
   label?: string;
+  /**
+   * Fill the parent container like CSS `object-fit: cover` — crops the
+   * flag instead of letterboxing. Used by the match-card background
+   * watermark, where the flag bleeds across half the card. (SVG
+   * equivalent: preserveAspectRatio="xMidYMid slice".)
+   */
+  cover?: boolean;
 }
 
 /**
  * Render a country flag as a 3:2 SVG. Renders a neutral grey
  * placeholder for codes we don't have a flag for, so missing mappings
  * never crash the picker.
+ *
+ * These SVGs ship in the JS bundle (~1-3 KB each), so unlike the old
+ * flagcdn.com <img> approach they can never fail to load — relevant for
+ * frontline tenants whose corporate proxies block third-party CDNs.
  */
-export const Flag = ({ code, className = 'w-5', label }: FlagProps) => {
+export const Flag = ({ code, className = 'w-5', label, cover = false }: FlagProps) => {
   const iconCode = getFlagIconCode(code);
   const Component = iconCode ? FLAG_COMPONENTS[iconCode] : null;
 
@@ -118,7 +129,18 @@ export const Flag = ({ code, className = 'w-5', label }: FlagProps) => {
         role="img"
         aria-label={label ?? code ?? 'flag'}
         className={`inline-block bg-muted rounded-[2px] ${className}`}
-        style={{ aspectRatio: '3 / 2' }}
+        style={cover ? undefined : { aspectRatio: '3 / 2' }}
+      />
+    );
+  }
+
+  if (cover) {
+    return (
+      <Component
+        role="img"
+        aria-label={label ?? code ?? 'flag'}
+        preserveAspectRatio="xMidYMid slice"
+        className={className}
       />
     );
   }

@@ -5,7 +5,7 @@ import { KnockoutMatch } from '@/data/knockoutMatches';
 import { Prediction } from '@/types/match';
 import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
-import { getFlagUrl } from '@/lib/flagUtils';
+import { getFlagIconCode } from '@/lib/teamFlagCode';
 import { useMatchTime } from '@/hooks/useMatchTime';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { Flag } from '@/components/Flag';
@@ -80,8 +80,13 @@ export const KnockoutMatchCard = ({
       )
     : null;
 
-  const homeFlagUrl = getFlagUrl(match.homeTeam.code);
-  const awayFlagUrl = getFlagUrl(match.awayTeam.code);
+  // Bundled-SVG flags — same reasoning as MatchCard: the flagcdn.com
+  // <img> path was network-dependent (flaky behind corporate proxies)
+  // and its lookup table missed FD's renamed TLAs (URY/CUW). Knockout
+  // cards show TBD placeholders until the bracket fills, so the
+  // no-flag fallback branch matters more here.
+  const hasHomeFlag = !!getFlagIconCode(match.homeTeam.code);
+  const hasAwayFlag = !!getFlagIconCode(match.awayTeam.code);
 
   // Get translated team names
   const homeTeamName = getTeamName(match.homeTeam.code, match.homeTeam.name);
@@ -109,12 +114,13 @@ export const KnockoutMatchCard = ({
       <div className="absolute inset-0 flex">
         {/* Home Team Flag - Left Side */}
         <div className="relative w-1/2 h-full overflow-hidden">
-          {homeFlagUrl ? (
+          {hasHomeFlag ? (
             <>
-              <img 
-                src={homeFlagUrl} 
-                alt={match.homeTeam.name}
-                className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
+              <Flag
+                code={match.homeTeam.code}
+                label={match.homeTeam.name}
+                cover
+                className="absolute inset-0 w-full h-full opacity-60"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
@@ -125,15 +131,16 @@ export const KnockoutMatchCard = ({
             </div>
           )}
         </div>
-        
+
         {/* Away Team Flag - Right Side */}
         <div className="relative w-1/2 h-full overflow-hidden">
-          {awayFlagUrl ? (
+          {hasAwayFlag ? (
             <>
-              <img 
-                src={awayFlagUrl} 
-                alt={match.awayTeam.name}
-                className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
+              <Flag
+                code={match.awayTeam.code}
+                label={match.awayTeam.name}
+                cover
+                className="absolute inset-0 w-full h-full opacity-60"
               />
               <div className="absolute inset-0 bg-gradient-to-l from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
