@@ -8,7 +8,7 @@ import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
 import { getFlagIconCode } from '@/lib/teamFlagCode';
 import { useMatchTime } from '@/hooks/useMatchTime';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
-import { Flag } from '@/components/Flag';
+import { Flag, CardFlagBackground } from '@/components/Flag';
 import { useTeamName } from '@/hooks/useTeamName';
 
 interface KnockoutMatchCardProps {
@@ -116,12 +116,7 @@ export const KnockoutMatchCard = ({
         <div className="relative w-1/2 h-full overflow-hidden">
           {hasHomeFlag ? (
             <>
-              <Flag
-                code={match.homeTeam.code}
-                label={match.homeTeam.name}
-                cover
-                className="absolute inset-0 w-full h-full opacity-60"
-              />
+              <CardFlagBackground code={match.homeTeam.code} label={match.homeTeam.name} />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
             </>
@@ -136,12 +131,7 @@ export const KnockoutMatchCard = ({
         <div className="relative w-1/2 h-full overflow-hidden">
           {hasAwayFlag ? (
             <>
-              <Flag
-                code={match.awayTeam.code}
-                label={match.awayTeam.name}
-                cover
-                className="absolute inset-0 w-full h-full opacity-60"
-              />
+              <CardFlagBackground code={match.awayTeam.code} label={match.awayTeam.name} />
               <div className="absolute inset-0 bg-gradient-to-l from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
             </>

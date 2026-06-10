@@ -13,8 +13,10 @@
 // (see lib/teamFlagCode.ts) including UK constituent nations
 // (England → GB-ENG, Scotland → GB-SCT).
 
+import { useState } from 'react';
 import type { SVGProps } from 'react';
 import { getFlagIconCode } from '@/lib/teamFlagCode';
+import { getLocalFlagUrl } from '@/lib/flagAssets';
 
 // 48 WC2026 qualifiers + a few legacy codes. Each import resolves to a
 // React component for that flag's SVG. Tree-shaking keeps the bundle
@@ -155,5 +157,45 @@ export const Flag = ({ code, className = 'w-5', label, cover = false }: FlagProp
       // so the SVG doesn't visually float when set against a coloured bg.
       className={`inline-block rounded-[2px] ${className}`}
     />
+  );
+};
+
+/**
+ * Match-card background flag: the detailed self-hosted PNG layered over
+ * the bundled SVG. The SVG paints instantly (it's in the JS bundle) and
+ * the PNG — same artwork the cards had in the flagcdn era, now served
+ * from our own origin — replaces it seamlessly once streamed. If the
+ * PNG somehow fails (or the code has no PNG), the SVG simply stays.
+ * Both layers carry the same opacity so the swap is invisible.
+ */
+export const CardFlagBackground = ({
+  code,
+  label,
+}: {
+  code: string | null | undefined;
+  label?: string;
+}) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const url = code ? getLocalFlagUrl(code) : null;
+
+  return (
+    <>
+      <Flag
+        code={code}
+        label={label}
+        cover
+        className="absolute inset-0 w-full h-full opacity-60"
+      />
+      {url && !imgFailed && (
+        <img
+          src={url}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          onError={() => setImgFailed(true)}
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-60"
+        />
+      )}
+    </>
   );
 };
