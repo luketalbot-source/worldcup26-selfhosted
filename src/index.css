@@ -96,6 +96,20 @@
     @apply border-border;
   }
 
+  /*
+    Kill horizontal scroll at the document root. Any descendant that
+    sneaks a few pixels past the viewport edge (e.g. the score-prediction
+    card at 360px CSS width on Honeywell EDA52 kiosks) would otherwise
+    let the whole page pan sideways — reported in production on Tedi
+    managed-store devices. overscroll-behavior-x prevents the side-pan
+    on Chrome Android from registering as a swipe gesture either.
+  */
+  html,
+  body {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Outfit', sans-serif;
