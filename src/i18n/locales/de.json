@@ -184,7 +184,11 @@
       "updateInGameName": "Aktualisiere deinen Spielernamen",
       "cancel": "Abbrechen",
       "save": "Speichern"
-    }
+    },
+    "loadErrorTitle": "Profil konnte nicht geladen werden",
+    "loadErrorSubtitle": "Deine Sitzung ist möglicherweise abgelaufen",
+    "retry": "Erneut versuchen",
+    "reLogin": "Erneut anmelden"
   },
   "language": {
     "label": "Sprache",

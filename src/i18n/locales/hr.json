@@ -146,7 +146,11 @@
       "save": "Spremi",
       "change": "Promijeni",
       "add": "Dodaj"
-    }
+    },
+    "loadErrorTitle": "Profil se nije mogao učitati",
+    "loadErrorSubtitle": "Vaša je sesija možda istekla",
+    "retry": "Pokušaj ponovno",
+    "reLogin": "Prijavi se ponovno"
   },
   "language": {
     "label": "Jezik",

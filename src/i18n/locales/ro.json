@@ -146,7 +146,11 @@
       "save": "Salvează",
       "change": "Modifică",
       "add": "Adaugă"
-    }
+    },
+    "loadErrorTitle": "Profilul nu a putut fi încărcat",
+    "loadErrorSubtitle": "Este posibil ca sesiunea să fi expirat",
+    "retry": "Încearcă din nou",
+    "reLogin": "Conectează-te din nou"
   },
   "language": {
     "label": "Limbă",

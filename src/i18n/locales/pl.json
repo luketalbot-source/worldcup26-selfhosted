@@ -146,7 +146,11 @@
       "save": "Zapisz",
       "change": "Zmień",
       "add": "Dodaj"
-    }
+    },
+    "loadErrorTitle": "Nie udało się wczytać profilu",
+    "loadErrorSubtitle": "Twoja sesja mogła wygasnąć",
+    "retry": "Spróbuj ponownie",
+    "reLogin": "Zaloguj się ponownie"
   },
   "language": {
     "label": "Język",

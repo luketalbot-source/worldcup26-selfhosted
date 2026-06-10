@@ -45,7 +45,10 @@ const LeaderboardRow = ({ entry, isCurrentUser, index, skipAnimation }: Leaderbo
       <div className="text-2xl">{entry.avatarEmoji}</div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-foreground truncate">
-          {entry.displayName}
+          {/* translate="no": names must survive browser auto-translate —
+              Chrome once rendered the placeholder "Tipper" as "Kipper"
+              and a customer filed it as a wrong-name bug. */}
+          <span translate="no">{entry.displayName}</span>
           {isCurrentUser && (
             <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
           )}
@@ -286,7 +289,7 @@ export const LeaderboardView = () => {
               <div className="text-2xl">{currentUserEntry.avatarEmoji}</div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-foreground truncate">
-                  {currentUserEntry.displayName}
+                  <span translate="no">{currentUserEntry.displayName}</span>
                   <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
                 </p>
                 <p className="text-sm text-muted-foreground">

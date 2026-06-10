@@ -34,6 +34,22 @@ const resources = {
   ro: { translation: ro },
 };
 
+// Keep <html lang> in sync with the active locale. index.html ships a
+// static lang="en", which made Chrome on Android treat fully-German
+// pages as English and AUTO-TRANSLATE them — turning the German
+// placeholder "Tipper" into "Kipper" (tipper truck) on a customer's
+// phone, who then reported a wrong-name bug (SCHÄFER Werke, June 2026).
+// Declaring the real language stops the auto-translate prompt for
+// matching-language users entirely. Listeners attached before init so
+// the 'initialized' event is not missed.
+const syncHtmlLang = (lng: string | undefined) => {
+  if (typeof document !== 'undefined' && lng) {
+    document.documentElement.lang = lng;
+  }
+};
+i18n.on('initialized', () => syncHtmlLang(i18n.resolvedLanguage ?? i18n.language));
+i18n.on('languageChanged', (lng) => syncHtmlLang(lng));
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)

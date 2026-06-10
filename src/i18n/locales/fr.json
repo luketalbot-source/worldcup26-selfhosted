@@ -184,7 +184,11 @@
       "updateInGameName": "Mettez à jour votre nom de joueur",
       "cancel": "Annuler",
       "save": "Enregistrer"
-    }
+    },
+    "loadErrorTitle": "Impossible de charger votre profil",
+    "loadErrorSubtitle": "Votre session a peut-être expiré",
+    "retry": "Réessayer",
+    "reLogin": "Se reconnecter"
   },
   "language": {
     "label": "Langue",

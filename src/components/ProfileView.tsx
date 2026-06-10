@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { User, Target, CheckCircle, XCircle, TrendingUp, LogIn, Zap, Globe, Moon, Sun, Monitor, Rocket } from 'lucide-react';
+import { User, Target, CheckCircle, XCircle, TrendingUp, LogIn, Zap, Globe, Moon, Sun, Monitor, Rocket, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +7,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserStats } from '@/hooks/useUserStats';
 import { useFlipBridge } from '@/hooks/useFlipBridge';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { languages } from '@/lib/constants';
 import {
@@ -23,7 +23,8 @@ export const ProfileView = () => {
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
   const { tenantId } = useTenant();
-  const { profile, updateAvatar } = useProfile(user?.id);
+  const { tenantUid } = useParams();
+  const { profile, loading: profileLoading, error: profileError, refetch, updateAvatar } = useProfile(user?.id);
   const { stats } = useUserStats(user?.id, tenantId);
   const navigate = useNavigate();
   const { isEmbedded, diag, bridgeReady } = useFlipBridge();
@@ -33,6 +34,12 @@ export const ProfileView = () => {
   // picking one fires the PATCH immediately and optimistically updates.
   const handleEmojiChange = (emoji: string) => {
     void updateAvatar(emoji);
+  };
+
+  // Where a fresh login should go: tenant SSO when inside a tenant,
+  // plain username auth otherwise.
+  const reAuth = () => {
+    navigate(tenantUid ? `/t/${tenantUid}/auth` : '/auth');
   };
 
   if (!user) {
@@ -68,6 +75,72 @@ export const ProfileView = () => {
     );
   }
 
+  // Profile fetch still in flight — show a skeleton, NOT the placeholder
+  // name. The old code rendered `displayName || t('profile.predictor')`
+  // immediately, which (a) flashed a fake-looking name and (b) on a
+  // translated page got mangled into an actual-looking name ("Tipper" →
+  // "Kipper" via Chrome auto-translate, reported by SCHÄFER Werke).
+  if (profileLoading && !profile) {
+    return (
+      <div className="space-y-4 max-w-[700px] mx-auto">
+        <div className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden">
+          <div className="gradient-navy px-4 py-8 flex flex-col items-center gap-3">
+            <div className="w-20 h-20 rounded-full bg-white/10 animate-pulse" />
+            <div className="h-5 w-40 rounded bg-white/10 animate-pulse" />
+          </div>
+          <div className="p-4 grid grid-cols-2 gap-4">
+            <div className="bg-muted rounded-xl h-24 animate-pulse" />
+            <div className="bg-muted rounded-xl h-24 animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Profile failed to load — the session is stale or the API hiccuped.
+  // Render an explicit recovery card instead of a hollow logged-in shell
+  // with placeholder name + zeroed stats (users read that as "the app
+  // lost my data / shows the wrong person").
+  if (profileError && !profile) {
+    return (
+      <div className="space-y-4 max-w-[700px] mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+        >
+          <div className="gradient-navy px-4 py-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center mx-auto mb-3">
+              <User className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-xl font-bold text-white">{t('profile.loadErrorTitle')}</h2>
+            <p className="text-white/70 text-sm mt-1">{t('profile.loadErrorSubtitle')}</p>
+          </div>
+          <div className="p-6 text-center space-y-3">
+            {profileError === 'failed' && (
+              <button
+                onClick={() => void refetch()}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-muted text-foreground font-semibold"
+              >
+                <RefreshCw className="w-5 h-5" />
+                {t('profile.retry')}
+              </button>
+            )}
+            <div>
+              <button
+                onClick={reAuth}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-accent-foreground font-semibold"
+              >
+                <LogIn className="w-5 h-5" />
+                {t('profile.reLogin')}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 max-w-[700px] mx-auto">
       {/* Profile Header */}
@@ -85,7 +158,11 @@ export const ProfileView = () => {
                 onChange={handleEmojiChange}
               />
             </div>
-            <h2 className="text-xl font-bold text-white">
+            {/* translate="no": user names must never be machine-translated.
+                Chrome auto-translate once turned the German placeholder
+                "Tipper" into "Kipper" and a customer reported it as a
+                wrong-name bug. Real names are equally at risk. */}
+            <h2 className="text-xl font-bold text-white" translate="no">
               {profile?.displayName || t('profile.predictor')}
             </h2>
           </div>

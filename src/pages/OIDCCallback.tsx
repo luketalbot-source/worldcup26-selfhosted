@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Loader2, ArrowLeft, Info, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { api } from '@/lib/apiClient';
+import { api, ApiError } from '@/lib/apiClient';
 import { setAccessToken } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 
@@ -98,7 +98,15 @@ const OIDCCallback = () => {
       // Success - redirect to tenant app
       navigate(`/t/${tenantUid}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      // Surface the HTTP status alongside the message — support keeps
+      // getting "Sign In Failed" screenshots with no further detail, and
+      // the status is what distinguishes "our API was mid-deploy (502/
+      // 504)" from "the IdP rejected the exchange (400/401)".
+      if (err instanceof ApiError && !err.message.includes(String(err.status))) {
+        setError(`${err.message} (HTTP ${err.status})`);
+      } else {
+        setError(err instanceof Error ? err.message : 'Authentication failed');
+      }
       setStep('error');
     }
   };

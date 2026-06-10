@@ -184,7 +184,11 @@
       "updateInGameName": "Actualiza tu nombre en el juego",
       "cancel": "Cancelar",
       "save": "Guardar"
-    }
+    },
+    "loadErrorTitle": "No se pudo cargar tu perfil",
+    "loadErrorSubtitle": "Es posible que tu sesión haya caducado",
+    "retry": "Reintentar",
+    "reLogin": "Iniciar sesión de nuevo"
   },
   "language": {
     "label": "Idioma",

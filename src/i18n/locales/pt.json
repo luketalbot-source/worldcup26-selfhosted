@@ -184,7 +184,11 @@
       "updateInGameName": "Atualize seu nome no jogo",
       "cancel": "Cancelar",
       "save": "Salvar"
-    }
+    },
+    "loadErrorTitle": "Não foi possível carregar o seu perfil",
+    "loadErrorSubtitle": "A sua sessão pode ter expirado",
+    "retry": "Tentar novamente",
+    "reLogin": "Iniciar sessão novamente"
   },
   "language": {
     "label": "Idioma",

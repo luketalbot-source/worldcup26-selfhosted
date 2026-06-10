@@ -115,8 +115,13 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => null) as { error?: string } | null;
+    // statusText is the EMPTY STRING over HTTP/2 (no reason phrases), so
+    // `body?.error ?? res.statusText` produced blank error messages for
+    // any non-JSON failure — e.g. an Envoy 502/504 HTML page during an
+    // API deploy. Users then saw "Sign In Failed" with no reason at all
+    // (Südpack, June 2026). Always fall back to the numeric status.
     throw new ApiError(
-      body?.error ?? res.statusText ?? 'Request failed',
+      body?.error || res.statusText || `HTTP ${res.status}`,
       res.status,
       body,
     );

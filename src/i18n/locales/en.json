@@ -147,7 +147,11 @@
       "save": "Save",
       "change": "Change",
       "add": "Add"
-    }
+    },
+    "loadErrorTitle": "Couldn't load your profile",
+    "loadErrorSubtitle": "Your session may have expired",
+    "retry": "Try again",
+    "reLogin": "Log in again"
   },
   "language": {
     "label": "Language",

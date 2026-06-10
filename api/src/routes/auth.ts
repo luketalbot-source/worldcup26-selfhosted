@@ -580,15 +580,26 @@ router.post(
       tokenParams.set("code_verifier", code_verifier);
     }
 
-    const tryTokenExchange = async (useBasic: boolean): Promise<Response> => {
+    // PUBLIC clients (no secret stored — e.g. Flip TC "External
+    // Integration" clients, which are PKCE-only) must authenticate with
+    // client_id in the body and NOTHING else (RFC 6749 §2.1 + §4.1.3).
+    // We used to interpolate the missing secret anyway, sending the
+    // literal string "null" — Keycloak ignores it for public clients,
+    // but stricter IdPs reject the exchange with invalid_client.
+    const hasSecret =
+      typeof config.client_secret === "string" && config.client_secret.length > 0;
+
+    const tryTokenExchange = async (
+      auth: "none" | "post" | "basic"
+    ): Promise<Response> => {
       const headers: Record<string, string> = {
         "Content-Type": "application/x-www-form-urlencoded",
       };
       const params = new URLSearchParams(tokenParams);
-      if (useBasic) {
+      if (auth === "basic") {
         headers["Authorization"] =
           "Basic " + btoa(`${config.client_id}:${config.client_secret}`);
-      } else {
+      } else if (auth === "post") {
         params.set("client_secret", config.client_secret);
       }
       return fetch(config.token_endpoint, {
@@ -598,32 +609,60 @@ router.post(
       });
     };
 
-    let tokenRes = await tryTokenExchange(false);
-    if (!tokenRes.ok) {
-      const firstErrText = await tokenRes.text();
-      console.warn(
-        `[oidc] client_secret_post failed (${tokenRes.status}): ${firstErrText}. Retrying with client_secret_basic.`
-      );
-      tokenRes = await tryTokenExchange(true);
+    let tokenRes: Response;
+    if (!hasSecret) {
+      tokenRes = await tryTokenExchange("none");
       if (!tokenRes.ok) {
-        const secondErrText = await tokenRes.text();
+        const errText = await tokenRes.text();
         console.error(
-          `[oidc] client_secret_basic also failed (${tokenRes.status}): ${secondErrText}`
+          `[oidc] public-client token exchange failed (${tokenRes.status}): ${errText}`
         );
-        // Return the IdP's own message so the admin can see what went wrong.
-        let idpMsg = secondErrText;
+        let idpMsg = errText;
         try {
-          const parsed = JSON.parse(secondErrText);
-          idpMsg = parsed.error_description || parsed.error || secondErrText;
+          const parsed = JSON.parse(errText);
+          idpMsg = parsed.error_description || parsed.error || errText;
         } catch { /* not JSON */ }
-        return c.json(
-          { error: `Token exchange failed: ${idpMsg}` },
-          400
+        return c.json({ error: `Token exchange failed: ${idpMsg}` }, 400);
+      }
+    } else {
+      tokenRes = await tryTokenExchange("post");
+      if (!tokenRes.ok) {
+        const firstErrText = await tokenRes.text();
+        console.warn(
+          `[oidc] client_secret_post failed (${tokenRes.status}): ${firstErrText}. Retrying with client_secret_basic.`
         );
+        tokenRes = await tryTokenExchange("basic");
+        if (!tokenRes.ok) {
+          const secondErrText = await tokenRes.text();
+          console.error(
+            `[oidc] client_secret_basic also failed (${tokenRes.status}): ${secondErrText}`
+          );
+          // Return the IdP's own message so the admin can see what went wrong.
+          let idpMsg = secondErrText;
+          try {
+            const parsed = JSON.parse(secondErrText);
+            idpMsg = parsed.error_description || parsed.error || secondErrText;
+          } catch { /* not JSON */ }
+          return c.json(
+            { error: `Token exchange failed: ${idpMsg}` },
+            400
+          );
+        }
       }
     }
 
-    const tokenData = (await tokenRes.json()) as { access_token: string; id_token?: string };
+    const tokenData = (await tokenRes.json().catch(() => null)) as
+      | { access_token?: string; id_token?: string }
+      | null;
+    if (!tokenData?.access_token) {
+      // A 200 without an access_token is a malformed IdP response; this
+      // used to fall through and crash on the userinfo call → opaque 500
+      // with a blank "Sign In Failed" on the client.
+      console.error(
+        `[oidc] token response missing access_token: ${JSON.stringify(tokenData)?.slice(0, 300)}`
+      );
+      return c.json({ error: "Token exchange returned no access token" }, 400);
+    }
 
     // Get user info
     const userInfoRes = await fetch(config.userinfo_endpoint, {
@@ -637,7 +676,21 @@ router.post(
     }
     const userInfo = (await userInfoRes.json()) as OidcUserInfo;
 
-    const { user, needsConsent } = await upsertOidcUser(userInfo, tenant_id, config.consent_required ?? false);
+    // User creation can fail on DB constraints or surprise claim shapes
+    // (e.g. missing `sub`). Without the catch, that surfaced as Hono's
+    // plain-text 500 → blank "Sign In Failed" on the client with nothing
+    // in our logs to find it by.
+    let user: { id: string; email: string; role: string };
+    let needsConsent: boolean;
+    try {
+      ({ user, needsConsent } = await upsertOidcUser(userInfo, tenant_id, config.consent_required ?? false));
+    } catch (err) {
+      console.error(
+        `[oidc] upsert failed for sub=${userInfo?.sub ?? "(none)"} tenant=${tenant_id}:`,
+        err
+      );
+      return c.json({ error: "Failed to create or update user account" }, 500);
+    }
 
     const accessToken = await signAccessToken({ sub: user.id, email: user.email, role: user.role });
     const refreshToken = await signRefreshToken(user.id);
@@ -786,6 +839,12 @@ async function upsertOidcUser(
   // Updates both users.display_name (source of truth) and profiles.display_name
   // (what the UI reads). Only writes if the derived name actually differs, so
   // we don't churn updated_at on every sign-in.
+  //
+  // The profiles write is a true UPSERT: the row is normally created by
+  // the users-insert trigger chain, but if that ever failed (or the row
+  // was deleted), the old UPDATE-only version silently did nothing and
+  // the user was stuck with no profile — /profiles/me returned empty on
+  // every login with no self-heal path.
   if (displayName) {
     await sql`
       UPDATE public.users
@@ -794,11 +853,12 @@ async function upsertOidcUser(
          AND (display_name IS DISTINCT FROM ${displayName})
     `;
     await sql`
-      UPDATE public.profiles
-         SET display_name = ${displayName},
-             updated_at   = NOW()
-       WHERE user_id = ${userId}
-         AND (display_name IS DISTINCT FROM ${displayName})
+      INSERT INTO public.profiles (user_id, display_name, tenant_id)
+      VALUES (${userId}, ${displayName}, ${tenantId})
+      ON CONFLICT (user_id) DO UPDATE
+        SET display_name = EXCLUDED.display_name,
+            updated_at   = NOW()
+      WHERE public.profiles.display_name IS DISTINCT FROM EXCLUDED.display_name
     `;
   }
 

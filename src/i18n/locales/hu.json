@@ -146,7 +146,11 @@
       "save": "Mentés",
       "change": "Módosítás",
       "add": "Hozzáadás"
-    }
+    },
+    "loadErrorTitle": "A profil betöltése nem sikerült",
+    "loadErrorSubtitle": "A munkameneted lejárhatott",
+    "retry": "Próbáld újra",
+    "reLogin": "Jelentkezz be újra"
   },
   "language": {
     "label": "Nyelv",

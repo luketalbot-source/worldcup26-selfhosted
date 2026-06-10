@@ -146,7 +146,11 @@
       "save": "Shrani",
       "change": "Spremeni",
       "add": "Dodaj"
-    }
+    },
+    "loadErrorTitle": "Profila ni bilo mogoče naložiti",
+    "loadErrorSubtitle": "Vaša seja je morda potekla",
+    "retry": "Poskusi znova",
+    "reLogin": "Ponovna prijava"
   },
   "language": {
     "label": "Jezik",

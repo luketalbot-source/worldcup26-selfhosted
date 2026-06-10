@@ -146,7 +146,11 @@
       "save": "Uložiť",
       "change": "Zmeniť",
       "add": "Pridať"
-    }
+    },
+    "loadErrorTitle": "Profil sa nepodarilo načítať",
+    "loadErrorSubtitle": "Vaša relácia možno vypršala",
+    "retry": "Skúsiť znova",
+    "reLogin": "Prihlásiť sa znova"
   },
   "language": {
     "label": "Jazyk",
