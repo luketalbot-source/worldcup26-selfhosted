@@ -1,20 +1,13 @@
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/apiClient';
+import { useEffect, useRef, useState } from 'react';
+import { cachedGet } from '@/lib/requestCache';
 import { calculateUserStats, UserStats } from '@/lib/scoringCalculator';
 import { groupStageMatches } from '@/data/matches';
-import { useTenant } from '@/contexts/TenantContext';
+import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 
 interface ApiPrediction {
   match_id: string;
   home_score: number;
   away_score: number;
-}
-
-interface ApiLiveMatch {
-  match_id: string;
-  home_score: number | null;
-  away_score: number | null;
-  status: string;
 }
 
 interface ApiBoostAward {
@@ -64,32 +57,44 @@ const defaultStats: UserStats = {
   accuracy: 0,
 };
 
+// These endpoints are also fetched by usePredictions / useBoostAwards /
+// useCustomBoostAwards when their views mount; the shared cache means a
+// Profile visit reuses those responses instead of re-hitting all of them.
+const STATS_TTL_MS = 30_000;
+
 export const useUserStats = (userId: string | undefined, tenantId?: string | null) => {
   const [stats, setStats] = useState<UserStats>(defaultStats);
   const [loading, setLoading] = useState(true);
 
+  // Matches come from LiveMatchesContext (already fetched once per tab and
+  // kept fresh over SSE) — no GET /matches of our own. Read through a ref
+  // so SSE updates don't re-trigger the fetch effect below.
+  const { matches, loading: matchesLoading } = useLiveMatchesContext();
+  const matchesRef = useRef(matches);
+  matchesRef.current = matches;
+
   useEffect(() => {
+    if (matchesLoading) return; // wait for the context's initial load
     if (userId) {
       fetchStats(userId);
     } else {
       setStats(defaultStats);
       setLoading(false);
     }
-  }, [userId, tenantId]);
+  }, [userId, tenantId, matchesLoading]);
 
-  const fetchStats = async (uid: string) => {
+  const fetchStats = async (uid: string, force = false) => {
     setLoading(true);
 
     const tenantParam: Record<string, string | undefined> = tenantId
       ? { tenant_id: tenantId }
       : {};
 
-    // The apiClient now throws on error and returns T directly (no
-    // {data, error} wrapper). This hook predates that refactor and was
-    // reading .data on raw arrays — meaning predictions/awards always
-    // came back as `undefined` and totalPredictions stuck at 0.
+    const finishedMatches = matchesRef.current.filter((m) =>
+      ['FINISHED', 'FT', 'AET', 'PEN'].includes(m.status)
+    );
+
     let predictions: ApiPrediction[] = [];
-    let finishedMatches: ApiLiveMatch[] = [];
     let awards: ApiBoostAward[] = [];
     let boostPredictions: ApiBoostPrediction[] = [];
     let boostResults: ApiBoostResult[] = [];
@@ -100,7 +105,6 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
     try {
       const [
         predictionsResp,
-        matchesResp,
         awardsResp,
         boostPredictionsResp,
         boostResultsResp,
@@ -108,20 +112,16 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
         customPredictionsResp,
         customResultsResp,
       ] = await Promise.all([
-        api.get<ApiPrediction[]>('/predictions', tenantParam),
-        api.get<ApiLiveMatch[]>('/matches'),
-        api.get<ApiBoostAward[]>('/boosts/awards'),
-        api.get<ApiBoostPrediction[]>('/boosts/predictions', tenantParam),
-        api.get<ApiBoostResult[]>('/boosts/results'),
-        api.get<ApiCustomBoostAward[]>('/custom-boosts', tenantParam),
-        api.get<ApiCustomBoostPrediction[]>('/custom-boosts/predictions', tenantParam),
-        api.get<ApiCustomBoostResult[]>('/custom-boosts/results', tenantParam),
+        cachedGet<ApiPrediction[]>('/predictions', { params: tenantParam, ttlMs: STATS_TTL_MS, force }),
+        cachedGet<ApiBoostAward[]>('/boosts/awards', { ttlMs: STATS_TTL_MS, force }),
+        cachedGet<ApiBoostPrediction[]>('/boosts/predictions', { params: tenantParam, ttlMs: STATS_TTL_MS, force }),
+        cachedGet<ApiBoostResult[]>('/boosts/results', { ttlMs: STATS_TTL_MS, force }),
+        cachedGet<ApiCustomBoostAward[]>('/custom-boosts', { params: tenantParam, ttlMs: STATS_TTL_MS, force }),
+        cachedGet<ApiCustomBoostPrediction[]>('/custom-boosts/predictions', { params: tenantParam, ttlMs: STATS_TTL_MS, force }),
+        cachedGet<ApiCustomBoostResult[]>('/custom-boosts/results', { params: tenantParam, ttlMs: STATS_TTL_MS, force }),
       ]);
 
       predictions = predictionsResp ?? [];
-      finishedMatches = (matchesResp ?? []).filter((m) =>
-        ['FINISHED', 'FT', 'AET', 'PEN'].includes(m.status)
-      );
       awards = awardsResp ?? [];
       boostPredictions = boostPredictionsResp ?? [];
       boostResults = boostResultsResp ?? [];
@@ -176,7 +176,7 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
     // Create a map of finished matches
     const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
 
-    // Add matches from API
+    // Add matches from the live-matches context
     finishedMatches.forEach(match => {
       matchResults.set(match.match_id, {
         home_score: match.home_score,
@@ -202,7 +202,7 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
 
   const refetch = () => {
     if (userId) {
-      fetchStats(userId);
+      fetchStats(userId, true);
     }
   };
 
