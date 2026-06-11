@@ -44,21 +44,39 @@ export function getVenueTimezone(venue: string | null | undefined): string | nul
 }
 
 /**
- * Is this kickoff "today" from the venue's point of view? Computes both
- * the kickoff date and the current date in the venue's timezone and
- * compares the calendar days. Falls back to the user's local calendar
- * day when the venue is unknown (TBD fixtures, future venues FD hasn't
- * named yet) — same behaviour the app had before venue-day grouping.
+ * Signed difference in calendar days between the kickoff and "now",
+ * both evaluated in the VENUE's timezone: 0 = today at the venue,
+ * -1 = yesterday, +1 = tomorrow, etc. Falls back to the user's local
+ * calendar when the venue is unknown (TBD fixtures, venues FD hasn't
+ * named yet). Returns null for unparseable dates.
+ *
+ * Powers the Today tab's day filters (Past / Yesterday / Today /
+ * Tomorrow / Future) — all of them venue-day semantics so they match
+ * the official matchday schedule rather than the user's clock.
+ */
+export function venueDayOffset(
+  matchDateIso: string,
+  venue: string | null | undefined,
+  now: Date = new Date(),
+): number | null {
+  const kickoff = new Date(matchDateIso);
+  if (Number.isNaN(kickoff.getTime())) return null;
+  const tz = getVenueTimezone(venue);
+  // en-CA renders YYYY-MM-DD; parsing those back as UTC midnights makes
+  // the subtraction a pure calendar-day difference, immune to DST.
+  const opts = tz ? ({ timeZone: tz } as const) : undefined;
+  const kickoffDay = Date.parse(`${kickoff.toLocaleDateString('en-CA', opts)}T00:00:00Z`);
+  const nowDay = Date.parse(`${now.toLocaleDateString('en-CA', opts)}T00:00:00Z`);
+  return Math.round((kickoffDay - nowDay) / 86_400_000);
+}
+
+/**
+ * Is this kickoff "today" from the venue's point of view?
  */
 export function isMatchToday(
   matchDateIso: string,
   venue: string | null | undefined,
   now: Date = new Date(),
 ): boolean {
-  const tz = getVenueTimezone(venue);
-  const kickoff = new Date(matchDateIso);
-  if (Number.isNaN(kickoff.getTime())) return false;
-  // en-CA renders YYYY-MM-DD, making string equality a date comparison.
-  const opts = tz ? ({ timeZone: tz } as const) : undefined;
-  return kickoff.toLocaleDateString('en-CA', opts) === now.toLocaleDateString('en-CA', opts);
+  return venueDayOffset(matchDateIso, venue, now) === 0;
 }

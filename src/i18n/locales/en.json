@@ -35,7 +35,21 @@
   "matches": {
     "noMatchesToday": "No matches scheduled for today",
     "loginPrompt": "Log in to save your predictions!",
-    "group": "Group {{letter}}"
+    "group": "Group {{letter}}",
+    "dayFilter": {
+      "past": "Past",
+      "yesterday": "Yesterday",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "future": "Future"
+    },
+    "noMatchesFor": {
+      "past": "No past matches yet",
+      "yesterday": "No matches were played yesterday",
+      "today": "No matches scheduled for today",
+      "tomorrow": "No matches scheduled for tomorrow",
+      "future": "No further matches scheduled yet"
+    }
   },
   "matchCard": {
     "live": "LIVE",

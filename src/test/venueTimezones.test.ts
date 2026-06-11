@@ -3,7 +3,7 @@
 // USER's calendar day. These tests pin the venue-day semantics with a
 // fixed "now" so they're independent of the machine's timezone.
 import { describe, it, expect } from "vitest";
-import { getVenueTimezone, isMatchToday } from "@/lib/venueTimezones";
+import { getVenueTimezone, isMatchToday, venueDayOffset } from "@/lib/venueTimezones";
 
 describe("getVenueTimezone", () => {
   it("maps prod venue strings (including FD's short forms)", () => {
@@ -59,5 +59,27 @@ describe("isMatchToday (venue-day semantics)", () => {
 
   it("rejects invalid dates", () => {
     expect(isMatchToday("not-a-date", "MetLife Stadium", eveningJun13Germany)).toBe(false);
+  });
+});
+
+describe("venueDayOffset (drives the Past/Yesterday/Today/Tomorrow/Future pills)", () => {
+  // Fixed clock: 19:00 UTC June 13 = 15:00 ET June 13 at MetLife.
+  const now = new Date("2026-06-13T19:00:00Z");
+
+  it("computes signed venue-day offsets across the windows", () => {
+    // 20:00 ET June 11 → two venue-days ago → Past window
+    expect(venueDayOffset("2026-06-12T00:00:00Z", "MetLife Stadium", now)).toBe(-2);
+    // 20:00 ET June 12 → Yesterday
+    expect(venueDayOffset("2026-06-13T00:00:00Z", "MetLife Stadium", now)).toBe(-1);
+    // 20:00 ET June 13 → Today (despite being June 14 in user-UTC terms)
+    expect(venueDayOffset("2026-06-14T00:00:00Z", "MetLife Stadium", now)).toBe(0);
+    // 16:00 ET June 14 → Tomorrow
+    expect(venueDayOffset("2026-06-14T20:00:00Z", "MetLife Stadium", now)).toBe(1);
+    // 16:00 ET June 15 → +2 venue-days → Future window
+    expect(venueDayOffset("2026-06-15T20:00:00Z", "MetLife Stadium", now)).toBe(2);
+  });
+
+  it("returns null for invalid dates", () => {
+    expect(venueDayOffset("garbage", "MetLife Stadium", now)).toBeNull();
   });
 });

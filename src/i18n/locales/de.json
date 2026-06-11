@@ -92,7 +92,21 @@
   "matches": {
     "noMatchesToday": "Heute keine Spiele geplant",
     "loginPrompt": "Melde dich an, um deine Tipps zu speichern!",
-    "group": "Gruppe {{letter}}"
+    "group": "Gruppe {{letter}}",
+    "dayFilter": {
+      "past": "Vergangene",
+      "yesterday": "Gestern",
+      "today": "Heute",
+      "tomorrow": "Morgen",
+      "future": "Kommende"
+    },
+    "noMatchesFor": {
+      "past": "Noch keine vergangenen Spiele",
+      "yesterday": "Gestern fanden keine Spiele statt",
+      "today": "Heute sind keine Spiele angesetzt",
+      "tomorrow": "Morgen sind keine Spiele angesetzt",
+      "future": "Keine weiteren Spiele angesetzt"
+    }
   },
   "matchCard": {
     "live": "LIVE",

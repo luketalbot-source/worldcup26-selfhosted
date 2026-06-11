@@ -9,7 +9,7 @@ import { KnockoutView, knockoutStages, type KnockoutStage } from './KnockoutView
 import { SyncButton } from './SyncButton';
 import { GroupStandings } from './GroupStandings';
 import { usePredictions, Prediction } from '@/hooks/usePredictions';
-import { useLiveMatches } from '@/hooks/useLiveMatches';
+import { useLiveMatches, type MatchDayFilter } from '@/hooks/useLiveMatches';
 import { useTeams } from '@/hooks/useTeams';
 import { useGroupFixtures } from '@/hooks/useGroupFixtures';
 import { useAuth } from '@/contexts/AuthContext';
@@ -89,6 +89,10 @@ const calculateStandings = (group: string, matches: Match[], teams: Team[]): Gro
   });
 };
 const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+// Day-window pills shown on the Today tab, BBC-fixtures style. Order is
+// chronological left→right; 'today' is the default selection. The tab
+// itself keeps its "Today" label — these just widen what it can show.
+const dayFilters: MatchDayFilter[] = ['past', 'yesterday', 'today', 'tomorrow', 'future'];
 export const MatchesView = () => {
   const {
     t
@@ -97,6 +101,7 @@ export const MatchesView = () => {
   const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('groups');
   const [activeGroup, setActiveGroup] = useState('A');
   const [activeKnockoutStage, setActiveKnockoutStage] = useState<KnockoutStage>('round32');
+  const [activeDayFilter, setActiveDayFilter] = useState<MatchDayFilter>('today');
   const {
     addPrediction,
     getPrediction,
@@ -119,7 +124,10 @@ export const MatchesView = () => {
   // Group-stage fixtures come from the API (populated by sync-matches) so the
   // Group X test data is gone and the full 48-team roster is live.
   const matches = getMatchesByGroup(activeGroup);
+  // The StageSelector badge always shows TODAY's count, independent of
+  // which day-window pill is selected below it.
   const todayMatches = getTodayMatches();
+  const dayFilterMatches = activeDayFilter === 'today' ? todayMatches : getTodayMatches(activeDayFilter);
 
   // Kick off a fixture refetch after a successful admin sync so the UI
   // reflects what the backend just pulled from football-data.org.
@@ -193,17 +201,30 @@ export const MatchesView = () => {
   }
   if (activeStage === 'today') {
     return <div className="space-y-4 max-w-[700px] mx-auto">
-        {/* Sticky header - only stage selector */}
+        {/* Sticky header - stage selector + day-window pills */}
         <div className="sticky top-0 bg-background z-50 pb-2 -mx-4 px-4 pt-2">
-          <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+          <div className="space-y-3">
+            <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
+            {/* Day filters, BBC-fixtures style. Same pill styling as the
+                group / knockout-stage tabs for visual consistency. */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {dayFilters.map(filter => <motion.button key={filter} whileHover={{
+                scale: 1.05
+              }} whileTap={{
+                scale: 0.95
+              }} onClick={() => setActiveDayFilter(filter)} className={`relative px-4 py-2 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${activeDayFilter === filter ? 'bg-fifa-coral text-white shadow-md' : 'bg-card text-muted-foreground hover:bg-muted'}`}>
+                  {t(`matches.dayFilter.${filter}`)}
+                </motion.button>)}
+            </div>
+          </div>
         </div>
-        
+
         {/* Non-sticky sync button */}
         <SyncButton onSync={() => handleSyncAndRefresh()} syncing={syncing} lastSync={lastSync} canSync={canSync()} cooldownRemaining={cooldownRemaining} />
-        
+
         {renderLoginPrompt()}
-        
-        {todayMatches.length === 0 ? <div className="text-center py-12 space-y-4">
+
+        {dayFilterMatches.length === 0 ? <div className="text-center py-12 space-y-4">
             {/* Two real assets — dark-on-black for dark mode, light-on-white
                 for light mode — instead of relying on CSS invert. Slightly
                 more bytes (40KB total vs ~20KB) but the light version's
@@ -225,8 +246,8 @@ export const MatchesView = () => {
               decoding="async"
               className="w-full max-w-[400px] h-auto mx-auto rounded-2xl shadow-card hidden dark:block"
             />
-            <p className="text-muted-foreground">{t('matches.noMatchesToday')}</p>
-          </div> : <motion.div initial={{
+            <p className="text-muted-foreground">{t(`matches.noMatchesFor.${activeDayFilter}`)}</p>
+          </div> : <motion.div key={activeDayFilter} initial={{
         opacity: 0,
         x: 20
       }} animate={{
@@ -235,7 +256,7 @@ export const MatchesView = () => {
       }} transition={{
         duration: 0.3
       }} className="space-y-4">
-            {todayMatches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} showGroup />)}
+            {dayFilterMatches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} showGroup />)}
           </motion.div>}
       </div>;
   }

@@ -4,7 +4,20 @@ import { groupStageMatches } from '@/data/matches';
 import { getAllKnockoutMatches, KnockoutMatch } from '@/data/knockoutMatches';
 import { useTeams, tlaToFlag } from './useTeams';
 import { useLiveMatchesContext, type LiveMatch } from '@/contexts/LiveMatchesContext';
-import { isMatchToday } from '@/lib/venueTimezones';
+import { venueDayOffset } from '@/lib/venueTimezones';
+
+// Day filters for the Today tab (BBC-style): each is a window over the
+// venue-local day offset. 'today' is the default; 'past'/'future' are
+// open-ended catch-alls beyond the adjacent days.
+export type MatchDayFilter = 'past' | 'yesterday' | 'today' | 'tomorrow' | 'future';
+
+const DAY_FILTER_MATCHES: Record<MatchDayFilter, (offset: number) => boolean> = {
+  past: (o) => o <= -2,
+  yesterday: (o) => o === -1,
+  today: (o) => o === 0,
+  tomorrow: (o) => o === 1,
+  future: (o) => o >= 2,
+};
 
 // Thin wrapper around <LiveMatchesProvider>'s context. Keeps the public API
 // every existing call site already uses (getTodayMatches / getGroupMatches /
@@ -58,7 +71,7 @@ export const useLiveMatches = () => {
   // the static file's dates are all set to the actual tournament window
   // (June 2026), so it'd never include "today" outside the WC itself, and
   // would never reflect a freshly synced live match.
-  const getTodayMatches = useCallback((): Match[] => {
+  const getTodayMatches = useCallback((filter: MatchDayFilter = 'today'): Match[] => {
     const fallbackTeam = (code: string, name: string, group: string | null): Team => ({
       id: code.toLowerCase(),
       name,
@@ -69,8 +82,12 @@ export const useLiveMatches = () => {
       group: group ?? '',
     });
 
+    const inWindow = DAY_FILTER_MATCHES[filter];
     return liveMatches
-      .filter((row) => isMatchToday(row.match_date, row.venue))
+      .filter((row) => {
+        const offset = venueDayOffset(row.match_date, row.venue);
+        return offset !== null && inWindow(offset);
+      })
       .map((row) => {
         const status: Match['status'] =
           row.status === 'IN_PLAY' || row.status === 'PAUSED' || row.status === 'LIVE'
@@ -116,7 +133,12 @@ export const useLiveMatches = () => {
           goals: row.goals ?? [],
         };
       })
-      .sort((a, b) => new Date(a.dateIso!).getTime() - new Date(b.dateIso!).getTime());
+      .sort((a, b) => {
+        const diff = new Date(a.dateIso!).getTime() - new Date(b.dateIso!).getTime();
+        // Past reads newest-first (you're looking for last night's
+        // results); every forward-looking window reads oldest-first.
+        return filter === 'past' ? -diff : diff;
+      });
   }, [liveMatches, getTeamByCode]);
 
   const getGroupMatches = useCallback(
