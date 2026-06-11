@@ -118,14 +118,29 @@ router.patch(
   },
 );
 
+// 60s in-memory cache for the by-uid tenant resolve. It runs on EVERY
+// app mount, and its user_count subquery was seq-scanning 726K
+// prediction rows per call until idx_predictions_tenant_id landed
+// (2026-06-11, applied to prod + migration) — at matchday login-surge
+// rates that alone exhausted the DB pool and slowed the whole app.
+// Indexed it's ~5ms, but there's still no reason to run it thousands
+// of times a minute. Single API instance → module-level cache is safe;
+// 60s staleness on tenant branding/user-count is invisible.
+const tenantByUidCache = new Map<string, { body: unknown; expires: number }>();
+const TENANT_TTL_MS = 60_000;
+
 router.get("/by-uid/:uid", async (c) => {
   const uid = c.req.param("uid");
+  const cached = tenantByUidCache.get(uid);
+  if (cached && cached.expires > Date.now()) {
+    return c.json(cached.body as Record<string, unknown>);
+  }
   // Inline `user_count` via a correlated subquery so the tenant
   // resolve (called on every page mount) already carries the
   // headline number the LeaguesView shows next to "All players".
-  // One round-trip; existing indexes on the three source columns
-  // (oidc_identities.tenant_id, predictions.tenant_id, leagues
-  // .tenant_id) keep it cheap.
+  // One round-trip; indexes on the three source columns
+  // (oidc_identities tenant unique, idx_predictions_tenant_id,
+  // leagues.tenant_id) keep it cheap.
   //
   // Union of three sources because no single table is a complete
   // membership list:
@@ -158,7 +173,9 @@ router.get("/by-uid/:uid", async (c) => {
   `;
   if (rows.length === 0) return c.json({ error: "Tenant not found" }, 404);
   const row = rows[0]!;
-  return c.json({ ...row, user_count: Number(row.user_count) });
+  const body = { ...row, user_count: Number(row.user_count) };
+  tenantByUidCache.set(uid, { body, expires: Date.now() + TENANT_TTL_MS });
+  return c.json(body);
 });
 
 router.get("/:id/oidc-config", async (c) => {

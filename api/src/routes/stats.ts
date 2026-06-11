@@ -75,9 +75,22 @@ interface WorstDiscipline {
   score: number;
 }
 
+// 30s in-memory response cache. The Stats tab refetches on every goal
+// SSE event, so a goal with N connected clients used to mean N×8
+// aggregate queries inside a second — during the June 11 login surge
+// that (together with the unindexed tenant user_count scan) exhausted
+// the DB pool and 503'd the endpoint. Single API instance, so a module
+// var is correct (same documented constraint as the SSE pub/sub).
+// 30s staleness on a stats roll-up is invisible to users.
+let statsCache: { body: unknown; expires: number } | null = null;
+const STATS_TTL_MS = 30_000;
+
 // Public — same auth posture as /api/matches. Anyone with a tenant page
 // open should see tournament-wide stats.
 router.get("/tournament", async (c) => {
+  if (statsCache && statsCache.expires > Date.now()) {
+    return c.json(statsCache.body as Record<string, unknown>);
+  }
   // 1) Totals — counted only from matches with a finalised score so a
   //    not-yet-played row with NULL scores doesn't pollute averages.
   //    Status is set to FINISHED/AET/PEN by FD's sync; we accept any
@@ -263,7 +276,7 @@ router.get("/tournament", async (c) => {
         )
       : 0;
 
-  return c.json({
+  const body = {
     totals: {
       goals: totals.total_goals,
       matches_played: totals.matches_played,
@@ -279,7 +292,9 @@ router.get("/tournament", async (c) => {
     biggest_win: biggestWin,
     fastest_goal: fastestGoal,
     worst_discipline: worstDiscipline,
-  });
+  };
+  statsCache = { body, expires: Date.now() + STATS_TTL_MS };
+  return c.json(body);
 });
 
 export default router;
