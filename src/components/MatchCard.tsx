@@ -6,6 +6,8 @@ import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
 import { getFlagIconCode } from '@/lib/teamFlagCode';
 import { useMatchTime, getEffectiveMatchStatus } from '@/hooks/useMatchTime';
+import { findStadium } from '@/data/stadiums';
+import { StadiumCard } from './StadiumCard';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { useTeamName } from '@/hooks/useTeamName';
 import { Flag, CardFlagBackground } from '@/components/Flag';
@@ -25,7 +27,11 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
   const [hasEdited, setHasEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [stadiumOpen, setStadiumOpen] = useState(false);
+  // Known host stadium for this venue → the location pill becomes a
+  // tappable info trigger. Unknown/TBD venues keep the inert pill.
+  const stadium = findStadium(match.venue, match.city);
+
   // Prefer the ISO kickoff (from the API) — useMatchTime formats it in the
   // user's timezone with a short abbreviation. Fall back to the legacy
   // date + time split for knockout fixtures still on the static shape.
@@ -149,13 +155,28 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
             </div>
             {/* Location badge only when we actually have a venue/city —
                 football-data.org often returns null for venue on WC2026
-                fixtures, and showing an empty pin looks broken. */}
-            {(match.city || match.venue) && (
-              <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
-                <MapPin className="w-3 h-3" />
-                <span>{match.city || match.venue}</span>
-              </div>
-            )}
+                fixtures, and showing an empty pin looks broken. When the
+                venue resolves to a known host stadium, the pill becomes
+                a button opening the stadium info card; a subtle ring +
+                ⓘ marks it tappable. */}
+            {(match.city || match.venue) &&
+              (stadium ? (
+                <button
+                  type="button"
+                  onClick={() => setStadiumOpen(true)}
+                  aria-label={`${t('stadium.ariaOpen')}: ${stadium.name}`}
+                  className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs ring-1 ring-white/25 active:bg-black/80 transition-colors"
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span>{match.city || match.venue}</span>
+                  <span className="text-white/70 text-[10px] ml-0.5" aria-hidden>ⓘ</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+                  <MapPin className="w-3 h-3" />
+                  <span>{match.city || match.venue}</span>
+                </div>
+              ))}
             {showGroup && match.group && (
               <div className="bg-primary/90 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs font-semibold">
                 {t('matches.group', { letter: match.group })}
@@ -336,6 +357,10 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
           </div>
         )}
       </div>
+
+      {stadium && (
+        <StadiumCard stadium={stadium} open={stadiumOpen} onOpenChange={setStadiumOpen} />
+      )}
     </motion.div>
   );
 };

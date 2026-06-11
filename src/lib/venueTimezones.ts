@@ -12,35 +12,14 @@
 // shipped "Azteca" and "AKRON" where our static fixture data said
 // "Estadio Azteca" / "Estadio Akron", and renamed two team TLAs the
 // same week. Substrings survive that class of churn.
-const VENUE_TZ_PATTERNS: Array<[RegExp, string]> = [
-  // Eastern
-  [/metlife/i, 'America/New_York'],
-  [/gillette/i, 'America/New_York'],
-  [/hard rock/i, 'America/New_York'],
-  [/mercedes[- ]benz/i, 'America/New_York'],
-  [/lincoln financial/i, 'America/New_York'],
-  [/bmo field/i, 'America/Toronto'],
-  // Central
-  [/at&t/i, 'America/Chicago'],
-  [/arrowhead/i, 'America/Chicago'],
-  [/nrg/i, 'America/Chicago'],
-  // Pacific
-  [/sofi/i, 'America/Los_Angeles'],
-  [/lumen/i, 'America/Los_Angeles'],
-  [/levi/i, 'America/Los_Angeles'],
-  [/bc place/i, 'America/Vancouver'],
-  // Mexico (no DST since 2022 — CST year-round)
-  [/azteca/i, 'America/Mexico_City'],
-  [/akron/i, 'America/Mexico_City'],
-  [/bbva/i, 'America/Monterrey'],
-];
+//
+// The venue registry itself lives in data/stadiums.ts (single source of
+// truth shared with the stadium info card); this module keeps the
+// timezone-math API.
+import { findStadium } from '@/data/stadiums';
 
 export function getVenueTimezone(venue: string | null | undefined): string | null {
-  if (!venue) return null;
-  for (const [pattern, tz] of VENUE_TZ_PATTERNS) {
-    if (pattern.test(venue)) return tz;
-  }
-  return null;
+  return findStadium(venue)?.tz ?? null;
 }
 
 /**

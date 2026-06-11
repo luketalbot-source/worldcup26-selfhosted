@@ -373,5 +373,33 @@
     "rightWinger": "Rechtsaußen",
     "centreForward": "Mittelstürmer",
     "secondStriker": "Hängende Spitze"
+  },
+  "stadium": {
+    "ariaOpen": "Stadion-Info",
+    "opened": "Eröffnet",
+    "photoCredit": "Foto",
+    "country": {
+      "US": "USA",
+      "MX": "Mexiko",
+      "CA": "Kanada"
+    },
+    "descriptions": {
+      "azteca": "Das einzige Stadion, das je zwei WM-Finals ausrichtete (1970 und 1986) — und 2026 das erste mit Spielen bei einer dritten WM. Auf 2.200 m Höhe ist die dünne Luft eine berüchtigte Prüfung für Gastteams.",
+      "akron": "Heimat von Chivas Guadalajara — erhebt sich wie ein Vulkan mit grasbewachsener Außenböschung aus der Landschaft. Eines von drei mexikanischen Stadien 2026.",
+      "bbva": "Genannt 'El Gigante de Acero' (der Stahlriese), mit freiem Blick auf den Berg Cerro de la Silla hinter der Südtribüne.",
+      "metlife": "Hier steigt am 19. Juli das WM-Finale 2026. Gemeinsame Heimat der NFL-Teams Giants und Jets — und das größte Stadion des Turniers.",
+      "gillette": "Heimat der New England Patriots und Revolution, rund 35 km südwestlich von Boston. Der Leuchtturm am Stadion ist ein Wahrzeichen Neuenglands.",
+      "lincoln": "Philadelphias Football-Kathedrale und Zuhause der Eagles — bekannt für eine der lautesten Kulissen im US-Sport.",
+      "mercedes": "Atlantas Architektur-Schmuckstück mit einem Dach, das sich wie eine Kamerablende öffnet. Heimat von Atlanta United mit MLS-Zuschauerrekorden.",
+      "hardrock": "Miamis Open-Air-Arena mit einem Dach, das die Ränge beschattet und den Rasen in der Sonne lässt. Auch Schauplatz des F1-GP von Miami und der Miami Open.",
+      "att": "Der Koloss der Dallas Cowboys in Arlington — eines der größten Kuppelstadien der Welt, berühmt für seinen fast 50 m breiten Videowürfel.",
+      "nrg": "Houstons Stadion mit ausfahrbarem Dach — das erste der NFL. Gastgeber zweier Super Bowls und der Copa América 2024.",
+      "arrowhead": "Eines der lautesten Stadien der Welt — die Fans der Kansas City Chiefs stellten hier 2014 mit 142,2 dB den Lautstärke-Weltrekord auf.",
+      "sofi": "Das teuerste Stadion aller Zeiten (ca. 5 Mrd. $), 2020 in Inglewood eröffnet. Lichtdurchlässiges Dach und doppelseitiger Infinity Screen setzen Maßstäbe.",
+      "levis": "Das Hightech-Zuhause der San Francisco 49ers mitten im Silicon Valley — nach Super Bowl 50 das nächste Großereignis.",
+      "lumen": "Seattles Hexenkessel, gebaut, um den Lärm zu halten — Sounders- und Seahawks-Fans machen ihn zu einer der einschüchterndsten Arenen Nordamerikas.",
+      "bmo": "Torontos Fußballstadion am Seeufer, Heimat des Toronto FC, für die WM auf rund 45.000 Plätze erweitert — Kanadas Männer spielen hier ihre Gruppenspiele.",
+      "bcplace": "Arena mit ausfahrbarem Dach mitten in Vancouver — Schauplatz der Zeremonien der Winterspiele 2010 und des Frauen-WM-Finals 2015."
+    }
   }
 }

@@ -443,5 +443,33 @@
       "third": "Third-place play-off",
       "final": "Final"
     }
+  },
+  "stadium": {
+    "ariaOpen": "Stadium info",
+    "opened": "Opened",
+    "photoCredit": "Photo",
+    "country": {
+      "US": "USA",
+      "MX": "Mexico",
+      "CA": "Canada"
+    },
+    "descriptions": {
+      "azteca": "The only stadium ever to host two World Cup finals (1970 and 1986) — and in 2026 the first to stage matches at a third tournament. Sitting 2,200 m above sea level, its thin air is a famous test for visiting teams.",
+      "akron": "Home of Chivas Guadalajara, rising out of the landscape like a volcano with its grass-covered outer slope. One of three Mexican venues for 2026.",
+      "bbva": "Nicknamed 'El Gigante de Acero' (the Steel Giant), with a sweeping open view of the Cerro de la Silla mountain behind the south stand.",
+      "metlife": "The stage for the 2026 World Cup final on July 19. Shared home of the NFL's Giants and Jets, and the largest stadium of the tournament.",
+      "gillette": "Home of the New England Patriots and Revolution, about 35 km south-west of Boston. Its lighthouse tower is a New England landmark.",
+      "lincoln": "Philadelphia's football cathedral, home of the NFL's Eagles, known for one of the loudest crowds in American sport.",
+      "mercedes": "Atlanta's architectural showpiece with a pinwheel roof that opens like a camera aperture. Home of Atlanta United, who set MLS attendance records here.",
+      "hardrock": "Miami's open-air arena, renovated with a canopy that shades the stands while leaving the pitch under the Florida sun. Also hosts the F1 Miami Grand Prix and the Miami Open.",
+      "att": "The Dallas Cowboys' colossus in Arlington — one of the world's largest domed stadiums, famous for its centre-hung video board nearly 50 m wide.",
+      "nrg": "Houston's retractable-roof stadium, the first NFL venue with one. Hosted two Super Bowls and the 2024 Copa América.",
+      "arrowhead": "One of the loudest stadiums on earth — Kansas City Chiefs fans set the world crowd-noise record here at 142.2 dB in 2014.",
+      "sofi": "The most expensive stadium ever built (~$5 bn), opened in 2020 in Inglewood. Its translucent roof and double-sided Infinity Screen set a new benchmark.",
+      "levis": "The San Francisco 49ers' high-tech home in the heart of Silicon Valley, hosting its second World Cup-era showpiece after Super Bowl 50.",
+      "lumen": "Seattle's cauldron, engineered to trap crowd noise — Sounders and Seahawks fans make it one of the most intimidating venues in North America.",
+      "bmo": "Toronto's lakeside football ground, home of Toronto FC, expanded to around 45,000 seats for the World Cup — Canada's men play their 2026 group games here.",
+      "bcplace": "Downtown Vancouver's retractable-roof arena, host of the 2010 Winter Olympics ceremonies and the 2015 Women's World Cup final."
+    }
   }
 }

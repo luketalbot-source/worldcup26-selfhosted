@@ -7,6 +7,8 @@ import { ScoreSelector } from './ScoreSelector';
 import { MapPin, Clock, Check, Lock, Zap } from 'lucide-react';
 import { getFlagIconCode } from '@/lib/teamFlagCode';
 import { useMatchTime } from '@/hooks/useMatchTime';
+import { findStadium } from '@/data/stadiums';
+import { StadiumCard } from './StadiumCard';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { Flag, CardFlagBackground } from '@/components/Flag';
 import { useTeamName } from '@/hooks/useTeamName';
@@ -32,6 +34,9 @@ export const KnockoutMatchCard = ({
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
   const [hasEdited, setHasEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [stadiumOpen, setStadiumOpen] = useState(false);
+  // Known host stadium -> the location pill opens the stadium info card.
+  const stadium = findStadium(match.venue, match.city);
 
   const { localDate, localTime, isLocked, countdownText, urgency } = useMatchTime(
     match.dateIso ?? match.date,
@@ -155,12 +160,24 @@ export const KnockoutMatchCard = ({
               <Clock className="w-3 h-3" />
               <span>{localDate} {localTime}</span>
             </div>
-            {(match.city || match.venue) && (
-              <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
-                <MapPin className="w-3 h-3" />
-                <span>{match.city || match.venue}</span>
-              </div>
-            )}
+            {(match.city || match.venue) &&
+              (stadium ? (
+                <button
+                  type="button"
+                  onClick={() => setStadiumOpen(true)}
+                  aria-label={`${t('stadium.ariaOpen')}: ${stadium.name}`}
+                  className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs ring-1 ring-white/25 active:bg-black/80 transition-colors"
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span>{match.city || match.venue}</span>
+                  <span className="text-white/70 text-[10px] ml-0.5" aria-hidden>ⓘ</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm text-white text-xs">
+                  <MapPin className="w-3 h-3" />
+                  <span>{match.city || match.venue}</span>
+                </div>
+              ))}
           </div>
           
           {(isLive || isFinished) && (
@@ -332,6 +349,10 @@ export const KnockoutMatchCard = ({
           </div>
         )}
       </div>
+
+      {stadium && (
+        <StadiumCard stadium={stadium} open={stadiumOpen} onOpenChange={setStadiumOpen} />
+      )}
     </motion.div>
   );
 };
