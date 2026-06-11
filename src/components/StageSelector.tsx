@@ -12,7 +12,12 @@ export const StageSelector = ({ activeStage, onStageChange, todayCount = 0 }: St
   const { t } = useTranslation();
   
   return (
-    <div className="flex gap-2 p-1 bg-muted rounded-xl">
+    // rounded-[20px] is deliberate: the buttons inside use rounded-lg,
+    // which the shadcn theme maps to var(--radius) = 16px — LARGER than
+    // Tailwind's default rounded-xl (12px) this container used to have,
+    // so the inner corners visibly poked past the outer ones. Concentric
+    // corners need outer = inner + padding: 16px + p-1 (4px) = 20px.
+    <div className="flex gap-2 p-1 bg-muted rounded-[20px]">
       <motion.button
         whileTap={{ scale: 0.95 }}
         onClick={() => onStageChange('today')}

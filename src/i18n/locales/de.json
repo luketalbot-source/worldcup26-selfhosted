@@ -94,11 +94,11 @@
     "loginPrompt": "Melde dich an, um deine Tipps zu speichern!",
     "group": "Gruppe {{letter}}",
     "dayFilter": {
-      "past": "Vergangene",
+      "past": "Früher",
       "yesterday": "Gestern",
       "today": "Heute",
       "tomorrow": "Morgen",
-      "future": "Kommende"
+      "future": "Später"
     },
     "noMatchesFor": {
       "past": "Noch keine vergangenen Spiele",

@@ -205,14 +205,16 @@ export const MatchesView = () => {
         <div className="sticky top-0 bg-background z-50 pb-2 -mx-4 px-4 pt-2">
           <div className="space-y-3">
             <StageSelector activeStage={activeStage} onStageChange={setActiveStage} todayCount={todayMatches.length} />
-            {/* Day filters, BBC-fixtures style. Same pill styling as the
-                group / knockout-stage tabs for visual consistency. */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {dayFilters.map(filter => <motion.button key={filter} whileHover={{
-                scale: 1.05
-              }} whileTap={{
+            {/* Day filters, BBC-fixtures style. A 5-column grid rather
+                than a scroll row: pills always fill the container width
+                edge-to-edge (no horizontal overflow on narrow phones, no
+                odd left-aligned cluster on desktop). Labels are short in
+                every locale; text-xs on mobile keeps the longest ones
+                (Yesterday / Gestern) inside a fifth of a 360px viewport. */}
+            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+              {dayFilters.map(filter => <motion.button key={filter} whileTap={{
                 scale: 0.95
-              }} onClick={() => setActiveDayFilter(filter)} className={`relative px-4 py-2 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${activeDayFilter === filter ? 'bg-fifa-coral text-white shadow-md' : 'bg-card text-muted-foreground hover:bg-muted'}`}>
+              }} onClick={() => setActiveDayFilter(filter)} className={`px-1 py-2 rounded-xl font-semibold text-xs sm:text-sm text-center transition-all ${activeDayFilter === filter ? 'bg-fifa-coral text-white shadow-md' : 'bg-card text-muted-foreground hover:bg-muted'}`}>
                   {t(`matches.dayFilter.${filter}`)}
                 </motion.button>)}
             </div>
