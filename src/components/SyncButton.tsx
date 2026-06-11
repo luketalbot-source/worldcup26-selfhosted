@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { RefreshCw, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +10,15 @@ interface SyncButtonProps {
   cooldownRemaining: number;
 }
 
+/**
+ * Demoted from a card-boxed "Sync Scores" button to a slim caption line.
+ * Score freshness is automatic now (session-start sync, 60s auto-sync
+ * while matches are live, SSE push), so the old button mostly invited
+ * users to mash it against the server cooldown. What survives:
+ *   - the predictions-lock notice (left)
+ *   - a quiet "updated Xm ago" timestamp (right) that doubles as the
+ *     edge-case manual refresh — tap target kept, visual weight gone.
+ */
 export const SyncButton = ({
   onSync,
   syncing,
@@ -19,39 +28,46 @@ export const SyncButton = ({
 }: SyncButtonProps) => {
   const { t } = useTranslation();
 
-  const getButtonText = () => {
-    if (syncing) return t('sync.syncing');
-    if (!canSync && cooldownRemaining > 0) return `${cooldownRemaining}s`;
-    return t('sync.button');
-  };
+  // Re-render every 30s so the relative timestamp doesn't go stale on a
+  // screen that's just sitting open.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const lastSyncLabel = (() => {
+    if (!lastSync) return t('sync.neverSynced');
+    const seconds = Math.max(0, Math.floor((Date.now() - lastSync.getTime()) / 1000));
+    if (seconds < 60) return t('sync.justNow');
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return t('sync.minutesAgo', { minutes });
+    return t('sync.hoursAgo', { hours: Math.floor(minutes / 60) });
+  })();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-xl p-3 border border-border/50"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded-lg px-2 py-1">
-          <Info className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-          <span>{t('sync.locksInfo')}</span>
-        </div>
+    <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground/80">
+      <span className="flex items-center gap-1 min-w-0">
+        <Info className="w-3 h-3 text-amber-500/80 flex-shrink-0" />
+        <span className="truncate">{t('sync.locksInfo')}</span>
+      </span>
 
-        <motion.button
-          whileHover={canSync && !syncing ? { scale: 1.05 } : {}}
-          whileTap={canSync && !syncing ? { scale: 0.95 } : {}}
-          onClick={onSync}
-          disabled={syncing || !canSync}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            canSync && !syncing
-              ? 'bg-primary/10 text-primary hover:bg-primary/20'
-              : 'bg-muted text-muted-foreground cursor-not-allowed'
-          }`}
-        >
-          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          {getButtonText()}
-        </motion.button>
-      </div>
-    </motion.div>
+      <button
+        type="button"
+        onClick={onSync}
+        disabled={syncing || !canSync}
+        className="flex items-center gap-1 flex-shrink-0 disabled:opacity-60"
+        aria-label={t('sync.button')}
+      >
+        <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
+        <span>
+          {syncing
+            ? t('sync.syncing')
+            : !canSync && cooldownRemaining > 0
+              ? t('sync.wait', { seconds: cooldownRemaining })
+              : lastSyncLabel}
+        </span>
+      </button>
+    </div>
   );
 };
