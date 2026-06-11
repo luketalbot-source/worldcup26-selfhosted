@@ -1,13 +1,7 @@
-import { Suspense, lazy, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Loader2, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 
 // emoji-mart is ~200KB gzipped — only load it when the user actually opens
 // the picker. Keeps it out of the initial bundle so the matches view loads
@@ -40,14 +34,61 @@ interface EmojiPickerProps {
   value: string;
   /** Called when the user picks an emoji (fires once per selection, closes the dialog). */
   onChange: (emoji: string) => void;
+  /**
+   * Accepted for API compatibility — the old hand-rolled picker showed a
+   * quick-picks row; the full emoji-mart picker superseded it (it has
+   * frequents built in). LeaguesView still passes this.
+   */
+  quickPicks?: string[];
 }
 
-// Thin wrapper around @emoji-mart/react. Preserves the { value, onChange }
-// contract the old hand-rolled picker used. Picks up the app's light/dark
-// theme so the picker's chrome doesn't clash with the surrounding card.
+// Custom portal modal, NOT Radix Dialog. Two field-reported bugs forced
+// the switch (June 2026):
+//   1. Category scrolling was dead on touch devices — emoji-mart's
+//      scroller lives inside a shadow root, so Radix's
+//      react-remove-scroll couldn't recognise it as scrollable and
+//      cancelled every touchmove. Same failure class as the player
+//      picker (see PlayerPicker.tsx), same cure: plain portal + native
+//      scrolling.
+//   2. Radix DialogContent's built-in close X overlapped emoji-mart's
+//      last category icon (flags). Here the X sits in its own bar above
+//      the picker, so it can't collide.
 export const EmojiPicker = ({ value, onChange }: EmojiPickerProps) => {
   const [open, setOpen] = useState(false);
   const { resolvedTheme } = useTheme();
+
+  // Manual body-scroll-lock while open — position-fix the body at its
+  // current scrollY (mirrors PlayerPicker; overflow:hidden alone doesn't
+  // stop iOS WebView rubber-band scrolling).
+  const savedScrollYRef = useRef(0);
+  useEffect(() => {
+    if (!open) return;
+    savedScrollYRef.current = window.scrollY;
+    const body = document.body;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${savedScrollYRef.current}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      window.scrollTo(0, savedScrollYRef.current);
+    };
+  }, [open]);
 
   const handleSelect = (emoji: { native: string }) => {
     onChange(emoji.native);
@@ -55,39 +96,61 @@ export const EmojiPicker = ({ value, onChange }: EmojiPickerProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          aria-label="Change avatar emoji"
-          className="mx-auto w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-3xl"
-        >
-          {value || '👤'}
-        </button>
-      </DialogTrigger>
+    <>
+      <button
+        type="button"
+        aria-label="Change avatar emoji"
+        onClick={() => setOpen(true)}
+        className="mx-auto w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center text-3xl"
+      >
+        {value || '👤'}
+      </button>
 
-      <DialogContent className="p-0 bg-transparent border-0 shadow-none max-w-fit w-auto">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Choose an avatar emoji</DialogTitle>
-        </DialogHeader>
-        {/* Suspense boundary covers the lazy chunk download — shows a small
-            spinner while the ~200KB emoji-mart bundle streams in on first
-            open. Cached after that, so subsequent opens are instant. */}
-        <Suspense
-          fallback={
-            <div className="bg-popover text-popover-foreground rounded-lg w-[352px] h-[420px] flex items-center justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
-          }
-        >
-          {open && (
-            <EmojiMartPicker
-              onSelect={handleSelect}
-              theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+      {open &&
+        createPortal(
+          <div className="fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-black/80"
+              onClick={() => setOpen(false)}
+              aria-hidden="true"
             />
-          )}
-        </Suspense>
-      </DialogContent>
-    </Dialog>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Choose an avatar emoji"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-stretch"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close bar ABOVE the picker — can't overlap the category
+                  icons the way the old overlaid X did. */}
+              <div className="flex justify-end mb-2">
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="max-h-[75dvh] overflow-hidden rounded-lg" style={{ touchAction: 'pan-y' }}>
+                <Suspense
+                  fallback={
+                    <div className="bg-popover text-popover-foreground rounded-lg w-[352px] h-[420px] flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    </div>
+                  }
+                >
+                  <EmojiMartPicker
+                    onSelect={handleSelect}
+                    theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+                  />
+                </Suspense>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 };

@@ -699,13 +699,22 @@ export const LeaguesView = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Normalise lazily, at validation/submit time — NOT on every keystroke.
+  // The old onChange rewrote the controlled value (strip + uppercase +
+  // slice) which breaks Android IME composition inside the Flip WebView:
+  // characters were eaten or duplicated, so a valid 6-char code was
+  // nearly impossible to type and "join by code" only worked on desktop.
+  // The user can now type/paste anything ("abc-123", "ABC 123"); we strip
+  // separators and uppercase here. Display-level uppercasing is CSS.
+  const normalizedJoinCode = joinCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
   const handleJoin = async () => {
-    if (!joinCode.trim() || joinCode.length !== 6) return;
-    
+    if (normalizedJoinCode.length !== 6) return;
+
     setJoining(true);
-    const success = await joinLeague(joinCode.trim());
+    const success = await joinLeague(normalizedJoinCode);
     setJoining(false);
-    
+
     if (success) {
       setJoinCode('');
       setShowJoinDialog(false);
@@ -913,30 +922,35 @@ export const LeaguesView = () => {
               </p>
             </div>
             
+            {/* Plain controlled input, value stored EXACTLY as typed.
+                No per-keystroke transform (breaks Android IME
+                composition in the Flip WebView) and no custom onPaste
+                (some Android WebViews hand over empty clipboardData, so
+                preventDefault turned paste into a no-op — users
+                couldn't paste the code their colleague sent them).
+                Uppercasing is visual via CSS; normalisation happens at
+                submit. maxLength leaves headroom for pasted separators
+                like "ABC-123". */}
             <Input
               value={joinCode}
-              onChange={(e) => {
-                const cleaned = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
-                setJoinCode(cleaned);
-              }}
-              onPaste={(e) => {
-                e.preventDefault();
-                const pasted = e.clipboardData.getData('text');
-                const cleaned = pasted.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
-                setJoinCode(cleaned);
+              onChange={(e) => setJoinCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleJoin();
               }}
               placeholder="XXXXXX"
-              className="text-center font-mono text-2xl tracking-widest h-14"
-              maxLength={6}
+              className="text-center font-mono text-2xl tracking-widest h-14 uppercase"
+              maxLength={10}
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}
+              inputMode="text"
+              enterKeyHint="go"
             />
-            
+
             <Button
               className="w-full"
               onClick={handleJoin}
-              disabled={joinCode.length !== 6 || joining}
+              disabled={normalizedJoinCode.length !== 6 || joining}
             >
               {joining ? t('leagues.joining') : t('leagues.joinButton')}
             </Button>
