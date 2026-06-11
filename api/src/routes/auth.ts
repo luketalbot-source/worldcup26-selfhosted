@@ -802,7 +802,26 @@ async function upsertOidcUser(
   let userId: string;
   let needsConsent = false;
 
+  // An identity row can outlive its user: oidc_identities had no
+  // user_id FK until 2026-06-11, so an admin "delete user" left the
+  // identity orphaned and every later login resolved it to a missing
+  // user row → 500, permanently locking that person out (Südpack
+  // incident). Verify the user actually exists; an orphaned identity is
+  // treated as "new user" and repointed at the fresh row.
+  let orphanedIdentity = false;
   if (existing.length > 0) {
+    const alive = await sql<{ id: string }[]>`
+      SELECT id FROM public.users WHERE id = ${existing[0]!.user_id} LIMIT 1
+    `;
+    if (alive.length === 0) {
+      orphanedIdentity = true;
+      console.warn(
+        `[oidc] identity for sub=${userInfo.sub} tenant=${tenantId} points at deleted user ${existing[0]!.user_id} — recreating`
+      );
+    }
+  }
+
+  if (existing.length > 0 && !orphanedIdentity) {
     userId = existing[0]!.user_id;
   } else {
     // ALWAYS create a fresh internal user when an (tenant_id, oidc_sub)

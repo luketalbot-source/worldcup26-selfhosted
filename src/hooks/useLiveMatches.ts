@@ -4,6 +4,7 @@ import { groupStageMatches } from '@/data/matches';
 import { getAllKnockoutMatches, KnockoutMatch } from '@/data/knockoutMatches';
 import { useTeams, tlaToFlag } from './useTeams';
 import { useLiveMatchesContext, type LiveMatch } from '@/contexts/LiveMatchesContext';
+import { isMatchToday } from '@/lib/venueTimezones';
 
 // Thin wrapper around <LiveMatchesProvider>'s context. Keeps the public API
 // every existing call site already uses (getTodayMatches / getGroupMatches /
@@ -47,7 +48,12 @@ export const useLiveMatches = () => {
     [liveMatches],
   );
 
-  // Today = matches whose kickoff falls on the user's local calendar day.
+  // Today = matches whose kickoff falls on the current calendar day AT
+  // THE VENUE (not the user's day). A 20:00 ET kickoff in New Jersey is
+  // 02:00 next-day in Germany — under user-local grouping European users
+  // watched tonight's late games vanish from the Today tab while the
+  // official schedule still called them today's matches. Kickoff times
+  // shown on the cards remain in the user's timezone (useMatchTime).
   // Pulls from `liveMatches` (live API data), not the static fixture file —
   // the static file's dates are all set to the actual tournament window
   // (June 2026), so it'd never include "today" outside the WC itself, and
@@ -63,12 +69,8 @@ export const useLiveMatches = () => {
       group: group ?? '',
     });
 
-    const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
     return liveMatches
-      .filter((row) => {
-        const matchDayLocal = new Date(row.match_date).toLocaleDateString('en-CA');
-        return matchDayLocal === todayLocal;
-      })
+      .filter((row) => isMatchToday(row.match_date, row.venue))
       .map((row) => {
         const status: Match['status'] =
           row.status === 'IN_PLAY' || row.status === 'PAUSED' || row.status === 'LIVE'
