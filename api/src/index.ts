@@ -63,4 +63,7 @@ app.route("/api/stats", statsRoutes);
 export default {
   port: parseInt(process.env.PORT ?? "3000"),
   fetch: app.fetch,
+  // Must exceed the 25s SSE heartbeat in routes/matches.ts; Bun's 10s default
+  // was killing every quiet /api/matches/stream and triggering a reconnect storm.
+  idleTimeout: 60,
 };
