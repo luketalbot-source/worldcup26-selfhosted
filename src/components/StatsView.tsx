@@ -7,14 +7,14 @@
 //
 // Pulls everything from a single endpoint (GET /api/stats/tournament)
 // so re-paint on a goal SSE is one fetch, not five. SSE itself isn't
-// wired here yet — we refetch on mount and on every goal celebrated by
-// LiveMatchesContext, which is plenty fresh for a stats roll-up that
-// nobody will be watching second-by-second.
+// wired here yet — we refetch on mount and (debounced 3s) after goals
+// celebrated by LiveMatchesContext, which is plenty fresh for a stats
+// roll-up that nobody will be watching second-by-second.
 //
 // Visual reference: /tmp/matchday-update.html "Variant A". Layout is
 // 1:1 with the mockup; copy lives in i18n for the 14-language rollout.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
@@ -129,13 +129,19 @@ export const StatsView = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Re-trigger fetch on every goal celebrated by the global context so
-  // a scorer's name appears here within a second of the goal popup
-  // dismissing. We key off goalQueue.length which monotonically grows
-  // while a goal is queued — cheap to track without a custom event.
+  // a scorer's name appears here shortly after the goal popup dismisses.
+  // We key off goalQueue.length which monotonically grows while a goal
+  // is queued — cheap to track without a custom event. Goal-driven
+  // refetches are debounced 3s: a multi-goal score correction emits
+  // several SSE events back-to-back, and without the debounce each one
+  // fired its own /stats/tournament request — multiplied by every
+  // connected client.
   const goalTick = goalQueue.length;
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    let timer: number | undefined;
     const load = async () => {
       try {
         setError(null);
@@ -152,9 +158,18 @@ export const StatsView = () => {
         if (!cancelled) setLoading(false);
       }
     };
-    void load();
+    if (!hasFetchedRef.current) {
+      // First load on mount — fetch immediately.
+      hasFetchedRef.current = true;
+      void load();
+    } else {
+      // Goal-driven refetch — wait out the burst, then fetch once. A new
+      // tick before the timer fires clears it via cleanup and re-arms.
+      timer = window.setTimeout(() => void load(), 3000);
+    }
     return () => {
       cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [goalTick]);
 

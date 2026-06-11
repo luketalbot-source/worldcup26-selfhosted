@@ -1,23 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/apiClient';
-
-interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  displayName: string;
-  avatarEmoji: string;
-  totalPredictions: number;
-  points: number;
-}
-
-interface ApiLeaderboardEntry {
-  user_id: string;
-  display_name: string;
-  avatar_emoji: string;
-  points: number;
-  total_predictions: number;
-  rank: number;
-}
+import { fetchLeaderboard, type LeaderboardEntry } from '@/lib/leaderboardCache';
 
 interface UseLeaderboardOptions {
   tenantId: string | null;
@@ -35,11 +17,11 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
 
   useEffect(() => {
     if (tenantId) {
-      fetchLeaderboard();
+      load();
     }
   }, [tenantId]);
 
-  const fetchLeaderboard = async () => {
+  const load = async (force = false) => {
     if (!tenantId) {
       setLeaderboard([]);
       setLoading(false);
@@ -49,20 +31,7 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
     setLoading(true);
 
     try {
-      const data = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
-        tenant_id: tenantId,
-      });
-
-      const entries: LeaderboardEntry[] = (data || []).map(entry => ({
-        rank: entry.rank,
-        userId: entry.user_id,
-        displayName: entry.display_name,
-        avatarEmoji: entry.avatar_emoji || '👤',
-        totalPredictions: entry.total_predictions,
-        points: entry.points,
-      }));
-
-      setLeaderboard(entries);
+      setLeaderboard(await fetchLeaderboard(tenantId, { force }));
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     } finally {
@@ -70,5 +39,5 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
     }
   };
 
-  return { leaderboard, loading, refetch: fetchLeaderboard };
+  return { leaderboard, loading, refetch: () => load(true) };
 };

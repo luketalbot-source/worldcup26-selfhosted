@@ -1,23 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { api } from '@/lib/apiClient';
+import { fetchLeaderboard, type LeaderboardEntry } from '@/lib/leaderboardCache';
 
-export interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  displayName: string;
-  avatarEmoji: string;
-  totalPredictions: number;
-  points: number;
-}
-
-interface ApiLeaderboardEntry {
-  user_id: string;
-  display_name: string;
-  avatar_emoji: string;
-  points: number;
-  total_predictions: number;
-  rank: number;
-}
+export type { LeaderboardEntry } from '@/lib/leaderboardCache';
 
 interface UsePaginatedLeaderboardOptions {
   tenantId: string | null;
@@ -49,7 +33,7 @@ export const usePaginatedLeaderboard = ({
   const [displayedCount, setDisplayedCount] = useState(pageSize);
   const fetchedRef = useRef(false);
 
-  const fetchLeaderboard = useCallback(async () => {
+  const loadLeaderboard = useCallback(async (force = false) => {
     if (!tenantId) {
       setAllEntries([]);
       setEntries([]);
@@ -61,34 +45,24 @@ export const usePaginatedLeaderboard = ({
     setLoading(true);
     fetchedRef.current = true;
 
-    let data: ApiLeaderboardEntry[] | null = null;
+    // Already sorted by rank from the API; mapping happens in the shared
+    // cache layer so useLeaderboard and this hook share one request.
+    let allEntriesData: LeaderboardEntry[];
     try {
-      data = await api.get<ApiLeaderboardEntry[]>('/leaderboard', {
-        tenant_id: tenantId,
-      });
+      allEntriesData = await fetchLeaderboard(tenantId, { force });
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
       setLoading(false);
       return;
     }
 
-    if (!data || data.length === 0) {
+    if (allEntriesData.length === 0) {
       setAllEntries([]);
       setEntries([]);
       setCurrentUserEntry(null);
       setLoading(false);
       return;
     }
-
-    // Map to local shape, already sorted by rank from API
-    const allEntriesData: LeaderboardEntry[] = data.map(entry => ({
-      rank: entry.rank,
-      userId: entry.user_id,
-      displayName: entry.display_name,
-      avatarEmoji: entry.avatar_emoji || '👤',
-      totalPredictions: entry.total_predictions,
-      points: entry.points,
-    }));
 
     setAllEntries(allEntriesData);
     setEntries(allEntriesData.slice(0, pageSize));
@@ -105,9 +79,9 @@ export const usePaginatedLeaderboard = ({
 
   useEffect(() => {
     if (tenantId && !fetchedRef.current) {
-      fetchLeaderboard();
+      loadLeaderboard();
     }
-  }, [tenantId, fetchLeaderboard]);
+  }, [tenantId, loadLeaderboard]);
 
   // Reset when tenant changes
   useEffect(() => {
@@ -131,8 +105,8 @@ export const usePaginatedLeaderboard = ({
 
   const refetch = useCallback(() => {
     fetchedRef.current = false;
-    fetchLeaderboard();
-  }, [fetchLeaderboard]);
+    loadLeaderboard(true);
+  }, [loadLeaderboard]);
 
   return {
     entries,
