@@ -1,14 +1,39 @@
 import { Hono } from "hono";
+import { LRUCache } from "lru-cache";
 import { sql } from "../db";
 import type { AuthEnv } from "../auth/middleware";
 
 const router = new Hono<AuthEnv>();
+
+// 15s in-memory response cache: the standings query below is expensive,
+// so concurrent viewers share one computation per TTL window instead of
+// triggering a full recomputation each. Single API instance, so
+// module-level is correct (same documented constraint as the SSE pub/sub
+// and the stats/tenant caches). 15s staleness on standings is invisible —
+// scores only move on goals. max bounds memory across tenants and leagues.
+const leaderboardCache = new LRUCache<string, unknown[]>({
+  max: 5000,
+  ttl: 15_000,
+});
+
+// Drop all cached standings. Called from the admin score-edit PATCH so a
+// manual result correction is visible immediately rather than after TTL
+// expiry; the FD sync path deliberately relies on the 15s TTL instead.
+export function invalidateLeaderboardCache() {
+  leaderboardCache.clear();
+}
 
 router.get("/", async (c) => {
   const tenantId = c.req.query("tenant_id");
   const leagueId = c.req.query("league_id");
 
   if (!tenantId) return c.json({ error: "tenant_id is required" }, 400);
+
+  // tenant_id + league_id are the only inputs the queries below read, so
+  // together they fully determine the response.
+  const cacheKey = `${tenantId}:${leagueId ?? ""}`;
+  const cached = leaderboardCache.get(cacheKey);
+  if (cached) return c.json(cached as Record<string, unknown>[]);
 
   if (leagueId) {
     const rows = await sql`
@@ -163,6 +188,7 @@ router.get("/", async (c) => {
                total_picks DESC,
                lu.display_name ASC
     `;
+    leaderboardCache.set(cacheKey, [...rows]);
     return c.json(rows);
   }
 
@@ -303,6 +329,7 @@ router.get("/", async (c) => {
              total_picks DESC,
              tu.display_name ASC
   `;
+  leaderboardCache.set(cacheKey, [...rows]);
   return c.json(rows);
 });
 

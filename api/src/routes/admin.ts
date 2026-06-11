@@ -4,6 +4,7 @@ import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 import { emitMatchEvent, type LiveMatchEvent, type MatchGoal } from "../lib/matchEvents";
+import { invalidateLeaderboardCache } from "./leaderboard";
 
 // Re-fetch the full live_matches row + its goals for SSE emission. Used
 // from any code path that mutates either the match itself OR its goal
@@ -629,6 +630,10 @@ router.patch(
     // emission carries the joined goals list, not just the bare match cols.
     const enriched = await fetchMatchWithGoals(matchId);
     if (enriched) emitMatchEvent(enriched);
+    // An admin score correction must show in standings immediately, not
+    // after the leaderboard cache's TTL. The FD sync path doesn't bother —
+    // 15s staleness is fine for organic score changes.
+    invalidateLeaderboardCache();
     return c.json(updated[0]);
   }
 );
