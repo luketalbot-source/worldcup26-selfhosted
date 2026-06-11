@@ -319,6 +319,13 @@ async function runSync(apiKey: string): Promise<void> {
     // than Promise.allSettled with a lazy postgres.js template (which appeared
     // to silently stall at scale on Bun). Also updates syncState.matchesUpdated
     // as we go so polling reflects actual progress.
+    //
+    // Per-run cap on single-match detail fetches (goals/bookings live
+    // only on /v4/matches/{id} on our tier — see the event-sync block
+    // below). Group stage peaks at ~6 matches inside the 12 h window,
+    // so 10 leaves headroom without risking FD's per-minute rate limit
+    // on top of the 2 list calls.
+    let detailFetchBudget = 10;
     for (const match of matches) {
       try {
         // postgres.js rejects `undefined` parameters — FD omits fields like
@@ -399,14 +406,55 @@ async function runSync(apiKey: string): Promise<void> {
         // push to SSE clients on rows that actually changed — otherwise
         // we'd flood the stream every minute with no-ops.
         if (upserted && upserted.length > 0) {
-          // Pull FD's goal events into match_goals. Same lock semantics as
-          // the match itself: when manual_override=true the upsert returns
-          // no row, so we don't touch the goals either.
+          // Pull FD's goal/booking events into match_goals/match_bookings.
+          // Same lock semantics as the match itself: when
+          // manual_override=true the upsert returns no row, so we don't
+          // touch the events either.
+          //
+          // CRITICAL tier detail (discovered when the opening match
+          // finished with zero scorers/cards, 2026-06-11): the
+          // competition LIST endpoint returns goals:[] and bookings:[]
+          // on our subscription — the events only exist on the
+          // single-match endpoint /v4/matches/{id}. So for matches that
+          // have recently kicked off we fetch the detail resource and
+          // sync events from THAT. For everything else we skip event
+          // syncing entirely rather than letting the list's empty
+          // arrays delete-and-insert-nothing (which is what silently
+          // wiped/blocked all events until now, and would also nuke any
+          // admin-entered goals every 60 s).
           const upMatchId = (upserted[0] as { match_id: string }).match_id;
-          await syncGoalsFromFD(upMatchId, match);
-          // Same lock semantics for bookings — manual_override gates the
-          // whole derived event set, not just the score row.
-          await syncBookingsFromFD(upMatchId, match);
+          const kickoffMs = Date.parse(match.utcDate);
+          const startedRecently =
+            ["IN_PLAY", "PAUSED", "FINISHED"].includes(match.status) &&
+            Number.isFinite(kickoffMs) &&
+            Date.now() - kickoffMs < 12 * 3600_000 &&
+            kickoffMs <= Date.now();
+          const listHasEvents =
+            (match.goals?.length ?? 0) > 0 || (match.bookings?.length ?? 0) > 0;
+
+          if (listHasEvents) {
+            // Higher tier / future FD change: list already carries events.
+            await syncGoalsFromFD(upMatchId, match);
+            await syncBookingsFromFD(upMatchId, match);
+          } else if (startedRecently && detailFetchBudget > 0) {
+            detailFetchBudget--;
+            try {
+              const dRes = await fetch(`${FOOTBALL_API_BASE}/matches/${match.id}`, {
+                headers: { "X-Auth-Token": apiKey },
+              });
+              if (dRes.ok) {
+                const detail = (await dRes.json()) as FootballDataMatch;
+                await syncGoalsFromFD(upMatchId, detail);
+                await syncBookingsFromFD(upMatchId, detail);
+              } else {
+                console.warn(
+                  `[sync-matches] detail fetch for ${match.id} returned ${dRes.status}`
+                );
+              }
+            } catch (err) {
+              console.error(`[sync-matches] detail fetch for ${match.id} failed:`, err);
+            }
+          }
           const enriched = await fetchMatchWithGoals(upMatchId);
           if (enriched) emitMatchEvent(enriched);
         }
