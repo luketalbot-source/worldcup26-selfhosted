@@ -81,6 +81,19 @@ const SYNC_COOLDOWN_SECONDS = 60;
 const STREAM_URL =
   ((import.meta.env.VITE_API_URL as string | undefined) ?? '/api') + '/matches/stream';
 
+// Fallback polling cadence when SSE looks unhealthy. The server runs its
+// own 60s football-data.org sync loop during live play and pushes results
+// over SSE, so a healthy client never needs to poll — this is purely a
+// safety net for broken/silent streams (proxy buffering, sleeping laptops,
+// flaky mobile networks).
+const FALLBACK_POLL_MS = 5 * 60_000;
+// How long the stream may go without any event before we consider it
+// "silent" and allow a fallback refetch.
+const SSE_SILENCE_MS = 5 * 60_000;
+// How often we re-evaluate the fallback conditions. Cheap (no network
+// unless the guards pass).
+const FALLBACK_CHECK_MS = 60_000;
+
 interface ContextValue {
   matches: LiveMatch[];
   loading: boolean;
@@ -229,19 +242,37 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     [fetchLiveMatches, canSync],
   );
 
-  // Periodic auto-sync while at least one match is live. Without this, FD
-  // score updates only flow when someone manually hits the Sync button —
-  // unworkable during a 90-minute match where users want goals to appear.
-  // Throttled to 60s and skipped when no live matches exist, so we don't
-  // burn FD's free-tier quota during quiet hours.
+  // NOTE: clients used to run their own 60s `syncMatches(true)` interval
+  // here while a match was live. With N connected browsers that was an
+  // O(N) sync storm against football-data.org and the DB. The API now runs
+  // a single server-side 60s sync loop during live play (api/src/lib/
+  // matchSync.ts) and pushes updates over SSE — clients only keep the
+  // cheap fallback poll below for when the stream goes bad.
+
+  // SSE health bookkeeping for the fallback poll: when the stream last
+  // delivered an event, and whether it's currently open. Refs, not state —
+  // we read these inside an interval and don't want re-renders.
+  const lastSseEventAtRef = useRef<number>(Date.now());
+  const sseOpenRef = useRef(false);
+  const lastFallbackFetchAtRef = useRef<number>(0);
+
+  // Fallback: refetch GET /matches (NOT the sync endpoint — the server
+  // syncs on its own) only when the SSE stream is closed or has been
+  // silent for a while, at most once per FALLBACK_POLL_MS, and only when
+  // the tab is actually visible. Backgrounded tabs do nothing.
   useEffect(() => {
-    const anyLive = matches.some((m) => LIVE_STATUSES.has(m.status));
-    if (!anyLive) return;
     const id = setInterval(() => {
-      void syncMatches(true);
-    }, 60_000);
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      const sseUnhealthy =
+        !sseOpenRef.current || now - lastSseEventAtRef.current > SSE_SILENCE_MS;
+      if (!sseUnhealthy) return;
+      if (now - lastFallbackFetchAtRef.current < FALLBACK_POLL_MS) return;
+      lastFallbackFetchAtRef.current = now;
+      void fetchLiveMatches();
+    }, FALLBACK_CHECK_MS);
     return () => clearInterval(id);
-  }, [matches, syncMatches]);
+  }, [fetchLiveMatches]);
 
   // Initial fetch + auto-sync once per session
   useEffect(() => {
@@ -268,8 +299,16 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const es = new EventSource(STREAM_URL);
 
+    es.addEventListener('open', () => {
+      sseOpenRef.current = true;
+      // A (re)connect counts as a sign of life — reset the silence clock so
+      // the fallback poll doesn't fire right after a successful reconnect.
+      lastSseEventAtRef.current = Date.now();
+    });
+
     es.addEventListener('match-update', (ev) => {
       try {
+        lastSseEventAtRef.current = Date.now();
         const incoming = JSON.parse((ev as MessageEvent).data) as LiveMatch;
         const prev = prevScoresRef.current.get(incoming.match_id);
 
@@ -349,6 +388,9 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     });
 
     es.addEventListener('error', () => {
+      // Any error means the stream is at least momentarily down — let the
+      // fallback poll take over until 'open' fires again.
+      sseOpenRef.current = false;
       // EventSource auto-reconnects unless CLOSED, which usually means the
       // endpoint is genuinely unreachable (404 / CORS / wrong origin).
       if (es.readyState === EventSource.CLOSED) {
@@ -356,7 +398,10 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    return () => es.close();
+    return () => {
+      sseOpenRef.current = false;
+      es.close();
+    };
   }, []);
 
   // Deadline for boost-style predictions = kickoff of the first knockout

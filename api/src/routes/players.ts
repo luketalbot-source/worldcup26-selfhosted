@@ -218,25 +218,28 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
       // hitting GET /players during the gap. sql.begin() guarantees
       // the rebuild is atomic — readers see either the old set or
       // the new set, never an intermediate state.
+      // Single bulk INSERT per team instead of one round-trip per player —
+      // the old loop issued up to ~1,300 sequential queries across a full
+      // 48-team sync, hogging pool connections. ON CONFLICT DO NOTHING
+      // still dedupes (including duplicates within the same batch).
+      const rows = squad.map((p) => {
+        const fullName = p.name!.trim();
+        return {
+          team_code: team.tla!,
+          full_name: fullName,
+          searchable: normaliseForSearch(fullName),
+          position: normalisePosition(p.position),
+          shirt_number: typeof p.shirtNumber === "number" ? p.shirtNumber : null,
+          date_of_birth: p.dateOfBirth ?? null,
+          updated_at: new Date(),
+        };
+      });
       await sql.begin(async (tx) => {
         await tx`DELETE FROM public.live_players WHERE team_code = ${team.tla!}`;
-        for (const p of squad) {
-          const fullName = p.name!.trim();
-          await tx`
-            INSERT INTO public.live_players (
-              team_code, full_name, searchable, position, shirt_number, date_of_birth, updated_at
-            ) VALUES (
-              ${team.tla!},
-              ${fullName},
-              ${normaliseForSearch(fullName)},
-              ${normalisePosition(p.position)},
-              ${typeof p.shirtNumber === "number" ? p.shirtNumber : null},
-              ${p.dateOfBirth ?? null},
-              NOW()
-            )
-            ON CONFLICT (team_code, full_name) DO NOTHING
-          `;
-        }
+        await tx`
+          INSERT INTO public.live_players ${tx(rows, 'team_code', 'full_name', 'searchable', 'position', 'shirt_number', 'date_of_birth', 'updated_at')}
+          ON CONFLICT (team_code, full_name) DO NOTHING
+        `;
       });
       teamsTouched++;
       rowsInserted += squad.length;
