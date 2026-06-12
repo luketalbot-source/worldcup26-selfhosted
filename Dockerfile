@@ -3,6 +3,13 @@
 # ============================================
 FROM node:20-alpine AS build
 
+# git is needed at build time only: vite.config.ts bakes `git rev-parse
+# --short HEAD` into the bundle as the build stamp shown in the profile
+# diagnostics panel (.git is allowed into the context for the same
+# reason). Multi-stage build — neither git nor .git reaches the final
+# nginx image.
+RUN apk add --no-cache git
+
 WORKDIR /app
 
 # VITE_ env vars must be present at build time because Vite
