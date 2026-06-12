@@ -58,7 +58,12 @@ export const ExactPredictionsReveal = ({ matchId }: { matchId: string }) => {
   if (!tenantId) return null;
 
   return (
-    <div className="rounded-lg overflow-hidden backdrop-blur-sm bg-white/90">
+    // bg-card (not bg-white): the first version hardcoded white like the
+    // legacy result strips, which made the theme-token text invisible in
+    // dark mode (white-on-white). bg-card tracks the active theme so
+    // foreground/muted tokens contrast correctly in both. mt-2 separates
+    // the strip from the result banner above it.
+    <div className="mt-2 rounded-lg overflow-hidden backdrop-blur-sm bg-card/95 border border-border/40">
       <button
         type="button"
         onClick={toggle}
