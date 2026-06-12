@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { sql } from "../db";
 import { type AuthEnv } from "../auth/middleware";
-import { maybeTriggerBackgroundSync } from "./admin";
+import { maybeTriggerBackgroundSync } from "../lib/matchSync";
 
 // WC2026 static-data-ish endpoints — teams roster, driven by the public.teams
 // table that POST /api/admin/sync-matches populates from football-data.org.

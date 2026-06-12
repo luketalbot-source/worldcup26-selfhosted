@@ -14,6 +14,7 @@ import rpcRoutes from "./routes/rpc";
 import wc2026Routes from "./routes/wc2026";
 import playerRoutes from "./routes/players";
 import statsRoutes from "./routes/stats";
+import { startMatchSyncScheduler } from "./lib/matchSync";
 
 const app = new Hono();
 
@@ -59,6 +60,11 @@ app.route("/api/rpc", rpcRoutes);
 app.route("/api/wc2026", wc2026Routes);
 app.route("/api/players", playerRoutes);
 app.route("/api/stats", statsRoutes);
+
+// Boot-time server-side sync loop: one 60s scheduler per process replaces
+// the per-browser sync polling the frontend used to do. Cheap no-op tick
+// unless a match is live (or just kicking off) — see lib/matchSync.ts.
+startMatchSyncScheduler();
 
 export default {
   port: parseInt(process.env.PORT ?? "3000"),
