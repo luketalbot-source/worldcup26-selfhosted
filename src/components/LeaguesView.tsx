@@ -395,7 +395,7 @@ const ExpandableLeagueCard = ({
                               {entry.totalPredictions} {entry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             {'isCreator' in entry && entry.isCreator && (
                               <Crown className="w-4 h-4 text-fifa-gold" />
                             )}
@@ -445,7 +445,7 @@ const ExpandableLeagueCard = ({
                     <div className="flex-shrink-0 w-8 flex justify-center">
                       {getRankDisplay(devModeCurrentUser.rank)}
                     </div>
-                    <div className="text-2xl">{devModeCurrentUser.avatarEmoji}</div>
+                    <div className="text-2xl flex-shrink-0">{devModeCurrentUser.avatarEmoji}</div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-foreground truncate text-sm">
                         {devModeCurrentUser.displayName}
@@ -455,8 +455,8 @@ const ExpandableLeagueCard = ({
                         {devModeCurrentUser.totalPredictions} {devModeCurrentUser.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-base font-bold text-foreground">{devModeCurrentUser.points}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-base font-bold text-foreground whitespace-nowrap tabular-nums">{devModeCurrentUser.points}</p>
                       <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
                     </div>
                   </div>

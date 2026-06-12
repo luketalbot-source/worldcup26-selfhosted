@@ -350,7 +350,8 @@ export const ProfileView = () => {
           <details className="text-[10px] text-muted-foreground/70 border-t border-border/40 pt-3 mt-2">
             <summary className="cursor-pointer select-none">Bridge diagnostics</summary>
             <pre className="mt-2 whitespace-pre-wrap break-all bg-muted/30 rounded p-2 leading-tight">
-{`isEmbedded   = ${String(isEmbedded)}
+{`build        = ${__BUILD_ID__}
+isEmbedded   = ${String(isEmbedded)}
 bridgeReady  = ${String(bridgeReady)}
 inIframe     = ${diag.inIframe}
 FlipFlutter  = ${diag.flipFlutter}
