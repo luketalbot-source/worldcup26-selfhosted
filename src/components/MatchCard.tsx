@@ -8,6 +8,7 @@ import { getFlagIconCode } from '@/lib/teamFlagCode';
 import { useMatchTime, getEffectiveMatchStatus } from '@/hooks/useMatchTime';
 import { findStadium } from '@/data/stadiums';
 import { StadiumCard } from './StadiumCard';
+import { ExactPredictionsReveal } from './ExactPredictionsReveal';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { useTeamName } from '@/hooks/useTeamName';
 import { Flag, CardFlagBackground } from '@/components/Flag';
@@ -356,6 +357,9 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
             {t('matchCard.noPredictionSubmitted')}
           </div>
         )}
+
+        {/* Who-called-it reveal — finished matches only; lazy-fetches on tap. */}
+        {isFinished && <ExactPredictionsReveal matchId={match.id} />}
       </div>
 
       {stadium && (

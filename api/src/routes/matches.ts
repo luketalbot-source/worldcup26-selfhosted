@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { sql } from "../db";
-import { type AuthEnv } from "../auth/middleware";
+import { requireAuth, type AuthEnv } from "../auth/middleware";
 import { subscribeMatchEvents } from "../lib/matchEvents";
 
 const router = new Hono<AuthEnv>();
@@ -122,6 +122,96 @@ router.get("/stream", async (c) => {
     // onAbort above).
     await new Promise<void>(() => {});
   });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/matches/:matchId/exact-predictions?tenant_id=<uuid>
+// "Who called it" — the users in this tenant whose prediction matched the
+// final score exactly. Powers the unfurling reveal on finished match cards.
+//
+// Privacy: revealed ONLY once the match is FINISHED with both scores set —
+// before that we return { revealed: false } and leak nothing (predictions
+// are competitive information until the whistle). Names + avatars are the
+// same data the tenant leaderboard already shows to every member.
+// ---------------------------------------------------------------------------
+
+interface ExactPredictor {
+  user_id: string;
+  display_name: string | null;
+  avatar_emoji: string | null;
+}
+
+// 60s in-memory cache keyed matchId:tenantId — post-FT the list is static
+// (barring an admin re-score, where 60s staleness is fine). Single API
+// instance, same pattern as the stats/tenant caches. Bounded: 104 matches
+// × a few dozen tenants.
+const revealCache = new Map<string, { body: unknown; expires: number }>();
+const REVEAL_TTL_MS = 60_000;
+const REVEAL_LIST_CAP = 100;
+
+router.get("/:matchId/exact-predictions", requireAuth, async (c) => {
+  const matchId = c.req.param("matchId");
+  const tenantId = c.req.query("tenant_id");
+  if (!tenantId) return c.json({ error: "tenant_id is required" }, 400);
+
+  const cacheKey = `${matchId}:${tenantId}`;
+  const cached = revealCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) {
+    return c.json(cached.body as Record<string, unknown>);
+  }
+
+  const matches = await sql<
+    { home_score: number | null; away_score: number | null; status: string }[]
+  >`
+    SELECT home_score, away_score, status
+      FROM public.live_matches
+     WHERE match_id = ${matchId}
+     LIMIT 1
+  `;
+  const match = matches[0];
+  if (!match) return c.json({ error: "Match not found" }, 404);
+
+  if (match.status !== "FINISHED" || match.home_score === null || match.away_score === null) {
+    // Don't cache the unrevealed state — the moment the match finishes,
+    // the next request should see the list without waiting out a TTL.
+    return c.json({ revealed: false });
+  }
+
+  // Earliest predictions first — being early AND right deserves the top
+  // spot. created_at survives later edits (updated_at tracks those), so
+  // this rewards the original call.
+  const users = await sql<ExactPredictor[]>`
+    SELECT pr.user_id, p.display_name, p.avatar_emoji
+      FROM public.predictions pr
+      LEFT JOIN public.profiles p ON p.user_id = pr.user_id
+     WHERE pr.match_id = ${matchId}
+       AND pr.tenant_id = ${tenantId}
+       AND pr.home_score = ${match.home_score}
+       AND pr.away_score = ${match.away_score}
+     ORDER BY pr.created_at ASC
+     LIMIT ${REVEAL_LIST_CAP}
+  `;
+
+  const countRows = await sql<{ exact_count: number; total_count: number }[]>`
+    SELECT COUNT(*) FILTER (
+             WHERE home_score = ${match.home_score}
+               AND away_score = ${match.away_score}
+           )::int AS exact_count,
+           COUNT(*)::int AS total_count
+      FROM public.predictions
+     WHERE match_id = ${matchId}
+       AND tenant_id = ${tenantId}
+  `;
+  const counts = countRows[0] ?? { exact_count: 0, total_count: 0 };
+
+  const body = {
+    revealed: true,
+    exact_count: counts.exact_count,
+    total_count: counts.total_count,
+    users,
+  };
+  revealCache.set(cacheKey, { body, expires: Date.now() + REVEAL_TTL_MS });
+  return c.json(body);
 });
 
 export default router;

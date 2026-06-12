@@ -383,7 +383,7 @@ const ExpandableLeagueCard = ({
                           <div className="flex-shrink-0 w-8 flex justify-center">
                             {getRankDisplay(entry.rank)}
                           </div>
-                          <div className="text-2xl">{entry.avatarEmoji}</div>
+                          <div className="text-2xl flex-shrink-0">{entry.avatarEmoji}</div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-foreground truncate text-sm">
                               {entry.displayName}
@@ -400,7 +400,7 @@ const ExpandableLeagueCard = ({
                               <Crown className="w-4 h-4 text-fifa-gold" />
                             )}
                             <div className="text-right">
-                              <p className="text-base font-bold text-foreground">{entry.points}</p>
+                              <p className="text-base font-bold text-foreground whitespace-nowrap tabular-nums">{entry.points}</p>
                               <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
                             </div>
                             {/* Remove button - only for creator, not for self */}

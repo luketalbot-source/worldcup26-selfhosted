@@ -401,5 +401,11 @@
       "bmo": "Torontos Fußballstadion am Seeufer, Heimat des Toronto FC, für die WM auf rund 45.000 Plätze erweitert — Kanadas Männer spielen hier ihre Gruppenspiele.",
       "bcplace": "Arena mit ausfahrbarem Dach mitten in Vancouver — Schauplatz der Zeremonien der Winterspiele 2010 und des Frauen-WM-Finals 2015."
     }
+  },
+  "reveal": {
+    "title": "Wer hat's gewusst?",
+    "calledIt": "{{exact}} von {{total}} haben genau dieses Ergebnis getippt",
+    "nobody": "Das hat niemand kommen sehen 👀",
+    "more": "+ {{count}} weitere"
   }
 }

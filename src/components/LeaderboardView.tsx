@@ -42,7 +42,7 @@ const LeaderboardRow = ({ entry, isCurrentUser, index, skipAnimation }: Leaderbo
       <div className="flex-shrink-0 w-8 flex justify-center">
         {getRankDisplay(entry.rank)}
       </div>
-      <div className="text-2xl">{entry.avatarEmoji}</div>
+      <div className="text-2xl flex-shrink-0">{entry.avatarEmoji}</div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-foreground truncate">
           {/* translate="no": names must survive browser auto-translate —
@@ -57,8 +57,8 @@ const LeaderboardRow = ({ entry, isCurrentUser, index, skipAnimation }: Leaderbo
           {entry.totalPredictions} {entry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
         </p>
       </div>
-      <div className="text-right">
-        <p className="text-lg font-bold text-foreground">{entry.points}</p>
+      <div className="text-right flex-shrink-0">
+        <p className="text-lg font-bold text-foreground whitespace-nowrap tabular-nums">{entry.points}</p>
         <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
       </div>
     </motion.div>
@@ -286,7 +286,7 @@ export const LeaderboardView = () => {
               <div className="flex-shrink-0 w-8 flex justify-center">
                 {getRankDisplay(currentUserEntry.rank)}
               </div>
-              <div className="text-2xl">{currentUserEntry.avatarEmoji}</div>
+              <div className="text-2xl flex-shrink-0">{currentUserEntry.avatarEmoji}</div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-foreground truncate">
                   <span translate="no">{currentUserEntry.displayName}</span>

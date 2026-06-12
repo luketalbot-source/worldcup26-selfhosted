@@ -9,6 +9,7 @@ import { getFlagIconCode } from '@/lib/teamFlagCode';
 import { useMatchTime } from '@/hooks/useMatchTime';
 import { findStadium } from '@/data/stadiums';
 import { StadiumCard } from './StadiumCard';
+import { ExactPredictionsReveal } from './ExactPredictionsReveal';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { Flag, CardFlagBackground } from '@/components/Flag';
 import { useTeamName } from '@/hooks/useTeamName';
@@ -348,6 +349,9 @@ export const KnockoutMatchCard = ({
             {t('matchCard.noPredictionSubmitted')}
           </div>
         )}
+
+        {/* Who-called-it reveal — finished matches only; lazy-fetches on tap. */}
+        {isFinished && <ExactPredictionsReveal matchId={match.id} />}
       </div>
 
       {stadium && (

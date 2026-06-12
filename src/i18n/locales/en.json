@@ -471,5 +471,11 @@
       "bmo": "Toronto's lakeside football ground, home of Toronto FC, expanded to around 45,000 seats for the World Cup — Canada's men play their 2026 group games here.",
       "bcplace": "Downtown Vancouver's retractable-roof arena, host of the 2010 Winter Olympics ceremonies and the 2015 Women's World Cup final."
     }
+  },
+  "reveal": {
+    "title": "Who called it?",
+    "calledIt": "{{exact}} of {{total}} predicted this exact score",
+    "nobody": "Nobody saw this one coming 👀",
+    "more": "+ {{count}} more"
   }
 }
