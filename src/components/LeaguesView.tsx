@@ -7,6 +7,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useLeagues, League } from '@/hooks/useLeagues';
 import { useLeagueLeaderboard } from '@/hooks/useLeagueLeaderboard';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { useLiveMatchesOptional } from '@/contexts/LiveMatchesContext';
 import { useLoadTestLeaderboard } from '@/hooks/useLoadTestLeaderboard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -109,6 +110,11 @@ const ExpandableLeagueCard = ({
     ? (isDevMode ? loadTestData.loading : globalLeaderboardLoading) 
     : leaderboardLoading;
   
+  // Live-match awareness (null on the legacy non-tenant page, where no
+  // LiveMatchesProvider exists — the strip simply doesn't render there).
+  const liveCtx = useLiveMatchesOptional();
+  const anyMatchLive = liveCtx?.anyMatchLive ?? false;
+
   // Get simulated current user for dev mode
   const devModeCurrentUser = isDevMode ? loadTestData.currentUserEntry : null;
 
@@ -490,6 +496,21 @@ const ExpandableLeagueCard = ({
                 )}
               </AnimatePresence>
               
+              {/* Live-scoring notice — only while a match is in play.
+                  Badge styled identically to the match card's LIVE pill
+                  so the visual language matches: points from running
+                  matches are provisional and move with the score. */}
+              {anyMatchLive && (
+                <div className="flex items-center gap-2 px-1">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm bg-destructive text-white animate-pulse flex-shrink-0">
+                    {t('matchCard.live')}
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    {t('leaderboard.liveScoring')}
+                  </p>
+                </div>
+              )}
+
               {/* Scoring system explanation */}
               <div className="p-3 bg-muted/30 rounded-xl border border-border">
                 <div className="grid grid-cols-3 gap-4 text-center text-sm">

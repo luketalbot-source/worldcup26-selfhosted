@@ -156,7 +156,8 @@
     "correctWinner": "Richtiger Sieger",
     "wrong": "Falsch",
     "pointsPerType": "Punkte pro Tipp-Typ",
-    "endOfList": "Alle {{count}} Spieler angezeigt"
+    "endOfList": "Alle {{count}} Spieler angezeigt",
+    "liveScoring": "Punkte aus laufenden Spielen sind vorläufig und bewegen sich mit dem Live-Ergebnis — endgültig werden sie mit dem Abpfiff."
   },
   "auth": {
     "title": "Gib deinen Benutzernamen ein",

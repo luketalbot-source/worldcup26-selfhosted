@@ -130,6 +130,11 @@ interface ContextValue {
   // enough to live in front of users from the moment fixtures land —
   // and it builds the right anticipation in the lead-up.
   tournamentStarted: boolean;
+  // True while at least one match is currently being played — drives
+  // the LIVE badge + provisional-points helper on league leaderboards
+  // (points from in-play matches update live and lock at full time;
+  // product decision June 12, option "live leaderboard").
+  anyMatchLive: boolean;
 }
 
 const Ctx = createContext<ContextValue | null>(null);
@@ -428,6 +433,11 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     [matches],
   );
 
+  const anyMatchLive = useMemo<boolean>(
+    () => matches.some((m) => LIVE_STATUSES.has(m.status)),
+    [matches],
+  );
+
   return (
     <Ctx.Provider
       value={{
@@ -443,12 +453,20 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
         dismissGoal,
         boostsDeadline,
         tournamentStarted,
+        anyMatchLive,
       }}
     >
       {children}
     </Ctx.Provider>
   );
 };
+
+/**
+ * Null-safe variant for components that also render outside the tenant
+ * shell (e.g. LeaguesView on the legacy non-tenant Index page, which has
+ * no LiveMatchesProvider). Returns null instead of throwing.
+ */
+export const useLiveMatchesOptional = (): ContextValue | null => useContext(Ctx);
 
 export const useLiveMatchesContext = (): ContextValue => {
   const v = useContext(Ctx);
