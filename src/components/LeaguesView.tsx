@@ -111,17 +111,31 @@ const ExpandableLeagueCard = ({
   
   // Get simulated current user for dev mode
   const devModeCurrentUser = isDevMode ? loadTestData.currentUserEntry : null;
-  
+
+  // The current user's leaderboard entry — simulated in dev load-test
+  // mode, otherwise looked up in the real list. The pinned "your
+  // position" card below was originally wired ONLY to the dev-mode
+  // branch (it was built and verified against the load-test harness),
+  // so production users below the fold never saw themselves — reported
+  // June 12. This generalisation is the fix.
+  const currentUserEntry = isDevMode
+    ? devModeCurrentUser
+    : (user ? activeLeaderboard.find((e) => e.userId === user.id) ?? null : null);
+
   // Track if user's row is visible in scroll area
   const userRowRef = useRef<HTMLDivElement>(null);
   const [userRowVisible, setUserRowVisible] = useState(false);
-  
-  // Check if user's row is in the current entries
-  const userInEntries = devModeCurrentUser && activeLeaderboard.some(e => e.userId === devModeCurrentUser.userId);
-  
-  // Intersection observer to detect when user's row becomes visible
+
+  // Check if user's row is in the current entries (dev-mode pagination
+  // may not have loaded it yet; the prod list is always complete)
+  const userInEntries = !!currentUserEntry && activeLeaderboard.some(e => e.userId === currentUserEntry.userId);
+
+  // Intersection observer to detect when user's row becomes visible.
+  // Rows are clipped by the inner scroll container; the observer's
+  // default (viewport) root still accounts for intermediate clipping,
+  // so isIntersecting flips exactly when the row scrolls into the box.
   useEffect(() => {
-    if (!isDevMode || !isEveryone || !userRowRef.current || !userInEntries) {
+    if (!userRowRef.current || !userInEntries) {
       setUserRowVisible(false);
       return;
     }
@@ -135,10 +149,11 @@ const ExpandableLeagueCard = ({
 
     observer.observe(userRowRef.current);
     return () => observer.disconnect();
-  }, [isDevMode, isEveryone, userInEntries, activeLeaderboard]);
-  
-  // Show pinned card when: dev mode + user exists + user row not visible
-  const showPinnedCard = isDevMode && isEveryone && devModeCurrentUser && !userRowVisible;
+  }, [userInEntries, activeLeaderboard]);
+
+  // Pinned card: the user has an entry but their row is scrolled out of
+  // view. Applies to every league and both modes.
+  const showPinnedCard = !!currentUserEntry && userInEntries && !userRowVisible;
   
   const [copied, setCopied] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -379,7 +394,7 @@ const ExpandableLeagueCard = ({
                       return (
                         <div
                           key={entry.userId}
-                          ref={isCurrentUser && isDevMode && isEveryone ? userRowRef : undefined}
+                          ref={isCurrentUser ? userRowRef : undefined}
                           className={`flex items-center gap-3 p-3 ${
                             isCurrentUser ? 'bg-primary/5' : ''
                           }`}
@@ -443,29 +458,37 @@ const ExpandableLeagueCard = ({
               )}
               
               {/* Pinned "Your Position" card - shows when user row not visible */}
-              {showPinnedCard && devModeCurrentUser && (
-                <div className="bg-card/95 backdrop-blur-sm rounded-xl border border-primary/20 overflow-hidden">
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="flex-shrink-0 w-8 flex justify-center">
-                      {getRankDisplay(devModeCurrentUser.rank)}
+              <AnimatePresence>
+                {showPinnedCard && currentUserEntry && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ duration: 0.2 }}
+                    className="bg-card/95 backdrop-blur-sm rounded-xl border border-primary/20 overflow-hidden"
+                  >
+                    <div className="flex items-center gap-3 p-3">
+                      <div className="flex-shrink-0 w-8 flex justify-center">
+                        {getRankDisplay(currentUserEntry.rank)}
+                      </div>
+                      <div className="text-2xl flex-shrink-0">{currentUserEntry.avatarEmoji}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate text-sm">
+                          <span translate="no">{currentUserEntry.displayName}</span>
+                          <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {currentUserEntry.totalPredictions} {currentUserEntry.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-base font-bold text-foreground whitespace-nowrap tabular-nums">{currentUserEntry.points}</p>
+                        <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
+                      </div>
                     </div>
-                    <div className="text-2xl flex-shrink-0">{devModeCurrentUser.avatarEmoji}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate text-sm">
-                        {devModeCurrentUser.displayName}
-                        <span className="ml-2 text-xs text-primary">{t('leaderboard.you')}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {devModeCurrentUser.totalPredictions} {devModeCurrentUser.totalPredictions !== 1 ? t('leaderboard.predictions') : t('leaderboard.prediction')}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-base font-bold text-foreground whitespace-nowrap tabular-nums">{devModeCurrentUser.points}</p>
-                      <p className="text-xs text-muted-foreground">{t('leaderboard.pts')}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
               
               {/* Scoring system explanation */}
               <div className="p-3 bg-muted/30 rounded-xl border border-border">
