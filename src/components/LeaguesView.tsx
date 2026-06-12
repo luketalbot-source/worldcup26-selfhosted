@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { EmojiPicker } from '@/components/EmojiPicker';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -353,9 +352,14 @@ const ExpandableLeagueCard = ({
                   <p className="text-muted-foreground">{t('leaderboard.noPredictions')}</p>
                 </div>
               ) : (
-                <ScrollArea 
-                  className="h-[220px] md:h-[440px] rounded-xl border border-border"
-                  onScrollCapture={(e) => {
+                // Native scroll, NOT Radix ScrollArea — its display:table
+                // viewport sized rows to the longest name and pushed the
+                // points column off-screen in portrait (June 12 reports).
+                // Same WebView-touch rationale as everywhere else.
+                <div
+                  className="h-[220px] md:h-[440px] rounded-xl border border-border overflow-y-auto overscroll-contain"
+                  style={{ touchAction: 'pan-y' }}
+                  onScroll={(e) => {
                     if (!isDevMode || !isEveryone) return;
                     const target = e.target as HTMLDivElement;
                     const { scrollTop, scrollHeight, clientHeight } = target;
@@ -435,7 +439,7 @@ const ExpandableLeagueCard = ({
                       </div>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               )}
               
               {/* Pinned "Your Position" card - shows when user row not visible */}

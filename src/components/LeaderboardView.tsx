@@ -7,7 +7,6 @@ import { useTenant } from '@/contexts/TenantContext';
 import { usePaginatedLeaderboard, LeaderboardEntry } from '@/hooks/usePaginatedLeaderboard';
 import { useLoadTestLeaderboard } from '@/hooks/useLoadTestLeaderboard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const getRankDisplay = (rank: number) => {
   switch (rank) {
@@ -209,10 +208,19 @@ export const LeaderboardView = () => {
             </p>
           </div>
         ) : (
-          <ScrollArea 
-            className="h-[400px] md:h-[500px]" 
+          // Native scroll container, NOT Radix ScrollArea. ScrollArea's
+          // viewport wraps children in a display:table div that sizes to
+          // the WIDEST row's content instead of the container — one long
+          // display name pushed the whole list canvas past the viewport
+          // and every row's points off-screen in portrait (field reports
+          // June 12; landscape was wide enough to mask it). Native
+          // overflow also avoids ScrollArea's WebView touch-swallowing,
+          // per the documented Navigation.tsx/PlayerPicker lesson.
+          <div
+            className="h-[400px] md:h-[500px] overflow-y-auto overscroll-contain"
+            style={{ touchAction: 'pan-y' }}
             ref={scrollRef}
-            onScrollCapture={handleScroll}
+            onScroll={handleScroll}
           >
             <div className="divide-y divide-border">
               {entries.map((entry, index) => {
@@ -249,7 +257,7 @@ export const LeaderboardView = () => {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         )}
         
         <div className="p-4 bg-muted/30 border-t border-border">
