@@ -14,6 +14,15 @@ export interface MatchGoal {
   minute: number;
   player_name: string;
   team_side: 'home' | 'away';
+  goal_type?: string | null;
+}
+
+export interface MatchBooking {
+  id: string;
+  minute: number;
+  player_name: string;
+  team_side: 'home' | 'away';
+  card_type: 'yellow' | 'second_yellow' | 'red';
 }
 
 export interface LiveMatchEvent {
@@ -34,6 +43,7 @@ export interface LiveMatchEvent {
   manual_override: boolean;
   last_updated: string;
   goals?: MatchGoal[];
+  bookings?: MatchBooking[];
 }
 
 type Subscriber = (event: LiveMatchEvent) => void;

@@ -70,7 +70,9 @@
     "hoursShort": "h",
     "minutesShort": "m",
     "aet": "AET",
-    "wonOnPens": "{{winner}} {{score}} on pens"
+    "wonOnPens": "{{winner}} {{score}} on pens",
+    "ownGoal": "OG",
+    "penalty": "P"
   },
   "standings": {
     "title": "Group {{letter}} Standings",

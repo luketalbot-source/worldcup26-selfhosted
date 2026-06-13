@@ -31,12 +31,26 @@ export async function fetchMatchWithGoals(matchId: string): Promise<LiveMatchEve
             'id', mg.id,
             'minute', mg.minute,
             'player_name', mg.player_name,
-            'team_side', mg.team_side
+            'team_side', mg.team_side,
+            'goal_type', mg.goal_type
           ) ORDER BY mg.minute, mg.created_at
         )
         FROM public.match_goals mg
         WHERE mg.match_id = lm.match_id
-      ), '[]'::json) AS goals
+      ), '[]'::json) AS goals,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'id', mb.id,
+            'minute', mb.minute,
+            'player_name', mb.player_name,
+            'team_side', mb.team_side,
+            'card_type', mb.card_type
+          ) ORDER BY mb.minute, mb.created_at
+        )
+        FROM public.match_bookings mb
+        WHERE mb.match_id = lm.match_id
+      ), '[]'::json) AS bookings
     FROM public.live_matches lm
     WHERE lm.match_id = ${matchId}
   `;
@@ -108,15 +122,27 @@ async function syncGoalsFromFD(
   // sequential queries holding pool connections.
   const rows = fdGoals
     .filter((g) => g.scorer?.name && g.minute != null)
-    .map((g) => ({
-      match_id: matchId,
-      minute: g.minute,
-      player_name: g.scorer!.name!,
-      team_side: g.team?.name === homeName ? 'home' : 'away',
-    }));
+    .map((g) => {
+      const type = (g.type ?? '').toUpperCase();
+      // FD's `team` on a goal is the team the SCORER plays for. For an
+      // OWN goal that's the conceding team, so the goal counts for the
+      // OTHER side — flip it. (USA 4-1 PAR, June 13: a 7' own goal by a
+      // Paraguay player belongs on the USA tally; without the flip USA
+      // showed 3 of its 4 goals.) Regular/penalty goals count for the
+      // scorer's team as normal.
+      const scorerIsHome = g.team?.name === homeName;
+      const countsForHome = type === 'OWN' ? !scorerIsHome : scorerIsHome;
+      return {
+        match_id: matchId,
+        minute: g.minute,
+        player_name: g.scorer!.name!,
+        team_side: countsForHome ? 'home' : 'away',
+        goal_type: g.type ?? null,
+      };
+    });
   if (rows.length === 0) return;
   await sql`
-    INSERT INTO public.match_goals ${sql(rows, 'match_id', 'minute', 'player_name', 'team_side')}
+    INSERT INTO public.match_goals ${sql(rows, 'match_id', 'minute', 'player_name', 'team_side', 'goal_type')}
   `;
 }
 
@@ -491,6 +517,51 @@ export async function runSync(apiKey: string): Promise<void> {
     syncState.finishedAt = new Date().toISOString();
     console.error("[sync-matches] failed:", err);
   }
+}
+
+// One-off: re-pull goals + bookings for every already-played match,
+// bypassing runSync's 12-hour recency window. Needed when the EVENT
+// derivation logic changes and historical matches must be rewritten —
+// e.g. the own-goal side-flip fix (June 13): finished matches older than
+// 12h would otherwise keep their wrong attribution forever, since the
+// scheduler only re-syncs events for recently-kicked-off matches.
+//
+// Events live only on FD's single-match detail endpoint on our tier, so
+// this fetches detail per match. Paced at ~7s/request to stay under the
+// 10-req/min limit; with a handful of played matches that's well under a
+// minute, and it's fire-and-forget from the route. Re-runnable safely
+// (each match's events are DELETE+INSERT).
+export async function resyncPlayedMatchEvents(apiKey: string): Promise<void> {
+  const played = await sql<{ match_id: string }[]>`
+    SELECT match_id FROM public.live_matches
+     WHERE home_score IS NOT NULL AND away_score IS NOT NULL
+       AND NOT manual_override
+     ORDER BY match_date ASC
+  `;
+  console.log(`[resync-events] starting for ${played.length} played matches`);
+  let ok = 0;
+  for (const { match_id } of played) {
+    const apiId = match_id.replace(/^fd-/, "");
+    try {
+      const res = await fetch(`${FOOTBALL_API_BASE}/matches/${apiId}`, {
+        headers: { "X-Auth-Token": apiKey },
+      });
+      if (res.ok) {
+        const detail = (await res.json()) as FootballDataMatch;
+        await syncGoalsFromFD(match_id, detail);
+        await syncBookingsFromFD(match_id, detail);
+        const enriched = await fetchMatchWithGoals(match_id);
+        if (enriched) emitMatchEvent(enriched);
+        ok++;
+      } else {
+        console.warn(`[resync-events] ${match_id} detail returned ${res.status}`);
+      }
+    } catch (err) {
+      console.error(`[resync-events] ${match_id} failed:`, err);
+    }
+    await new Promise((r) => setTimeout(r, 7000));
+  }
+  console.log(`[resync-events] done: ${ok}/${played.length} resynced`);
 }
 
 // Fire a background sync if (a) the teams table is empty, or (b) the newest

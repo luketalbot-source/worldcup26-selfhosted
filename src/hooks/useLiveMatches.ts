@@ -131,6 +131,7 @@ export const useLiveMatches = () => {
           duration: row.duration ?? undefined,
           status,
           goals: row.goals ?? [],
+          bookings: row.bookings ?? [],
         };
       })
       .sort((a, b) => {

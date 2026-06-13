@@ -23,31 +23,47 @@ router.get("/", async (c) => {
         'id', mg.id,
         'minute', mg.minute,
         'player_name', mg.player_name,
-        'team_side', mg.team_side
+        'team_side', mg.team_side,
+        'goal_type', mg.goal_type
       ) ORDER BY mg.minute, mg.created_at
     )
     FROM public.match_goals mg
     WHERE mg.match_id = lm.match_id
   ), '[]'::json)`;
 
+  // Bookings (yellow/red cards), shown on the card alongside goals.
+  const bookingsSubquery = sql`COALESCE((
+    SELECT json_agg(
+      json_build_object(
+        'id', mb.id,
+        'minute', mb.minute,
+        'player_name', mb.player_name,
+        'team_side', mb.team_side,
+        'card_type', mb.card_type
+      ) ORDER BY mb.minute, mb.created_at
+    )
+    FROM public.match_bookings mb
+    WHERE mb.match_id = lm.match_id
+  ), '[]'::json)`;
+
   let rows;
   if (stage === "group") {
     rows = await sql`
-      SELECT lm.*, ${goalsSubquery} AS goals
+      SELECT lm.*, ${goalsSubquery} AS goals, ${bookingsSubquery} AS bookings
       FROM public.live_matches lm
       WHERE lm.stage = 'group'
       ORDER BY lm.match_date ASC
     `;
   } else if (stage === "knockout") {
     rows = await sql`
-      SELECT lm.*, ${goalsSubquery} AS goals
+      SELECT lm.*, ${goalsSubquery} AS goals, ${bookingsSubquery} AS bookings
       FROM public.live_matches lm
       WHERE lm.stage <> 'group'
       ORDER BY lm.match_date ASC
     `;
   } else {
     rows = await sql`
-      SELECT lm.*, ${goalsSubquery} AS goals
+      SELECT lm.*, ${goalsSubquery} AS goals, ${bookingsSubquery} AS bookings
       FROM public.live_matches lm
       ORDER BY lm.match_date ASC
     `;

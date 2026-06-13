@@ -11,6 +11,16 @@ export interface MatchGoal {
   minute: number;
   player_name: string;
   team_side: 'home' | 'away';
+  /** FD goal type: 'REGULAR' | 'OWN' | 'PENALTY' (null = treat as regular). */
+  goal_type?: string | null;
+}
+
+export interface MatchBooking {
+  id: string;
+  minute: number;
+  player_name: string;
+  team_side: 'home' | 'away';
+  card_type: 'yellow' | 'second_yellow' | 'red';
 }
 
 export interface Match {
@@ -45,6 +55,7 @@ export interface Match {
   duration?: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' | null;
   status: 'upcoming' | 'live' | 'finished';
   goals?: MatchGoal[];
+  bookings?: MatchBooking[];
 }
 
 export interface Prediction {

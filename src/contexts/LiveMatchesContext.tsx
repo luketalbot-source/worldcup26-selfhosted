@@ -31,6 +31,15 @@ export interface MatchGoal {
   minute: number;
   player_name: string;
   team_side: 'home' | 'away';
+  goal_type?: string | null;
+}
+
+export interface MatchBooking {
+  id: string;
+  minute: number;
+  player_name: string;
+  team_side: 'home' | 'away';
+  card_type: 'yellow' | 'second_yellow' | 'red';
 }
 
 export interface LiveMatch {
@@ -63,6 +72,7 @@ export interface LiveMatch {
   // Optional because legacy SSE events from before the goals-aware emit
   // landed don't carry it; default to [] in render code.
   goals?: MatchGoal[];
+  bookings?: MatchBooking[];
 }
 
 export interface GoalEvent {

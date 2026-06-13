@@ -4,7 +4,7 @@ import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 import { emitMatchEvent, type MatchGoal } from "../lib/matchEvents";
-import { fetchMatchWithGoals, runSync, syncState } from "../lib/matchSync";
+import { fetchMatchWithGoals, runSync, syncState, resyncPlayedMatchEvents } from "../lib/matchSync";
 import { invalidateLeaderboardCache } from "./leaderboard";
 
 const router = new Hono<AuthEnv>();
@@ -101,6 +101,22 @@ router.post("/sync-matches", requireAuth, async (c) => {
 // regular users shouldn't see it either — it's just job state.
 router.get("/sync-status", requireAuth, async (c) => {
   return c.json(syncState);
+});
+
+// One-off / occasional admin action: re-pull goals + bookings for every
+// played match, ignoring the scheduler's 12h window. Use after an event-
+// derivation change (e.g. the own-goal side-flip fix) so historical
+// finished matches get rewritten. Admin-only and fire-and-forget; safe to
+// re-run.
+router.post("/resync-events", requireAdmin, async (c) => {
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+  if (!apiKey) return c.json({ error: "FOOTBALL_DATA_API_KEY not configured" }, 500);
+  setTimeout(() => {
+    resyncPlayedMatchEvents(apiKey).catch((err) =>
+      console.error("[resync-events] unhandled:", err)
+    );
+  }, 0);
+  return c.json({ status: "started", startedAt: new Date().toISOString() }, 202);
 });
 
 // -----------------------------------------------------------------------------

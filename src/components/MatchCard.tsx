@@ -8,6 +8,7 @@ import { getFlagIconCode } from '@/lib/teamFlagCode';
 import { useMatchTime, getEffectiveMatchStatus } from '@/hooks/useMatchTime';
 import { findStadium } from '@/data/stadiums';
 import { StadiumCard } from './StadiumCard';
+import { MatchEvents } from './MatchEvents';
 import { ExactPredictionsReveal } from './ExactPredictionsReveal';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { useTeamName } from '@/hooks/useTeamName';
@@ -241,33 +242,12 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
             )}
           </div>
 
-          {/* Goal scorers — only on live or finished matches that have any
-              goals recorded. Two-column grid: home scorers right-aligned
-              (toward the centre of the card), away left-aligned. Same
-              translucent background as the score pill so the text is
-              readable on top of the flag image. Small enough to fit
-              several goals without overflowing on a busy card. */}
-          {(isLive || isFinished) && (match.goals?.length ?? 0) > 0 && (
-            <div className="bg-background/55 backdrop-blur-md rounded-xl px-4 py-2 shadow-md max-w-md w-full">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                <div className="text-right space-y-0.5 min-w-0">
-                  {match.goals!.filter((g) => g.team_side === 'home').map((g) => (
-                    <div key={g.id} className="truncate text-foreground">
-                      <span className="font-medium">{g.player_name}</span>
-                      <span className="font-mono text-muted-foreground ml-2">{g.minute}&prime;</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-left space-y-0.5 min-w-0">
-                  {match.goals!.filter((g) => g.team_side === 'away').map((g) => (
-                    <div key={g.id} className="truncate text-foreground">
-                      <span className="font-mono text-muted-foreground mr-2">{g.minute}&prime;</span>
-                      <span className="font-medium">{g.player_name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          {/* Goals + bookings — only on live/finished matches with events.
+              Home events right-aligned (toward the card centre), away
+              left. Own goals are flagged "(OG)" since the scorer's name
+              shows on the beneficiary's side. See MatchEvents. */}
+          {(isLive || isFinished) && (
+            <MatchEvents goals={match.goals ?? []} bookings={match.bookings ?? []} />
           )}
         </div>
 

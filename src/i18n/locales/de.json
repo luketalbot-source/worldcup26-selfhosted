@@ -127,7 +127,9 @@
     "hoursShort": "Std",
     "minutesShort": "Min",
     "aet": "n.V.",
-    "wonOnPens": "{{winner}} {{score}} im Elfmeterschießen"
+    "wonOnPens": "{{winner}} {{score}} im Elfmeterschießen",
+    "ownGoal": "ET",
+    "penalty": "FE"
   },
   "standings": {
     "title": "Gruppe {{letter}} Tabelle",
