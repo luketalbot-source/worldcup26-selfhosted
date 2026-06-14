@@ -3,12 +3,9 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { withUser, sql } from "../db";
 import { requireAuth, type AuthEnv } from "../auth/middleware";
+import { isPredictionLocked } from "../lib/predictionLock";
 
 const router = new Hono<AuthEnv>();
-
-// Predictions close 30 minutes before kickoff — must match the UI's
-// useMatchTime lock (minutesUntilStart - 30).
-const LOCK_MINUTES = 30;
 
 router.get("/", requireAuth, async (c) => {
   const user = c.get("user");
@@ -59,14 +56,12 @@ router.post("/", requireAuth, zValidator("json", predictionSchema), async (c) =>
   const matchRows = await sql<{ match_date: string | null }[]>`
     SELECT match_date FROM public.live_matches WHERE match_id = ${body.match_id} LIMIT 1
   `;
-  if (matchRows.length > 0 && matchRows[0]!.match_date) {
-    const kickoffMs = new Date(matchRows[0]!.match_date).getTime();
-    if (Number.isFinite(kickoffMs) && Date.now() >= kickoffMs - LOCK_MINUTES * 60_000) {
-      return c.json(
-        { error: "Predictions for this match are locked — they close 30 minutes before kickoff." },
-        403,
-      );
-    }
+  const kickoffMs = matchRows[0]?.match_date ? new Date(matchRows[0]!.match_date).getTime() : null;
+  if (isPredictionLocked(kickoffMs, Date.now())) {
+    return c.json(
+      { error: "Predictions for this match are locked — they close 30 minutes before kickoff." },
+      403,
+    );
   }
 
   const rows = await withUser(user.sub, (tx) =>
