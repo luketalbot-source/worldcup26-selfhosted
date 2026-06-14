@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { sql, withUser } from "../db";
 import { requireAuth, requireAdmin, type AuthEnv } from "../auth/middleware";
+import { getBoostDeadlineMs, BOOSTS_LOCKED_ERROR } from "../lib/boostDeadline";
 
 const router = new Hono<AuthEnv>();
 
@@ -40,6 +41,12 @@ router.post(
   async (c) => {
     const user = c.get("user");
     const body = c.req.valid("json");
+
+    // Server-side lock — see boostDeadline.ts. Was UI-only.
+    const deadline = await getBoostDeadlineMs();
+    if (deadline !== null && Date.now() >= deadline) {
+      return c.json({ error: BOOSTS_LOCKED_ERROR }, 403);
+    }
 
     const rows = await withUser(user.sub, (tx) =>
       tx`
