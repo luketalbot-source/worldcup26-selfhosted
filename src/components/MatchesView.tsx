@@ -98,7 +98,10 @@ export const MatchesView = () => {
     t
   } = useTranslation();
   const { tenantId } = useTenant();
-  const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('groups');
+  // Default to the Today tab — during the tournament it's the most
+  // relevant landing view (today's fixtures + live scores). Pre-tournament
+  // it shows its own empty state, which is fine.
+  const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('today');
   const [activeGroup, setActiveGroup] = useState('A');
   const [activeKnockoutStage, setActiveKnockoutStage] = useState<KnockoutStage>('round32');
   const [activeDayFilter, setActiveDayFilter] = useState<MatchDayFilter>('today');
