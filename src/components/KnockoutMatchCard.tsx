@@ -10,6 +10,7 @@ import { useMatchTime } from '@/hooks/useMatchTime';
 import { findStadium } from '@/data/stadiums';
 import { StadiumCard } from './StadiumCard';
 import { ExactPredictionsReveal } from './ExactPredictionsReveal';
+import { MatchEvents } from './MatchEvents';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { Flag, CardFlagBackground } from '@/components/Flag';
 import { useTeamName } from '@/hooks/useTeamName';
@@ -106,7 +107,7 @@ export const KnockoutMatchCard = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl shadow-card border h-[250px] ${
+      className={`relative overflow-hidden rounded-2xl shadow-card border min-h-[250px] ${
         predictionResult?.resultType === 'exact' 
           ? 'ring-2 ring-fifa-gold border-fifa-gold/50' 
           : predictionResult?.resultType === 'correct'
@@ -192,76 +193,87 @@ export const KnockoutMatchCard = ({
           )}
         </div>
 
-        {/* Score Section - Absolutely centered */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
-            {(isFinished || isLive) ? (
-              <>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
-                  <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
-                  <div className="text-lg text-muted-foreground font-light">-</div>
-                  <div className="text-2xl font-bold text-foreground w-8 text-center">{displayAwayScore}</div>
-                  <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
-                </div>
-                {/* AET / PSO annotation. Renders only on knockout
-                    matches that needed extra time or penalties; FD's
-                    `duration` flag drives the visibility. The score
-                    above is the regulation+ET total — this line tells
-                    a reader who actually advanced. Both labels go
-                    through i18n so the abbreviation matches local
-                    convention (de: n.V., fr: a.p., it: d.t.s., …). */}
-                {(match.duration === 'EXTRA_TIME' || match.duration === 'PENALTY_SHOOTOUT') && (
-                  <div className="mt-1 text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    {(() => {
-                      const aet = t('matchCard.aet', 'AET');
-                      if (
-                        match.duration === 'PENALTY_SHOOTOUT' &&
-                        match.penaltyHomeScore != null &&
-                        match.penaltyAwayScore != null
-                      ) {
-                        const homeWon = match.penaltyHomeScore > match.penaltyAwayScore;
-                        const winner = homeWon ? homeTeamName : awayTeamName;
-                        const score = homeWon
-                          ? `${match.penaltyHomeScore}–${match.penaltyAwayScore}`
-                          : `${match.penaltyAwayScore}–${match.penaltyHomeScore}`;
-                        return `${aet} · ${t('matchCard.wonOnPens', { winner, score })}`;
-                      }
-                      return aet;
-                    })()}
-                  </div>
-                )}
-              </>
-            ) : isMatchLocked ? (
+        {/* Score section. For live/finished it sits in NORMAL flow so
+            goal scorers + bookings (and the who-called-it reveal below)
+            can stack beneath it and the card grows via min-h. For
+            upcoming/locked it stays absolutely centred — the bracket's
+            signature look — over the fixed 250px card. */}
+        {(isFinished || isLive) ? (
+          <div className="relative z-10 mt-3 flex flex-col items-center gap-2">
+            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
-                <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayHomeScore}</div>
+                <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
-                <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayAwayScore}</div>
+                <div className="text-2xl font-bold text-foreground w-8 text-center">{displayAwayScore}</div>
                 <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
-                <ScoreSelector
-                  value={homeScore} 
-                  onChange={(v) => handleScoreChange('home', v)}
-                  disabled={disabled || isMatchLocked}
-                />
-                <span className="text-lg text-muted-foreground font-medium">:</span>
-                <ScoreSelector 
-                  value={awayScore} 
-                  onChange={(v) => handleScoreChange('away', v)}
-                  disabled={disabled || isMatchLocked}
-                />
-                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
-              </div>
-            )}
+              {/* AET / PSO annotation. Renders only on knockout matches
+                  that needed extra time or penalties; FD's `duration`
+                  flag drives the visibility. The score above is the
+                  regulation+ET total — this line tells a reader who
+                  actually advanced. i18n keys match local convention
+                  (de: n.V., fr: a.p., it: d.t.s., …). */}
+              {(match.duration === 'EXTRA_TIME' || match.duration === 'PENALTY_SHOOTOUT') && (
+                <div className="mt-1 text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  {(() => {
+                    const aet = t('matchCard.aet', 'AET');
+                    if (
+                      match.duration === 'PENALTY_SHOOTOUT' &&
+                      match.penaltyHomeScore != null &&
+                      match.penaltyAwayScore != null
+                    ) {
+                      const homeWon = match.penaltyHomeScore > match.penaltyAwayScore;
+                      const winner = homeWon ? homeTeamName : awayTeamName;
+                      const score = homeWon
+                        ? `${match.penaltyHomeScore}–${match.penaltyAwayScore}`
+                        : `${match.penaltyAwayScore}–${match.penaltyHomeScore}`;
+                      return `${aet} · ${t('matchCard.wonOnPens', { winner, score })}`;
+                    }
+                    return aet;
+                  })()}
+                </div>
+              )}
+            </div>
+            <MatchEvents goals={match.goals ?? []} bookings={match.bookings ?? []} />
           </div>
-        </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
+              {isMatchLocked ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                  <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayHomeScore}</div>
+                  <div className="text-lg text-muted-foreground font-light">-</div>
+                  <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayAwayScore}</div>
+                  <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                  <ScoreSelector
+                    value={homeScore}
+                    onChange={(v) => handleScoreChange('home', v)}
+                    disabled={disabled || isMatchLocked}
+                  />
+                  <span className="text-lg text-muted-foreground font-medium">:</span>
+                  <ScoreSelector
+                    value={awayScore}
+                    onChange={(v) => handleScoreChange('away', v)}
+                    disabled={disabled || isMatchLocked}
+                  />
+                  <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-        {/* Spacer to push prediction section to bottom */}
-        <div className="flex-1" />
+        {/* Spacer pushes the prediction button to the bottom — only for
+            upcoming/locked, where the score floats absolute. For
+            live/finished the content stacks top-down (no spacer) so the
+            score, events and reveal read in order. */}
+        {!isFinished && !isLive && <div className="flex-1" />}
 
         {/* Prediction Section */}
         {!isFinished && !isLive && (

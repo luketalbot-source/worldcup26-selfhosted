@@ -180,6 +180,10 @@ export const useLiveMatches = () => {
             penaltyAwayScore: liveMatch.penalty_away_score ?? undefined,
             duration: liveMatch.duration ?? undefined,
             status: mapApiStatus(liveMatch.status),
+            // Goal scorers + bookings, same as the group path — drives
+            // <MatchEvents> on the knockout card once these games play.
+            goals: liveMatch.goals ?? [],
+            bookings: liveMatch.bookings ?? [],
           };
         }
 
