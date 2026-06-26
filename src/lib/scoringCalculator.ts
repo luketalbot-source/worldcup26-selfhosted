@@ -58,12 +58,23 @@ export const calculatePredictionPoints = (
     return { points: 0, resultType: 'pending', penaltyBonus: 0 };
   }
 
+  const wentToPens = !!pens?.wentToPens && pens.actualPenHome != null && pens.actualPenAway != null;
+  const predictedDecisive = predictedHome !== predictedAway;
+  // Did the user back the side that won a shootout? (decisive prediction
+  // on a match that went to pens — they called who advances, not the draw)
+  const decisiveAdvancerCorrect =
+    wentToPens && predictedDecisive &&
+    (predictedHome > predictedAway) === ((pens!.actualPenHome as number) > (pens!.actualPenAway as number));
+
   let base: number;
   let resultType: 'exact' | 'correct' | 'wrong';
   if (predictedHome === actualHome && predictedAway === actualAway) {
     base = 3;
     resultType = 'exact';
   } else if (getResult(predictedHome, predictedAway) === getResult(actualHome, actualAway)) {
+    base = 1;
+    resultType = 'correct';
+  } else if (decisiveAdvancerCorrect) {
     base = 1;
     resultType = 'correct';
   } else {

@@ -61,6 +61,17 @@ router.get("/", async (c) => {
                    WHEN lm2.home_score IS NULL OR lm2.away_score IS NULL THEN 0
                    WHEN ap.predicted_home_score = lm2.home_score AND ap.predicted_away_score = lm2.away_score THEN 3
                    WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm2.home_score - lm2.away_score) THEN 1
+                   -- Knockout that went to pens: a user who predicted a
+                   -- DECISIVE score (not a draw) still gets the 1 result
+                   -- point if the side they backed is the one that won the
+                   -- shootout — they called who advances, just not the
+                   -- draw. (Draw predictions already score the result point
+                   -- above via draw==draw, so this only covers decisive
+                   -- picks, which carry no pen score → no double count.)
+                   WHEN lm2.duration = 'PENALTY_SHOOTOUT'
+                    AND lm2.penalty_home_score IS NOT NULL AND lm2.penalty_away_score IS NOT NULL
+                    AND ap.predicted_home_score <> ap.predicted_away_score
+                    AND SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm2.penalty_home_score - lm2.penalty_away_score) THEN 1
                    ELSE 0
                  END)
                  -- Penalty-shootout bonus (knockout matches that went to
@@ -232,6 +243,13 @@ router.get("/", async (c) => {
                  WHEN lm.home_score IS NULL OR lm.away_score IS NULL THEN 0
                  WHEN ap.predicted_home_score = lm.home_score AND ap.predicted_away_score = lm.away_score THEN 3
                  WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm.home_score - lm.away_score) THEN 1
+                 -- Knockout decided on pens: a decisive prediction still
+                 -- earns the result point if the backed side won the
+                 -- shootout (called who advances). See the league query.
+                 WHEN lm.duration = 'PENALTY_SHOOTOUT'
+                  AND lm.penalty_home_score IS NOT NULL AND lm.penalty_away_score IS NOT NULL
+                  AND ap.predicted_home_score <> ap.predicted_away_score
+                  AND SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm.penalty_home_score - lm.penalty_away_score) THEN 1
                  ELSE 0
                END)
                -- Penalty-shootout bonus — see the league query for rationale.
