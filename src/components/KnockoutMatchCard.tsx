@@ -90,10 +90,13 @@ export const KnockoutMatchCard = ({
   };
 
   // A level knockout prediction goes to pens, so the shootout pick is
-  // required and must be decisive (no tie).
+  // required and must be decisive (no tie). Only surface the picker once
+  // the user engages (or has a saved prediction) — a fresh, untouched
+  // 0-0 shouldn't show the shootout selectors unprompted.
   const isDrawPrediction = homeScore === awayScore;
   const penDecisive = penHome !== penAway;
-  const needsPenWinner = isDrawPrediction && !penDecisive;
+  const showPenPicker = isDrawPrediction && (hasEdited || isPredicted);
+  const needsPenWinner = showPenPicker && !penDecisive;
 
   const handleSave = async () => {
     if (disabled || isMatchLocked || needsPenWinner) return;
@@ -232,11 +235,11 @@ export const KnockoutMatchCard = ({
           )}
         </div>
 
-        {/* Score section. For live/finished it sits in NORMAL flow so
-            goal scorers + bookings (and the who-called-it reveal below)
-            can stack beneath it and the card grows via min-h. For
-            upcoming/locked it stays absolutely centred — the bracket's
-            signature look — over the fixed 250px card. */}
+        {/* Score section — normal flow for every state so the score, the
+            shootout picker (drawn predictions), goal scorers/cards and the
+            save/result rows stack without overlapping. (Was absolutely
+            centred for upcoming cards, but the added pen row overflowed
+            and collided with the Save button.) */}
         {(isFinished || isLive) ? (
           <div className="relative z-10 mt-3 flex flex-col items-center gap-2">
             <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
@@ -277,8 +280,8 @@ export const KnockoutMatchCard = ({
             <MatchEvents goals={match.goals ?? []} bookings={match.bookings ?? []} />
           </div>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg pointer-events-auto">
+          <div className="relative z-10 mt-3 flex flex-col items-center">
+            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
               {isMatchLocked ? (
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
@@ -306,9 +309,9 @@ export const KnockoutMatchCard = ({
                   </div>
 
                   {/* Drawn knockout → goes to penalties. Require a decisive
-                      shootout pick (who advances + the score). Shown only
-                      while predicting a level score. */}
-                  {isDrawPrediction && (
+                      shootout pick (who advances + the score). Shown once
+                      the user has engaged with a level score. */}
+                  {showPenPicker && (
                     <div className="flex flex-col items-center gap-1 border-t border-border/40 pt-2 w-full">
                       <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         {t('matchCard.penalties', 'Penalty shootout')}
