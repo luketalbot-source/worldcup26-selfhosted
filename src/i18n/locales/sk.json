@@ -10,7 +10,8 @@
     "leaders": "Lídri",
     "me": "Ja",
     "disclaimer": "Bez afiliácie, podpory ani sponzoringu FIFA či iného organizačného orgánu.",
-    "terms": "Podmienky"
+    "terms": "Podmienky",
+    "stats": "Štatistiky"
   },
   "header": {
     "login": "Prihlásiť sa",
@@ -34,7 +35,21 @@
   "matches": {
     "noMatchesToday": "Dnes žiadne zápasy",
     "loginPrompt": "Prihlás sa a ulož svoje tipy!",
-    "group": "Skupina {{letter}}"
+    "group": "Skupina {{letter}}",
+    "dayFilter": {
+      "past": "Minulé",
+      "yesterday": "Včera",
+      "today": "Dnes",
+      "tomorrow": "Zajtra",
+      "future": "Budúce"
+    },
+    "noMatchesFor": {
+      "past": "Zatiaľ žiadne odohrané zápasy",
+      "yesterday": "Včera sa neodohrali žiadne zápasy",
+      "today": "Na dnes nie sú naplánované žiadne zápasy",
+      "tomorrow": "Na zajtra nie sú naplánované žiadne zápasy",
+      "future": "Zatiaľ nie sú naplánované žiadne ďalšie zápasy"
+    }
   },
   "matchCard": {
     "live": "NAŽIVO",
@@ -55,7 +70,14 @@
     "hoursShort": "h",
     "minutesShort": "min",
     "aet": "po pred.",
-    "wonOnPens": "{{winner}} {{score}} na penalty"
+    "wonOnPens": "{{winner}} {{score}} na penalty",
+    "ownGoal": "vl.",
+    "penalty": "p",
+    "penalties": "Rozstrel z pokutových kopov",
+    "penNeedsWinner": "Vyberte víťaza rozstrelu — žiadne remízy",
+    "penBonus": "+{{count}} bonus za penalty",
+    "koScoringOpenPlay": "Otvorená hra: 3 body za presné skóre, 1 bod za správny výsledok.",
+    "koScoringPens": "Tipujete remízu? +1 za víťaza pokutových kopov a +1 za presné skóre rozstrelu."
   },
   "standings": {
     "title": "Tabuľka skupiny {{letter}}",
@@ -84,7 +106,8 @@
     "correctWinner": "Správny víťaz",
     "wrong": "Zle",
     "pointsPerType": "Points per prediction type",
-    "endOfList": "All {{count}} players shown"
+    "endOfList": "All {{count}} players shown",
+    "liveScoring": "Body za prebiehajúce zápasy sú predbežné a menia sa podľa živého skóre — uzamknú sa po záverečnom hvizde."
   },
   "auth": {
     "title": "Vitaj",
@@ -379,5 +402,88 @@
     "rightWinger": "Pravé krídlo",
     "centreForward": "Stredný útočník",
     "secondStriker": "Druhý útočník"
+  },
+  "stats": {
+    "title": "Aktualizácia hracieho dňa",
+    "hero": {
+      "preKickoff": {
+        "title": "Turnaj čoskoro začína",
+        "subtitle": "Štatistiky sa tu objavia s výkopom zápasov"
+      },
+      "liveNoGoals": {
+        "title": "Turnaj je v plnom prúde!",
+        "subtitle": "Prvý zápas prebieha · štatistiky pribúdajú, ako sa dejú"
+      },
+      "underway": {
+        "title": "Turnaj doteraz",
+        "subtitle": "Odohraných {{played}} zápasov · zostáva {{remaining}}"
+      }
+    },
+    "goals": "Góly",
+    "perMatch": "Na zápas",
+    "redCards": "Červené karty",
+    "topScorers": "Najlepší strelci",
+    "mostGoals": "Najviac gólov (tím)",
+    "cleanestDefence": "Najlepšia obrana",
+    "cleanSheetsLabel_one": "čisté konto",
+    "cleanSheetsLabel_other": "čisté kontá",
+    "biggestWin": "Najvyššie víťazstvo",
+    "fastestGoal": "Najrýchlejší gól",
+    "discipline": "Disciplína",
+    "yellowCards": "Žlté karty",
+    "cardsPerMatch": "{{value}} na zápas",
+    "redCardEvery_one": "1 každý zápas",
+    "redCardEvery_other": "1 každých {{count}} zápasov",
+    "worstDiscipline": "Najhoršia disciplína",
+    "cardsCount_one": "{{count}} karta",
+    "cardsCount_other": "{{count}} kariet",
+    "loadError": "Štatistiky sa nepodarilo obnoviť. Skúsime to znova pri ďalšom góle.",
+    "empty": {
+      "scorersTitle": "Prvé góly prichádzajú",
+      "scorersSubtitle": "Najlepší strelci sa tu objavia, hneď ako niekto nájde cestu do siete."
+    },
+    "stage": {
+      "group": "Skupinová fáza",
+      "round32": "Šestnásťfinále",
+      "round16": "Osemfinále",
+      "quarter": "Štvrťfinále",
+      "semi": "Semifinále",
+      "third": "Zápas o 3. miesto",
+      "final": "Finále"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Informácie o štadióne",
+    "opened": "Otvorené",
+    "photoCredit": "Foto",
+    "country": {
+      "US": "USA",
+      "MX": "Mexiko",
+      "CA": "Kanada"
+    },
+    "descriptions": {
+      "azteca": "Jediný štadión, ktorý kedy hostil dve finále majstrovstiev sveta (1970 a 1986) — a v roku 2026 prvý, na ktorom sa odohrajú zápasy tretieho turnaja. Leží 2 200 m nad morom a jeho riedky vzduch je preslávenou skúškou pre hosťujúce tímy.",
+      "akron": "Domov Chivas Guadalajara, vystupujúci z krajiny ako sopka so svojím trávnatým vonkajším svahom. Jeden z troch mexických štadiónov pre rok 2026.",
+      "bbva": "Prezývaný „El Gigante de Acero“ (Oceľový obor), s rozľahlým otvoreným výhľadom na pohorie Cerro de la Silla za južnou tribúnou.",
+      "metlife": "Dejisko finále majstrovstiev sveta 2026 dňa 19. júla. Spoločný domov Giants a Jets z NFL a najväčší štadión turnaja.",
+      "gillette": "Domov New England Patriots a Revolution, asi 35 km juhozápadne od Bostonu. Jeho veža v tvare majáka je orientačným bodom Nového Anglicka.",
+      "lincoln": "Futbalová katedrála Filadelfie, domov Eagles z NFL, preslávená jedným z najhlučnejších publík amerického športu.",
+      "mercedes": "Architektonický skvost Atlanty so strechou v tvare veterníka, ktorá sa otvára ako clona fotoaparátu. Domov Atlanta United, ktorý tu vytvoril rekordy v návštevnosti MLS.",
+      "hardrock": "Otvorená aréna v Miami, zrekonštruovaná so zastrešením, ktoré tieni tribúny, zatiaľ čo ihrisko ponecháva na floridskom slnku. Hostí aj preteky F1 Miami Grand Prix a turnaj Miami Open.",
+      "att": "Kolos Dallas Cowboys v Arlingtone — jeden z najväčších zastrešených štadiónov sveta, preslávený videokockou zavesenou nad stredom ihriska so šírkou takmer 50 m.",
+      "nrg": "Štadión so zaťahovacou strechou v Houstone, prvý takýto stánok NFL. Hostil dva Super Bowly a Copa América 2024.",
+      "arrowhead": "Jeden z najhlučnejších štadiónov na svete — fanúšikovia Kansas City Chiefs tu v roku 2014 vytvorili svetový rekord v hlučnosti davu 142,2 dB.",
+      "sofi": "Najdrahší štadión, aký kedy bol postavený (~5 mld. $), otvorený v roku 2020 v Inglewoode. Jeho priesvitná strecha a obojstranná obrazovka Infinity Screen nastavili novú latku.",
+      "levis": "Špičkovo technologicky vybavený domov San Francisco 49ers v srdci Silicon Valley, hostiaci svoje druhé veľké podujatie éry majstrovstiev sveta po Super Bowle 50.",
+      "lumen": "Kotol v Seattli, skonštruovaný tak, aby zachytával hluk davu — fanúšikovia Sounders a Seahawks z neho robia jeden z najzastrašujúcejších štadiónov Severnej Ameriky.",
+      "bmo": "Futbalový štadión pri jazere v Toronte, domov Toronto FC, rozšírený pre majstrovstvá sveta na približne 45 000 miest — kanadskí muži tu odohrajú skupinové zápasy 2026.",
+      "bcplace": "Aréna so zaťahovacou strechou v centre Vancouvera, dejisko ceremoniálov zimných olympijských hier 2010 a finále majstrovstiev sveta žien 2015."
+    }
+  },
+  "reveal": {
+    "title": "Kto to uhádol?",
+    "calledIt": "{{exact}} z {{total}} tipovalo toto presné skóre",
+    "nobody": "Toto nikto nečakal 👀",
+    "more": "+ {{count}} ďalších"
   }
 }

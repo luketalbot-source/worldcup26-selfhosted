@@ -10,7 +10,8 @@
     "leaders": "Rangliste",
     "me": "Ich",
     "disclaimer": "Weder mit der FIFA noch einem Organisator verbunden, unterstützt oder gesponsert.",
-    "terms": "Nutzungsbedingungen"
+    "terms": "Nutzungsbedingungen",
+    "stats": "Statistik"
   },
   "boost": {
     "title": "Boost!",
@@ -178,9 +179,25 @@
     "validation": {
       "minLength": "Benutzername muss mindestens 2 Zeichen haben",
       "maxLength": "Benutzername darf maximal 20 Zeichen haben",
-      "pattern": "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten"
+      "pattern": "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten",
+      "phoneFormat": "Ungültiges Telefonformat. Verwende +1234567890"
     },
-    "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten."
+    "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten.",
+    "phoneSubtitle": "Gib deine Telefonnummer ein, um dich anzumelden oder ein Konto zu erstellen",
+    "phoneLabel": "Telefonnummer",
+    "phonePlaceholder": "+1234567890",
+    "phoneHint": "Internationales Format mit Ländervorwahl verwenden (z. B. +1 für die USA)",
+    "chooseUsername": "Wähle deinen Benutzernamen",
+    "usernameSubtitle": "Das ist dein Anzeigename in der Rangliste",
+    "staySignedIn": "Angemeldet bleiben",
+    "sendCode": "Bestätigungscode senden",
+    "sendingCode": "Code wird gesendet ...",
+    "enterCode": "Bestätigungscode eingeben",
+    "codeSentTo": "Wir haben einen 6-stelligen Code gesendet an",
+    "verify": "Bestätigen & anmelden",
+    "verifying": "Wird bestätigt ...",
+    "resendCode": "Keinen Code erhalten? Erneut senden",
+    "continue": "Weiter"
   },
   "profile": {
     "guest": "Gast",
@@ -205,12 +222,16 @@
       "displayName": "Anzeigename",
       "updateInGameName": "Aktualisiere deinen Spielernamen",
       "cancel": "Abbrechen",
-      "save": "Speichern"
+      "save": "Speichern",
+      "change": "Ändern",
+      "add": "Hinzufügen"
     },
     "loadErrorTitle": "Profil konnte nicht geladen werden",
     "loadErrorSubtitle": "Deine Sitzung ist möglicherweise abgelaufen",
     "retry": "Erneut versuchen",
-    "reLogin": "Erneut anmelden"
+    "reLogin": "Erneut anmelden",
+    "phoneNumber": "Telefonnummer",
+    "noPhone": "Nicht festgelegt"
   },
   "language": {
     "label": "Sprache",
@@ -415,5 +436,54 @@
     "calledIt": "{{exact}} von {{total}} haben genau dieses Ergebnis getippt",
     "nobody": "Das hat niemand kommen sehen 👀",
     "more": "+ {{count}} weitere"
+  },
+  "stats": {
+    "title": "Spieltag-Update",
+    "hero": {
+      "preKickoff": {
+        "title": "Das Turnier beginnt bald",
+        "subtitle": "Statistiken erscheinen hier mit dem Anpfiff der Spiele"
+      },
+      "liveNoGoals": {
+        "title": "Das Turnier ist live!",
+        "subtitle": "Erstes Spiel läuft · Statistiken kommen, sobald sie passieren"
+      },
+      "underway": {
+        "title": "Das Turnier bisher",
+        "subtitle": "{{played}} Spiele gespielt · {{remaining}} verbleibend"
+      }
+    },
+    "goals": "Tore",
+    "perMatch": "Pro Spiel",
+    "redCards": "Rote Karten",
+    "topScorers": "Torschützenliste",
+    "mostGoals": "Meiste Tore (Team)",
+    "cleanestDefence": "Beste Defensive",
+    "cleanSheetsLabel_one": "Spiel ohne Gegentor",
+    "cleanSheetsLabel_other": "Spiele ohne Gegentor",
+    "biggestWin": "Höchster Sieg",
+    "fastestGoal": "Schnellstes Tor",
+    "discipline": "Fairness",
+    "yellowCards": "Gelbe Karten",
+    "cardsPerMatch": "{{value}} pro Spiel",
+    "redCardEvery_one": "1 pro Spiel",
+    "redCardEvery_other": "1 alle {{count}} Spiele",
+    "worstDiscipline": "Schlechteste Fairness",
+    "cardsCount_one": "{{count}} Karte",
+    "cardsCount_other": "{{count}} Karten",
+    "loadError": "Statistiken konnten nicht aktualisiert werden. Wir versuchen es beim nächsten Tor erneut.",
+    "empty": {
+      "scorersTitle": "Erste Tore in Kürze",
+      "scorersSubtitle": "Die Toptorjäger erscheinen hier, sobald jemand trifft."
+    },
+    "stage": {
+      "group": "Gruppenphase",
+      "round32": "Sechzehntelfinale",
+      "round16": "Achtelfinale",
+      "quarter": "Viertelfinale",
+      "semi": "Halbfinale",
+      "third": "Spiel um Platz 3",
+      "final": "Finale"
+    }
   }
 }

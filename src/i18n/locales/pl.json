@@ -10,7 +10,8 @@
     "leaders": "Liderzy",
     "me": "Ja",
     "disclaimer": "Bez afiliacji, aprobaty ani sponsoringu FIFA lub jakiegokolwiek organu organizującego.",
-    "terms": "Regulamin"
+    "terms": "Regulamin",
+    "stats": "Statystyki"
   },
   "header": {
     "login": "Zaloguj się",
@@ -34,7 +35,21 @@
   "matches": {
     "noMatchesToday": "Brak meczów dzisiaj",
     "loginPrompt": "Zaloguj się, aby zapisać swoje typy!",
-    "group": "Grupa {{letter}}"
+    "group": "Grupa {{letter}}",
+    "dayFilter": {
+      "past": "Minione",
+      "yesterday": "Wczoraj",
+      "today": "Dziś",
+      "tomorrow": "Jutro",
+      "future": "Przyszłe"
+    },
+    "noMatchesFor": {
+      "past": "Brak minionych meczów",
+      "yesterday": "Wczoraj nie rozegrano żadnych meczów",
+      "today": "Brak meczów zaplanowanych na dziś",
+      "tomorrow": "Brak meczów zaplanowanych na jutro",
+      "future": "Brak zaplanowanych kolejnych meczów"
+    }
   },
   "matchCard": {
     "live": "NA ŻYWO",
@@ -55,7 +70,14 @@
     "hoursShort": "g",
     "minutesShort": "min",
     "aet": "po dogr.",
-    "wonOnPens": "{{winner}} {{score}} w karnych"
+    "wonOnPens": "{{winner}} {{score}} w karnych",
+    "ownGoal": "sam.",
+    "penalty": "k",
+    "penalties": "Seria rzutów karnych",
+    "penNeedsWinner": "Wskaż zwycięzcę karnych — bez remisów",
+    "penBonus": "+{{count}} bonus za karne",
+    "koScoringOpenPlay": "Gra otwarta: 3 pkt za dokładny wynik, 1 pkt za prawidłowy rezultat.",
+    "koScoringPens": "Typujesz remis? +1 za zwycięzcę rzutów karnych i +1 za dokładny wynik serii."
   },
   "standings": {
     "title": "Tabela grupy {{letter}}",
@@ -84,7 +106,8 @@
     "correctWinner": "Poprawny zwycięzca",
     "wrong": "Błąd",
     "pointsPerType": "Punkty według rodzaju typu",
-    "endOfList": "Wszyscy {{count}} gracze wyświetleni"
+    "endOfList": "Wszyscy {{count}} gracze wyświetleni",
+    "liveScoring": "Punkty z trwających meczów są tymczasowe i zmieniają się wraz z wynikiem na żywo — zostają zatwierdzone po końcowym gwizdku."
   },
   "auth": {
     "title": "Witaj",
@@ -379,5 +402,88 @@
     "rightWinger": "Prawoskrzydłowy",
     "centreForward": "Środkowy napastnik",
     "secondStriker": "Drugi napastnik"
+  },
+  "stats": {
+    "title": "Aktualizacja dnia meczowego",
+    "hero": {
+      "preKickoff": {
+        "title": "Turniej już wkrótce",
+        "subtitle": "Statystyki pojawią się tu wraz z pierwszymi gwizdkami"
+      },
+      "liveNoGoals": {
+        "title": "Turniej trwa!",
+        "subtitle": "Pierwszy mecz w toku · statystyki pojawią się na bieżąco"
+      },
+      "underway": {
+        "title": "Turniej jak dotąd",
+        "subtitle": "Rozegrano {{played}} meczów · pozostało {{remaining}}"
+      }
+    },
+    "goals": "Gole",
+    "perMatch": "Na mecz",
+    "redCards": "Czerwone kartki",
+    "topScorers": "Najlepsi strzelcy",
+    "mostGoals": "Najwięcej goli (drużyna)",
+    "cleanestDefence": "Najszczelniejsza obrona",
+    "cleanSheetsLabel_one": "czyste konto",
+    "cleanSheetsLabel_other": "czyste konta",
+    "biggestWin": "Najwyższe zwycięstwo",
+    "fastestGoal": "Najszybszy gol",
+    "discipline": "Dyscyplina",
+    "yellowCards": "Żółte kartki",
+    "cardsPerMatch": "{{value}} na mecz",
+    "redCardEvery_one": "1 co mecz",
+    "redCardEvery_other": "1 co {{count}} meczów",
+    "worstDiscipline": "Najgorsza dyscyplina",
+    "cardsCount_one": "{{count}} kartka",
+    "cardsCount_other": "{{count}} kartek",
+    "loadError": "Nie udało się odświeżyć statystyk. Spróbujemy ponownie przy kolejnym golu.",
+    "empty": {
+      "scorersTitle": "Pierwsze gole nadchodzą",
+      "scorersSubtitle": "Najlepsi strzelcy pojawią się tu, gdy tylko ktoś trafi do siatki."
+    },
+    "stage": {
+      "group": "Faza grupowa",
+      "round32": "1/16 finału",
+      "round16": "1/8 finału",
+      "quarter": "Ćwierćfinały",
+      "semi": "Półfinały",
+      "third": "Mecz o 3. miejsce",
+      "final": "Finał"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Informacje o stadionie",
+    "opened": "Otwarcie",
+    "photoCredit": "Zdjęcie",
+    "country": {
+      "US": "USA",
+      "MX": "Meksyk",
+      "CA": "Kanada"
+    },
+    "descriptions": {
+      "azteca": "Jedyny stadion, który gościł dwa finały mistrzostw świata (1970 i 1986) — a w 2026 roku pierwszy, na którym rozegrane zostaną mecze trzeciego turnieju. Położony 2200 m n.p.m., swoim rozrzedzonym powietrzem słynnie wystawia na próbę przyjezdne drużyny.",
+      "akron": "Dom Chivas Guadalajara, wyrastający z krajobrazu niczym wulkan, z porośniętym trawą zewnętrznym zboczem. Jeden z trzech meksykańskich obiektów mistrzostw 2026.",
+      "bbva": "Nazywany „El Gigante de Acero” (Stalowy Gigant), z rozległym, otwartym widokiem na góry Cerro de la Silla za trybuną południową.",
+      "metlife": "Scena finału mistrzostw świata 2026 w dniu 19 lipca. Wspólny dom Giants i Jets z NFL oraz największy stadion turnieju.",
+      "gillette": "Dom New England Patriots i Revolution, około 35 km na południowy zachód od Bostonu. Jego wieża w kształcie latarni morskiej to symbol Nowej Anglii.",
+      "lincoln": "Piłkarska katedra Filadelfii, dom Eagles z NFL, znana z jednej z najgłośniejszych publiczności w amerykańskim sporcie.",
+      "mercedes": "Architektoniczna wizytówka Atlanty z dachem w kształcie wiatraczka, który otwiera się niczym przysłona aparatu. Dom Atlanta United, który ustanowił tu rekordy frekwencji MLS.",
+      "hardrock": "Otwarta arena w Miami, przebudowana z zadaszeniem, które ocienia trybuny, pozostawiając murawę w słońcu Florydy. Gości też wyścig F1 Miami Grand Prix oraz turniej Miami Open.",
+      "att": "Kolos Dallas Cowboys w Arlington — jeden z największych zadaszonych stadionów świata, słynący z podwieszonego nad środkiem boiska telebimu o szerokości blisko 50 m.",
+      "nrg": "Stadion z chowanym dachem w Houston, pierwszy taki obiekt NFL. Gościł dwa finały Super Bowl oraz Copa América 2024.",
+      "arrowhead": "Jeden z najgłośniejszych stadionów świata — kibice Kansas City Chiefs ustanowili tu w 2014 roku rekord głośności tłumu wynoszący 142,2 dB.",
+      "sofi": "Najdroższy stadion w historii (~5 mld $), otwarty w 2020 roku w Inglewood. Jego przezroczysty dach i dwustronny ekran Infinity Screen wyznaczyły nowy standard.",
+      "levis": "Zaawansowany technologicznie dom San Francisco 49ers w sercu Doliny Krzemowej, goszczący swoją drugą wielką imprezę ery mistrzostw świata po Super Bowl 50.",
+      "lumen": "Kocioł w Seattle, zaprojektowany tak, by zatrzymywać hałas tłumu — kibice Sounders i Seahawks czynią go jednym z najbardziej onieśmielających obiektów w Ameryce Północnej.",
+      "bmo": "Nadbrzeżny stadion piłkarski w Toronto, dom Toronto FC, rozbudowany na mistrzostwa świata do około 45 000 miejsc — reprezentacja Kanady rozegra tu mecze grupowe 2026.",
+      "bcplace": "Arena z chowanym dachem w centrum Vancouver, gospodarz ceremonii zimowych igrzysk olimpijskich 2010 i finału mistrzostw świata kobiet 2015."
+    }
+  },
+  "reveal": {
+    "title": "Kto to przewidział?",
+    "calledIt": "{{exact}} z {{total}} obstawiło ten dokładny wynik",
+    "nobody": "Nikt tego nie przewidział 👀",
+    "more": "+ {{count}} więcej"
   }
 }

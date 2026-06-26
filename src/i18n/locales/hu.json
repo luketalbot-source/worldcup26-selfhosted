@@ -10,7 +10,8 @@
     "leaders": "Vezetők",
     "me": "Én",
     "disclaimer": "Nem áll kapcsolatban, nem támogatott vagy szponzorált a FIFA vagy bármely szervezeti testület által.",
-    "terms": "Feltételek"
+    "terms": "Feltételek",
+    "stats": "Statok"
   },
   "header": {
     "login": "Bejelentkezés",
@@ -34,7 +35,21 @@
   "matches": {
     "noMatchesToday": "Ma nincs mérkőzés",
     "loginPrompt": "Jelentkezz be a tippek mentéséhez!",
-    "group": "{{letter}} csoport"
+    "group": "{{letter}} csoport",
+    "dayFilter": {
+      "past": "Korábbi",
+      "yesterday": "Tegnap",
+      "today": "Ma",
+      "tomorrow": "Holnap",
+      "future": "Jövőbeli"
+    },
+    "noMatchesFor": {
+      "past": "Még nincsenek korábbi mérkőzések",
+      "yesterday": "Tegnap nem volt mérkőzés",
+      "today": "Mára nincs betervezett mérkőzés",
+      "tomorrow": "Holnapra nincs betervezett mérkőzés",
+      "future": "Még nincs további mérkőzés betervezve"
+    }
   },
   "matchCard": {
     "live": "ÉLŐ",
@@ -55,7 +70,14 @@
     "hoursShort": "ó",
     "minutesShort": "p",
     "aet": "hossz.",
-    "wonOnPens": "{{winner}} {{score}} büntetőkkel"
+    "wonOnPens": "{{winner}} {{score}} büntetőkkel",
+    "ownGoal": "ÖG",
+    "penalty": "11",
+    "penalties": "Büntetőpárbaj",
+    "penNeedsWinner": "Válassz győztest a büntetőkből — döntetlen nélkül",
+    "penBonus": "+{{count}} büntetőbónusz",
+    "koScoringOpenPlay": "Rendes játékidő: 3 pont a pontos eredményért, 1 pont a helyes végkimenetelért.",
+    "koScoringPens": "Döntetlent tippelsz? +1 a büntetőpárbaj győzteséért és +1 a párbaj pontos eredményéért."
   },
   "standings": {
     "title": "{{letter}} csoport tabellája",
@@ -84,7 +106,8 @@
     "correctWinner": "Helyes győztes",
     "wrong": "Rossz",
     "pointsPerType": "Points per prediction type",
-    "endOfList": "All {{count}} players shown"
+    "endOfList": "All {{count}} players shown",
+    "liveScoring": "A folyamatban lévő mérkőzések pontjai ideiglenesek, és az élő eredménnyel együtt változnak — a lefújáskor véglegesednek."
   },
   "auth": {
     "title": "Üdvözlünk",
@@ -379,5 +402,88 @@
     "rightWinger": "Jobb szélső",
     "centreForward": "Középcsatár",
     "secondStriker": "Második csatár"
+  },
+  "stats": {
+    "title": "Forduló frissítése",
+    "hero": {
+      "preKickoff": {
+        "title": "A torna hamarosan kezdődik",
+        "subtitle": "A statok a mérkőzések kezdetével jelennek meg itt"
+      },
+      "liveNoGoals": {
+        "title": "A torna élőben zajlik!",
+        "subtitle": "Az első meccs zajlik · a statok élőben érkeznek"
+      },
+      "underway": {
+        "title": "A torna eddig",
+        "subtitle": "{{played}} lejátszott meccs · {{remaining}} hátravan"
+      }
+    },
+    "goals": "Gólok",
+    "perMatch": "Mérkőzésenként",
+    "redCards": "Piros lapok",
+    "topScorers": "Góllövőlista",
+    "mostGoals": "Legtöbb gól (csapat)",
+    "cleanestDefence": "Legjobb védelem",
+    "cleanSheetsLabel_one": "kapott gól nélküli meccs",
+    "cleanSheetsLabel_other": "kapott gól nélküli meccs",
+    "biggestWin": "Legnagyobb győzelem",
+    "fastestGoal": "Leggyorsabb gól",
+    "discipline": "Fegyelem",
+    "yellowCards": "Sárga lapok",
+    "cardsPerMatch": "{{value}} mérkőzésenként",
+    "redCardEvery_one": "1 minden meccsen",
+    "redCardEvery_other": "1 minden {{count}} meccsen",
+    "worstDiscipline": "Legrosszabb fegyelem",
+    "cardsCount_one": "{{count}} lap",
+    "cardsCount_other": "{{count}} lap",
+    "loadError": "Nem sikerült frissíteni a statokat. A következő gólnál újrapróbáljuk.",
+    "empty": {
+      "scorersTitle": "Jönnek az első gólok",
+      "scorersSubtitle": "A góllövők itt jelennek meg, amint valaki betalál."
+    },
+    "stage": {
+      "group": "Csoportkör",
+      "round32": "Tizenhatoddöntő",
+      "round16": "Nyolcaddöntő",
+      "quarter": "Negyeddöntő",
+      "semi": "Elődöntő",
+      "third": "Bronzmérkőzés",
+      "final": "Döntő"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Stadioninformáció",
+    "opened": "Megnyitva",
+    "photoCredit": "Fotó",
+    "country": {
+      "US": "USA",
+      "MX": "Mexikó",
+      "CA": "Kanada"
+    },
+    "descriptions": {
+      "azteca": "Az egyetlen stadion, amely két világbajnoki döntőt rendezett (1970 és 1986) — 2026-ban pedig az első, amely egy harmadik tornán is mérkőzéseknek ad otthont. A tengerszint felett 2200 méteren fekszik, ritka levegője pedig híres próbatétel a vendégcsapatoknak.",
+      "akron": "A Chivas Guadalajara otthona, amely vulkánként emelkedik ki a tájból, füvel borított külső lejtőjével. A 2026-os három mexikói helyszín egyike.",
+      "bbva": "Beceneve 'El Gigante de Acero' (az Acélóriás), a déli lelátó mögött a Cerro de la Silla hegyre nyíló tágas, szabad kilátással.",
+      "metlife": "A 2026-os világbajnoki döntő helyszíne július 19-én. Az NFL Giants és Jets csapatainak közös otthona, és a torna legnagyobb stadionja.",
+      "gillette": "A New England Patriots és a Revolution otthona, Bostontól mintegy 35 km-re délnyugatra. Világítótorony alakú tornya Új-Anglia jelképe.",
+      "lincoln": "Philadelphia futballkatedrálisa, az NFL Eagles csapatának otthona, amely az amerikai sport egyik leghangosabb közönségéről ismert.",
+      "mercedes": "Atlanta építészeti remeke, szélkerékszerű tetővel, amely fényképezőgép-zárként nyílik. Az Atlanta United otthona, amely itt állított fel MLS-nézőszámrekordokat.",
+      "hardrock": "Miami szabadtéri arénája, amelyet egy lelátókat árnyékoló tetővel újítottak fel, miközben a pálya a floridai napsütésben marad. Otthont ad az F1 Miami Nagydíjnak és a Miami Opennek is.",
+      "att": "A Dallas Cowboys kolosszusa Arlingtonban — a világ egyik legnagyobb fedett stadionja, amely a pálya fölött függő, csaknem 50 m széles videofaláról híres.",
+      "nrg": "Houston behúzható tetejű stadionja, az első ilyen az NFL-ben. Két Super Bowlnak és a 2024-es Copa Américának adott otthont.",
+      "arrowhead": "A Föld egyik leghangosabb stadionja — a Kansas City Chiefs szurkolói itt állították fel a nézői zaj világrekordját, 142,2 dB-lel 2014-ben.",
+      "sofi": "A valaha épült legdrágább stadion (kb. 5 milliárd dollár), amely 2020-ban nyílt meg Inglewoodban. Áttetsző teteje és kétoldalas Infinity Screen képernyője új mércét állított.",
+      "levis": "A San Francisco 49ers csúcstechnológiás otthona a Szilícium-völgy szívében, amely az 50. Super Bowl után második világbajnoki korszakbeli rangos eseményének ad otthont.",
+      "lumen": "Seattle katlana, amelyet a nézői zaj benntartására terveztek — a Sounders és a Seahawks szurkolói teszik Észak-Amerika egyik legfélelmetesebb helyszínévé.",
+      "bmo": "Toronto tóparti futballpályája, a Toronto FC otthona, amelyet a világbajnokságra mintegy 45 000 férőhelyesre bővítettek — a kanadai férfiválogatott itt játssza 2026-os csoportmérkőzéseit.",
+      "bcplace": "Vancouver belvárosának behúzható tetejű arénája, a 2010-es téli olimpia ceremóniáinak és a 2015-ös női világbajnokság döntőjének helyszíne."
+    }
+  },
+  "reveal": {
+    "title": "Ki találta el?",
+    "calledIt": "{{exact}} / {{total}} tippelte pontosan ezt az eredményt",
+    "nobody": "Ezt senki sem látta előre 👀",
+    "more": "+ még {{count}}"
   }
 }

@@ -10,7 +10,8 @@
     "leaders": "Líderes",
     "me": "Eu",
     "disclaimer": "Sem afiliação, endosso ou patrocínio da FIFA ou de qualquer organismo organizador.",
-    "terms": "Termos"
+    "terms": "Termos",
+    "stats": "Estatísticas"
   },
   "boost": {
     "title": "Boost!",
@@ -92,7 +93,21 @@
   "matches": {
     "noMatchesToday": "Nenhum jogo programado para hoje",
     "loginPrompt": "Faça login para salvar suas previsões!",
-    "group": "Grupo {{letter}}"
+    "group": "Grupo {{letter}}",
+    "dayFilter": {
+      "past": "Passados",
+      "yesterday": "Ontem",
+      "today": "Hoje",
+      "tomorrow": "Amanhã",
+      "future": "Futuros"
+    },
+    "noMatchesFor": {
+      "past": "Ainda não há jogos passados",
+      "yesterday": "Não se realizaram jogos ontem",
+      "today": "Não há jogos agendados para hoje",
+      "tomorrow": "Não há jogos agendados para amanhã",
+      "future": "Ainda não há mais jogos agendados"
+    }
   },
   "matchCard": {
     "live": "AO VIVO",
@@ -113,7 +128,14 @@
     "hoursShort": "h",
     "minutesShort": "min",
     "aet": "a.p.",
-    "wonOnPens": "{{winner}} {{score}} nos pênaltis"
+    "wonOnPens": "{{winner}} {{score}} nos pênaltis",
+    "ownGoal": "GC",
+    "penalty": "P",
+    "penalties": "Desempate por penáltis",
+    "penNeedsWinner": "Escolha um vencedor nas penalidades — sem empates",
+    "penBonus": "+{{count}} bónus de penáltis",
+    "koScoringOpenPlay": "Tempo regulamentar: 3 pts pelo resultado exato, 1 pt pelo resultado certo.",
+    "koScoringPens": "Previu um empate? +1 pelo vencedor das grandes penalidades e +1 pelo resultado exato da marcação."
   },
   "standings": {
     "title": "Classificação Grupo {{letter}}",
@@ -142,7 +164,8 @@
     "correctWinner": "Vencedor Correto",
     "wrong": "Errado",
     "pointsPerType": "Pontos por tipo de palpite",
-    "endOfList": "Todos os {{count}} jogadores exibidos"
+    "endOfList": "Todos os {{count}} jogadores exibidos",
+    "liveScoring": "Os pontos de jogos a decorrer são provisórios e variam com o resultado ao vivo — ficam definitivos ao apito final."
   },
   "auth": {
     "title": "Digite seu Nome de Usuário",
@@ -156,9 +179,25 @@
     "validation": {
       "minLength": "O nome de usuário deve ter pelo menos 2 caracteres",
       "maxLength": "O nome de usuário deve ter 20 caracteres ou menos",
-      "pattern": "O nome de usuário só pode conter letras, números e underscores"
+      "pattern": "O nome de usuário só pode conter letras, números e underscores",
+      "phoneFormat": "Formato de telemóvel inválido. Use +1234567890"
     },
-    "unexpectedError": "Ocorreu um erro inesperado."
+    "unexpectedError": "Ocorreu um erro inesperado.",
+    "phoneSubtitle": "Introduza o seu número de telemóvel para entrar ou criar uma conta",
+    "phoneLabel": "Número de telemóvel",
+    "phonePlaceholder": "+1234567890",
+    "phoneHint": "Use o formato internacional com indicativo do país (ex.: +1 para os EUA)",
+    "chooseUsername": "Escolha o seu nome de utilizador",
+    "usernameSubtitle": "Este será o seu nome no ranking",
+    "staySignedIn": "Manter sessão iniciada",
+    "sendCode": "Enviar código de verificação",
+    "sendingCode": "A enviar código...",
+    "enterCode": "Introduza o código de verificação",
+    "codeSentTo": "Enviámos um código de 6 dígitos para",
+    "verify": "Verificar e entrar",
+    "verifying": "A verificar...",
+    "resendCode": "Não recebeu o código? Reenviar",
+    "continue": "Continuar"
   },
   "profile": {
     "guest": "Convidado",
@@ -183,12 +222,16 @@
       "displayName": "Nome de exibição",
       "updateInGameName": "Atualize seu nome no jogo",
       "cancel": "Cancelar",
-      "save": "Salvar"
+      "save": "Salvar",
+      "change": "Alterar",
+      "add": "Adicionar"
     },
     "loadErrorTitle": "Não foi possível carregar o seu perfil",
     "loadErrorSubtitle": "A sua sessão pode ter expirado",
     "retry": "Tentar novamente",
-    "reLogin": "Iniciar sessão novamente"
+    "reLogin": "Iniciar sessão novamente",
+    "phoneNumber": "Número de telemóvel",
+    "noPhone": "Não definido"
   },
   "language": {
     "label": "Idioma",
@@ -359,5 +402,88 @@
     "rightWinger": "Ponta-direita",
     "centreForward": "Centroavante",
     "secondStriker": "Segundo atacante"
+  },
+  "stats": {
+    "title": "Atualização da jornada",
+    "hero": {
+      "preKickoff": {
+        "title": "O torneio começa em breve",
+        "subtitle": "As estatísticas aparecem aqui à medida que os jogos arrancam"
+      },
+      "liveNoGoals": {
+        "title": "O torneio está ao vivo!",
+        "subtitle": "Primeiro jogo a decorrer · as estatísticas surgem em tempo real"
+      },
+      "underway": {
+        "title": "O torneio até agora",
+        "subtitle": "{{played}} jogos disputados · {{remaining}} por disputar"
+      }
+    },
+    "goals": "Golos",
+    "perMatch": "Por jogo",
+    "redCards": "Cartões vermelhos",
+    "topScorers": "Melhores marcadores",
+    "mostGoals": "Mais golos (equipa)",
+    "cleanestDefence": "Melhor defesa",
+    "cleanSheetsLabel_one": "jogo sem sofrer golos",
+    "cleanSheetsLabel_other": "jogos sem sofrer golos",
+    "biggestWin": "Maior vitória",
+    "fastestGoal": "Golo mais rápido",
+    "discipline": "Disciplina",
+    "yellowCards": "Cartões amarelos",
+    "cardsPerMatch": "{{value}} por jogo",
+    "redCardEvery_one": "1 por jogo",
+    "redCardEvery_other": "1 a cada {{count}} jogos",
+    "worstDiscipline": "Pior disciplina",
+    "cardsCount_one": "{{count}} cartão",
+    "cardsCount_other": "{{count}} cartões",
+    "loadError": "Não foi possível atualizar as estatísticas. Tentamos de novo no próximo golo.",
+    "empty": {
+      "scorersTitle": "Primeiros golos a caminho",
+      "scorersSubtitle": "Os melhores marcadores aparecem aqui assim que alguém marcar."
+    },
+    "stage": {
+      "group": "Fase de grupos",
+      "round32": "Dezasseis avos de final",
+      "round16": "Oitavos de final",
+      "quarter": "Quartos de final",
+      "semi": "Meias-finais",
+      "third": "Disputa do 3.º lugar",
+      "final": "Final"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Informação do estádio",
+    "opened": "Inaugurado",
+    "photoCredit": "Foto",
+    "country": {
+      "US": "EUA",
+      "MX": "México",
+      "CA": "Canadá"
+    },
+    "descriptions": {
+      "azteca": "O único estádio a acolher duas finais de Mundial (1970 e 1986) — e, em 2026, o primeiro a receber jogos de um terceiro torneio. A 2200 m de altitude, o seu ar rarefeito é uma prova famosa para as equipas visitantes.",
+      "akron": "Casa do Chivas Guadalajara, ergue-se na paisagem como um vulcão, com a sua encosta exterior coberta de relva. Um dos três recintos mexicanos para 2026.",
+      "bbva": "Apelidado de 'El Gigante de Acero' (o Gigante de Aço), com uma ampla vista aberta sobre o monte Cerro de la Silla por trás da bancada sul.",
+      "metlife": "O palco da final do Mundial de 2026 a 19 de julho. Casa partilhada dos Giants e dos Jets da NFL e o maior estádio do torneio.",
+      "gillette": "Casa dos New England Patriots e dos Revolution, cerca de 35 km a sudoeste de Boston. A sua torre em forma de farol é um marco da Nova Inglaterra.",
+      "lincoln": "A catedral do futebol de Filadélfia, casa dos Eagles da NFL, conhecida por uma das assistências mais ruidosas do desporto americano.",
+      "mercedes": "A obra-prima arquitetónica de Atlanta, com um teto em hélice que abre como o diafragma de uma câmara. Casa do Atlanta United, que aqui estabeleceu recordes de assistência na MLS.",
+      "hardrock": "A arena ao ar livre de Miami, renovada com uma cobertura que dá sombra às bancadas deixando o relvado sob o sol da Florida. Acolhe também o GP de Miami de F1 e o Miami Open.",
+      "att": "O colosso dos Dallas Cowboys em Arlington — um dos maiores estádios cobertos do mundo, célebre pelo seu ecrã de vídeo suspenso ao centro com quase 50 m de largura.",
+      "nrg": "O estádio de teto retrátil de Houston, o primeiro recinto da NFL com essa característica. Acolheu dois Super Bowls e a Copa América de 2024.",
+      "arrowhead": "Um dos estádios mais ruidosos do mundo — os adeptos dos Kansas City Chiefs estabeleceram aqui o recorde mundial de ruído da assistência, com 142,2 dB, em 2014.",
+      "sofi": "O estádio mais caro alguma vez construído (~5 mil milhões de dólares), inaugurado em 2020 em Inglewood. O seu teto translúcido e o ecrã Infinity de dupla face estabeleceram um novo padrão.",
+      "levis": "A casa de alta tecnologia dos San Francisco 49ers, no coração de Silicon Valley, a receber o seu segundo grande evento da era dos Mundiais depois do Super Bowl 50.",
+      "lumen": "O caldeirão de Seattle, concebido para reter o ruído da assistência — os adeptos dos Sounders e dos Seahawks fazem dele um dos recintos mais intimidantes da América do Norte.",
+      "bmo": "O recinto de futebol à beira-lago de Toronto, casa do Toronto FC, ampliado para cerca de 45 000 lugares para o Mundial — o Canadá masculino disputa aqui os seus jogos de grupo de 2026.",
+      "bcplace": "Arena com teto retrátil no centro de Vancouver, palco das cerimónias dos Jogos Olímpicos de Inverno de 2010 e da final do Mundial Feminino de 2015."
+    }
+  },
+  "reveal": {
+    "title": "Quem acertou?",
+    "calledIt": "{{exact}} de {{total}} previram este resultado exato",
+    "nobody": "Ninguém viu esta a chegar 👀",
+    "more": "+ {{count}} mais"
   }
 }

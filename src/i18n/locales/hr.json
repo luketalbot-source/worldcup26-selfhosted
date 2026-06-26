@@ -10,7 +10,8 @@
     "leaders": "Lideri",
     "me": "Ja",
     "disclaimer": "Bez afilijacije, podrške ili sponzorstva FIFA-e ili bilo kojeg organizacijskog tijela.",
-    "terms": "Uvjeti"
+    "terms": "Uvjeti",
+    "stats": "Statistika"
   },
   "header": {
     "login": "Prijava",
@@ -34,7 +35,21 @@
   "matches": {
     "noMatchesToday": "Nema utakmica danas",
     "loginPrompt": "Prijavi se za spremanje tipova!",
-    "group": "Skupina {{letter}}"
+    "group": "Skupina {{letter}}",
+    "dayFilter": {
+      "past": "Prošle",
+      "yesterday": "Jučer",
+      "today": "Danas",
+      "tomorrow": "Sutra",
+      "future": "Buduće"
+    },
+    "noMatchesFor": {
+      "past": "Još nema odigranih utakmica",
+      "yesterday": "Jučer nije odigrana nijedna utakmica",
+      "today": "Za danas nema zakazanih utakmica",
+      "tomorrow": "Za sutra nema zakazanih utakmica",
+      "future": "Još nema zakazanih sljedećih utakmica"
+    }
   },
   "matchCard": {
     "live": "UŽIVO",
@@ -55,7 +70,14 @@
     "hoursShort": "h",
     "minutesShort": "min",
     "aet": "nakon prod.",
-    "wonOnPens": "{{winner}} {{score}} na penale"
+    "wonOnPens": "{{winner}} {{score}} na penale",
+    "ownGoal": "AG",
+    "penalty": "11m",
+    "penalties": "Raspucavanje s 11 metara",
+    "penNeedsWinner": "Odaberi pobjednika raspucavanja — bez neriješenog",
+    "penBonus": "+{{count}} bonus za 11m",
+    "koScoringOpenPlay": "Tijekom igre: 3 boda za točan rezultat, 1 bod za točan ishod.",
+    "koScoringPens": "Predviđaš neriješeno? +1 za pobjednika jedanaesteraca i +1 za točan rezultat raspucavanja."
   },
   "standings": {
     "title": "Tablica skupine {{letter}}",
@@ -84,7 +106,8 @@
     "correctWinner": "Točan pobjednik",
     "wrong": "Pogrešno",
     "pointsPerType": "Points per prediction type",
-    "endOfList": "All {{count}} players shown"
+    "endOfList": "All {{count}} players shown",
+    "liveScoring": "Bodovi iz utakmica u tijeku privremeni su i mijenjaju se s rezultatom uživo — konačno se zaključavaju na kraju utakmice."
   },
   "auth": {
     "title": "Dobrodošli",
@@ -379,5 +402,88 @@
     "rightWinger": "Desno krilo",
     "centreForward": "Središnji napadač",
     "secondStriker": "Drugi napadač"
+  },
+  "stats": {
+    "title": "Ažuriranje dana utakmica",
+    "hero": {
+      "preKickoff": {
+        "title": "Turnir uskoro počinje",
+        "subtitle": "Statistika se pojavljuje ovdje kako utakmice počinju"
+      },
+      "liveNoGoals": {
+        "title": "Turnir je uživo!",
+        "subtitle": "Prva utakmica je u tijeku · statistika stiže kako se događa"
+      },
+      "underway": {
+        "title": "Turnir dosad",
+        "subtitle": "{{played}} odigranih utakmica · {{remaining}} preostalo"
+      }
+    },
+    "goals": "Golovi",
+    "perMatch": "Po utakmici",
+    "redCards": "Crveni kartoni",
+    "topScorers": "Najbolji strijelci",
+    "mostGoals": "Najviše golova (momčad)",
+    "cleanestDefence": "Najbolja obrana",
+    "cleanSheetsLabel_one": "utakmica bez primljenog gola",
+    "cleanSheetsLabel_other": "utakmice bez primljenog gola",
+    "biggestWin": "Najveća pobjeda",
+    "fastestGoal": "Najbrži gol",
+    "discipline": "Disciplina",
+    "yellowCards": "Žuti kartoni",
+    "cardsPerMatch": "{{value}} po utakmici",
+    "redCardEvery_one": "1 svake utakmice",
+    "redCardEvery_other": "1 svakih {{count}} utakmica",
+    "worstDiscipline": "Najgora disciplina",
+    "cardsCount_one": "{{count}} karton",
+    "cardsCount_other": "{{count}} kartona",
+    "loadError": "Nije moguće osvježiti statistiku. Pokušat ćemo na sljedeći gol.",
+    "empty": {
+      "scorersTitle": "Stižu prvi golovi",
+      "scorersSubtitle": "Najbolji strijelci pojavit će se ovdje čim netko pogodi mrežu."
+    },
+    "stage": {
+      "group": "Skupinska faza",
+      "round32": "Šesnaestina finala",
+      "round16": "Osmina finala",
+      "quarter": "Četvrtfinale",
+      "semi": "Polufinale",
+      "third": "Utakmica za 3. mjesto",
+      "final": "Finale"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Informacije o stadionu",
+    "opened": "Otvoren",
+    "photoCredit": "Foto",
+    "country": {
+      "US": "SAD",
+      "MX": "Meksiko",
+      "CA": "Kanada"
+    },
+    "descriptions": {
+      "azteca": "Jedini stadion koji je ikad ugostio dva finala Svjetskog prvenstva (1970. i 1986.) — i 2026. prvi koji ugošćuje utakmice na trećem turniru. Smješten 2.200 m iznad razine mora, njegov je rijedak zrak poznata kušnja za gostujuće momčadi.",
+      "akron": "Dom kluba Chivas Guadalajara, koji se diže iz krajolika poput vulkana sa svojom travnatom vanjskom padinom. Jedno od tri meksička stadiona za 2026.",
+      "bbva": "S nadimkom 'El Gigante de Acero' (Čelični div), s prostranim otvorenim pogledom na planinu Cerro de la Silla iza južne tribine.",
+      "metlife": "Pozornica finala Svjetskog prvenstva 2026. 19. srpnja. Zajednički dom klubova Giants i Jets iz NFL-a i najveći stadion turnira.",
+      "gillette": "Dom klubova New England Patriots i Revolution, oko 35 km jugozapadno od Bostona. Njegov toranj u obliku svjetionika znamenitost je Nove Engleske.",
+      "lincoln": "Filadelfijska nogometna katedrala, dom kluba Eagles iz NFL-a, poznata po jednoj od najglasnijih publika u američkom sportu.",
+      "mercedes": "Atlantin arhitektonski dragulj s krovom u obliku vjetrenjače koji se otvara poput zaslona fotoaparata. Dom kluba Atlanta United, koji je ovdje postavio rekorde posjećenosti MLS-a.",
+      "hardrock": "Otvorena arena u Miamiju, obnovljena s nadstrešnicom koja zasjenjuje tribine, dok travnjak ostaje pod floridskim suncem. Ugošćuje i VN Miamija u F1 te turnir Miami Open.",
+      "att": "Kolos kluba Dallas Cowboys u Arlingtonu — jedan od najvećih natkrivenih stadiona na svijetu, poznat po središnjem visećem videozidu širokom gotovo 50 m.",
+      "nrg": "Houstonski stadion s pomičnim krovom, prvi takav u NFL-u. Ugostio je dva Super Bowla i Copa América 2024.",
+      "arrowhead": "Jedan od najglasnijih stadiona na svijetu — navijači Kansas City Chiefsa ovdje su 2014. postavili svjetski rekord u buci publike od 142,2 dB.",
+      "sofi": "Najskuplji stadion ikad izgrađen (~5 mlrd. USD), otvoren 2020. u Inglewoodu. Njegov prozirni krov i dvostrani zaslon Infinity Screen postavili su novo mjerilo.",
+      "levis": "Visokotehnološki dom kluba San Francisco 49ers u srcu Silicijske doline, koji ugošćuje svoj drugi veliki spektakl nakon Super Bowla 50.",
+      "lumen": "Seattleov kotao, projektiran tako da zarobljava buku publike — navijači Soundersa i Seahawksa čine ga jednim od najzastrašujućih stadiona u Sjevernoj Americi.",
+      "bmo": "Torontski nogometni teren uz jezero, dom kluba Toronto FC, proširen na oko 45.000 mjesta za Svjetsko prvenstvo — kanadska muška reprezentacija ovdje igra skupinske utakmice 2026.",
+      "bcplace": "Arena s pomičnim krovom u središtu Vancouvera, domaćin ceremonija Zimskih olimpijskih igara 2010. i finala Ženskog svjetskog prvenstva 2015."
+    }
+  },
+  "reveal": {
+    "title": "Tko je pogodio?",
+    "calledIt": "{{exact}} od {{total}} predvidjelo je upravo ovaj rezultat",
+    "nobody": "Ovo nitko nije predvidio 👀",
+    "more": "+ još {{count}}"
   }
 }

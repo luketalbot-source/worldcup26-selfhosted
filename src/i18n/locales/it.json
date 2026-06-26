@@ -10,7 +10,8 @@
     "leaders": "Leader",
     "me": "Io",
     "disclaimer": "Non affiliato, approvato o sponsorizzato dalla FIFA o da alcun organismo organizzatore.",
-    "terms": "Termini"
+    "terms": "Termini",
+    "stats": "Statistiche"
   },
   "boost": {
     "title": "Boost!",
@@ -92,7 +93,21 @@
   "matches": {
     "noMatchesToday": "Nessuna partita in programma oggi",
     "loginPrompt": "Accedi per salvare i tuoi pronostici!",
-    "group": "Girone {{letter}}"
+    "group": "Girone {{letter}}",
+    "dayFilter": {
+      "past": "Passate",
+      "yesterday": "Ieri",
+      "today": "Oggi",
+      "tomorrow": "Domani",
+      "future": "Future"
+    },
+    "noMatchesFor": {
+      "past": "Ancora nessuna partita passata",
+      "yesterday": "Ieri non si sono giocate partite",
+      "today": "Nessuna partita in programma per oggi",
+      "tomorrow": "Nessuna partita in programma per domani",
+      "future": "Nessun'altra partita in programma per ora"
+    }
   },
   "matchCard": {
     "live": "LIVE",
@@ -113,7 +128,14 @@
     "hoursShort": "h",
     "minutesShort": "min",
     "aet": "d.t.s.",
-    "wonOnPens": "{{winner}} {{score}} ai rigori"
+    "wonOnPens": "{{winner}} {{score}} ai rigori",
+    "ownGoal": "aut",
+    "penalty": "R",
+    "penalties": "Tiri di rigore",
+    "penNeedsWinner": "Scegli chi vince ai rigori — niente pareggi",
+    "penBonus": "+{{count}} bonus rigori",
+    "koScoringOpenPlay": "Azione di gioco: 3 pti per il risultato esatto, 1 pto per il risultato corretto.",
+    "koScoringPens": "Prevedi un pareggio? +1 per chi vince ai rigori e +1 per il punteggio esatto dei rigori."
   },
   "standings": {
     "title": "Classifica Girone {{letter}}",
@@ -142,7 +164,8 @@
     "correctWinner": "Vincitore Corretto",
     "wrong": "Sbagliato",
     "pointsPerType": "Punti per tipo di pronostico",
-    "endOfList": "Tutti i {{count}} giocatori mostrati"
+    "endOfList": "Tutti i {{count}} giocatori mostrati",
+    "liveScoring": "I punti delle partite in corso sono provvisori e cambiano con il punteggio in diretta; vengono fissati al fischio finale."
   },
   "auth": {
     "title": "Inserisci il tuo Nome Utente",
@@ -156,9 +179,25 @@
     "validation": {
       "minLength": "Il nome utente deve avere almeno 2 caratteri",
       "maxLength": "Il nome utente deve avere 20 caratteri o meno",
-      "pattern": "Il nome utente può contenere solo lettere, numeri e underscore"
+      "pattern": "Il nome utente può contenere solo lettere, numeri e underscore",
+      "phoneFormat": "Formato del telefono non valido. Usa +1234567890"
     },
-    "unexpectedError": "Si è verificato un errore imprevisto."
+    "unexpectedError": "Si è verificato un errore imprevisto.",
+    "phoneSubtitle": "Inserisci il tuo numero di telefono per accedere o creare un account",
+    "phoneLabel": "Numero di telefono",
+    "phonePlaceholder": "+1234567890",
+    "phoneHint": "Usa il formato internazionale con il prefisso del paese (es. +1 per gli USA)",
+    "chooseUsername": "Scegli il tuo nome utente",
+    "usernameSubtitle": "Sarà il tuo nome visualizzato nella classifica",
+    "staySignedIn": "Resta connesso",
+    "sendCode": "Invia codice di verifica",
+    "sendingCode": "Invio del codice...",
+    "enterCode": "Inserisci il codice di verifica",
+    "codeSentTo": "Abbiamo inviato un codice a 6 cifre al",
+    "verify": "Verifica e accedi",
+    "verifying": "Verifica in corso...",
+    "resendCode": "Non hai ricevuto il codice? Invia di nuovo",
+    "continue": "Continua"
   },
   "profile": {
     "guest": "Ospite",
@@ -183,12 +222,16 @@
       "displayName": "Nome visualizzato",
       "updateInGameName": "Aggiorna il tuo nome di gioco",
       "cancel": "Annulla",
-      "save": "Salva"
+      "save": "Salva",
+      "change": "Modifica",
+      "add": "Aggiungi"
     },
     "loadErrorTitle": "Impossibile caricare il tuo profilo",
     "loadErrorSubtitle": "La tua sessione potrebbe essere scaduta",
     "retry": "Riprova",
-    "reLogin": "Accedi di nuovo"
+    "reLogin": "Accedi di nuovo",
+    "phoneNumber": "Numero di telefono",
+    "noPhone": "Non impostato"
   },
   "language": {
     "label": "Lingua",
@@ -359,5 +402,88 @@
     "rightWinger": "Ala destra",
     "centreForward": "Centravanti",
     "secondStriker": "Seconda punta"
+  },
+  "stats": {
+    "title": "Aggiornamento della giornata",
+    "hero": {
+      "preKickoff": {
+        "title": "Il torneo inizia a breve",
+        "subtitle": "Le statistiche appaiono qui al via delle partite"
+      },
+      "liveNoGoals": {
+        "title": "Il torneo è in diretta!",
+        "subtitle": "Prima partita in corso · le statistiche arrivano in tempo reale"
+      },
+      "underway": {
+        "title": "Il torneo finora",
+        "subtitle": "{{played}} partite giocate · {{remaining}} rimanenti"
+      }
+    },
+    "goals": "Gol",
+    "perMatch": "A partita",
+    "redCards": "Cartellini rossi",
+    "topScorers": "Migliori marcatori",
+    "mostGoals": "Più gol (squadra)",
+    "cleanestDefence": "Miglior difesa",
+    "cleanSheetsLabel_one": "porta inviolata",
+    "cleanSheetsLabel_other": "porte inviolate",
+    "biggestWin": "Vittoria più larga",
+    "fastestGoal": "Gol più veloce",
+    "discipline": "Disciplina",
+    "yellowCards": "Cartellini gialli",
+    "cardsPerMatch": "{{value}} a partita",
+    "redCardEvery_one": "1 ogni partita",
+    "redCardEvery_other": "1 ogni {{count}} partite",
+    "worstDiscipline": "Peggior disciplina",
+    "cardsCount_one": "{{count}} cartellino",
+    "cardsCount_other": "{{count}} cartellini",
+    "loadError": "Impossibile aggiornare le statistiche. Riproveremo al prossimo gol.",
+    "empty": {
+      "scorersTitle": "Primi gol in arrivo",
+      "scorersSubtitle": "I migliori marcatori appariranno qui non appena qualcuno troverà la rete."
+    },
+    "stage": {
+      "group": "Fase a gironi",
+      "round32": "Sedicesimi di finale",
+      "round16": "Ottavi di finale",
+      "quarter": "Quarti di finale",
+      "semi": "Semifinali",
+      "third": "Finale per il terzo posto",
+      "final": "Finale"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Info sullo stadio",
+    "opened": "Inaugurato",
+    "photoCredit": "Foto",
+    "country": {
+      "US": "USA",
+      "MX": "Messico",
+      "CA": "Canada"
+    },
+    "descriptions": {
+      "azteca": "L'unico stadio ad aver ospitato due finali di Coppa del Mondo (1970 e 1986) e, nel 2026, il primo a disputare partite in un terzo torneo. A 2.200 m sul livello del mare, la sua aria rarefatta è una prova celebre per le squadre ospiti.",
+      "akron": "Casa del Chivas Guadalajara, si erge dal paesaggio come un vulcano con il suo pendio esterno ricoperto d'erba. Una delle tre sedi messicane per il 2026.",
+      "bbva": "Soprannominato 'El Gigante de Acero' (il Gigante d'Acciaio), con un'ampia vista aperta sul Cerro de la Silla dietro la tribuna sud.",
+      "metlife": "Il palcoscenico della finale della Coppa del Mondo 2026 il 19 luglio. Casa condivisa dei Giants e dei Jets della NFL e lo stadio più grande del torneo.",
+      "gillette": "Casa dei New England Patriots e dei Revolution, circa 35 km a sud-ovest di Boston. La sua torre a forma di faro è un simbolo del New England.",
+      "lincoln": "La cattedrale del calcio di Filadelfia, casa degli Eagles della NFL, nota per uno dei pubblici più rumorosi dello sport americano.",
+      "mercedes": "Il gioiello architettonico di Atlanta, con un tetto a girandola che si apre come il diaframma di una fotocamera. Casa dell'Atlanta United, che qui ha stabilito record di affluenza della MLS.",
+      "hardrock": "L'arena all'aperto di Miami, rinnovata con una copertura che ombreggia le tribune lasciando il campo sotto il sole della Florida. Ospita anche il Gran Premio di F1 di Miami e il Miami Open.",
+      "att": "Il colosso dei Dallas Cowboys ad Arlington, uno dei più grandi stadi coperti al mondo, famoso per il suo videowall sospeso al centro largo quasi 50 m.",
+      "nrg": "Lo stadio con tetto retrattile di Houston, la prima sede della NFL ad averne uno. Ha ospitato due Super Bowl e la Copa América 2024.",
+      "arrowhead": "Uno degli stadi più rumorosi al mondo: i tifosi dei Kansas City Chiefs hanno stabilito qui il record mondiale di rumore del pubblico con 142,2 dB nel 2014.",
+      "sofi": "Lo stadio più costoso mai costruito (~5 mld $), inaugurato nel 2020 a Inglewood. Il suo tetto traslucido e l'Infinity Screen a doppia faccia hanno fissato un nuovo standard.",
+      "levis": "La casa hi-tech dei San Francisco 49ers nel cuore della Silicon Valley, che ospita il suo secondo grande evento dell'era del Mondiale dopo il Super Bowl 50.",
+      "lumen": "Il calderone di Seattle, progettato per trattenere il rumore del pubblico: i tifosi dei Sounders e dei Seahawks lo rendono una delle sedi più intimidatorie del Nord America.",
+      "bmo": "Lo stadio di calcio sul lago di Toronto, casa del Toronto FC, ampliato a circa 45.000 posti per il Mondiale: la nazionale maschile del Canada gioca qui le partite del girone del 2026.",
+      "bcplace": "L'arena con tetto retrattile del centro di Vancouver, sede delle cerimonie dei Giochi olimpici invernali del 2010 e della finale del Mondiale femminile 2015."
+    }
+  },
+  "reveal": {
+    "title": "Chi l'aveva previsto?",
+    "calledIt": "{{exact}} su {{total}} hanno previsto questo risultato esatto",
+    "nobody": "Nessuno se l'aspettava 👀",
+    "more": "+ altri {{count}}"
   }
 }

@@ -10,7 +10,8 @@
     "leaders": "Lideri",
     "me": "Eu",
     "disclaimer": "Fără afiliere, susținere sau sponsorizare din partea FIFA sau a oricărui organism organizator.",
-    "terms": "Termeni"
+    "terms": "Termeni",
+    "stats": "Statistici"
   },
   "header": {
     "login": "Autentificare",
@@ -34,7 +35,21 @@
   "matches": {
     "noMatchesToday": "Niciun meci astăzi",
     "loginPrompt": "Autentifică-te pentru a salva pronosticurile!",
-    "group": "Grupa {{letter}}"
+    "group": "Grupa {{letter}}",
+    "dayFilter": {
+      "past": "Trecute",
+      "yesterday": "Ieri",
+      "today": "Azi",
+      "tomorrow": "Mâine",
+      "future": "Viitoare"
+    },
+    "noMatchesFor": {
+      "past": "Încă nu există meciuri trecute",
+      "yesterday": "Ieri nu s-au jucat meciuri",
+      "today": "Niciun meci programat azi",
+      "tomorrow": "Niciun meci programat mâine",
+      "future": "Încă nu sunt programate alte meciuri"
+    }
   },
   "matchCard": {
     "live": "LIVE",
@@ -55,7 +70,14 @@
     "hoursShort": "h",
     "minutesShort": "min",
     "aet": "după prel.",
-    "wonOnPens": "{{winner}} {{score}} la penalty-uri"
+    "wonOnPens": "{{winner}} {{score}} la penalty-uri",
+    "ownGoal": "ap",
+    "penalty": "P",
+    "penalties": "Lovituri de departajare",
+    "penNeedsWinner": "Alege un câștigător la penalty-uri — fără egaluri",
+    "penBonus": "+{{count}} bonus penalty",
+    "koScoringOpenPlay": "Timp regulamentar: 3 pct pentru scorul exact, 1 pct pentru rezultatul corect.",
+    "koScoringPens": "Ai pariat egal? +1 pentru câștigătorul loviturilor de departajare și +1 pentru scorul exact al acestora."
   },
   "standings": {
     "title": "Clasamentul grupei {{letter}}",
@@ -84,7 +106,8 @@
     "correctWinner": "Câștigător corect",
     "wrong": "Greșit",
     "pointsPerType": "Points per prediction type",
-    "endOfList": "All {{count}} players shown"
+    "endOfList": "All {{count}} players shown",
+    "liveScoring": "Punctele din meciurile în desfășurare sunt provizorii și se modifică odată cu scorul live — se fixează la fluierul final."
   },
   "auth": {
     "title": "Bun venit",
@@ -379,5 +402,88 @@
     "rightWinger": "Extremă dreapta",
     "centreForward": "Vârf central",
     "secondStriker": "Al doilea atacant"
+  },
+  "stats": {
+    "title": "Actualizarea etapei",
+    "hero": {
+      "preKickoff": {
+        "title": "Turneul începe în curând",
+        "subtitle": "Statisticile apar aici pe măsură ce încep meciurile"
+      },
+      "liveNoGoals": {
+        "title": "Turneul e live!",
+        "subtitle": "Primul meci în desfășurare · statisticile apar pe măsură ce se întâmplă"
+      },
+      "underway": {
+        "title": "Turneul până acum",
+        "subtitle": "{{played}} meciuri jucate · {{remaining}} rămase"
+      }
+    },
+    "goals": "Goluri",
+    "perMatch": "Pe meci",
+    "redCards": "Cartonașe roșii",
+    "topScorers": "Cei mai buni marcatori",
+    "mostGoals": "Cele mai multe goluri (echipă)",
+    "cleanestDefence": "Cea mai bună apărare",
+    "cleanSheetsLabel_one": "meci fără gol primit",
+    "cleanSheetsLabel_other": "meciuri fără gol primit",
+    "biggestWin": "Cea mai mare victorie",
+    "fastestGoal": "Cel mai rapid gol",
+    "discipline": "Disciplină",
+    "yellowCards": "Cartonașe galbene",
+    "cardsPerMatch": "{{value}} pe meci",
+    "redCardEvery_one": "1 la fiecare meci",
+    "redCardEvery_other": "1 la fiecare {{count}} meciuri",
+    "worstDiscipline": "Cea mai slabă disciplină",
+    "cardsCount_one": "{{count}} cartonaș",
+    "cardsCount_other": "{{count}} cartonașe",
+    "loadError": "Nu am putut actualiza statisticile. Reîncercăm la următorul gol.",
+    "empty": {
+      "scorersTitle": "Primele goluri sunt pe drum",
+      "scorersSubtitle": "Cei mai buni marcatori apar aici de îndată ce cineva înscrie."
+    },
+    "stage": {
+      "group": "Faza grupelor",
+      "round32": "Șaisprezecimi de finală",
+      "round16": "Optimi de finală",
+      "quarter": "Sferturi de finală",
+      "semi": "Semifinale",
+      "third": "Finala mică",
+      "final": "Finală"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Informații despre stadion",
+    "opened": "Inaugurat",
+    "photoCredit": "Foto",
+    "country": {
+      "US": "SUA",
+      "MX": "Mexic",
+      "CA": "Canada"
+    },
+    "descriptions": {
+      "azteca": "Singurul stadion care a găzduit vreodată două finale de Cupă Mondială (1970 și 1986) — iar în 2026 primul care găzduiește meciuri la un al treilea turneu. Situat la 2.200 m altitudine, aerul său rarefiat este o încercare faimoasă pentru echipele oaspete.",
+      "akron": "Casa echipei Chivas Guadalajara, se înalță din peisaj precum un vulcan, cu panta exterioară acoperită de iarbă. Una dintre cele trei arene mexicane pentru 2026.",
+      "bbva": "Supranumit „El Gigante de Acero” (Gigantul de Oțel), cu o panoramă largă, deschisă, spre muntele Cerro de la Silla din spatele tribunei sudice.",
+      "metlife": "Scena finalei Cupei Mondiale 2026 din 19 iulie. Casa comună a echipelor Giants și Jets din NFL și cel mai mare stadion al turneului.",
+      "gillette": "Casa echipelor New England Patriots și Revolution, la circa 35 km sud-vest de Boston. Turnul său în formă de far este un reper al regiunii New England.",
+      "lincoln": "Catedrala fotbalului din Philadelphia, casa echipei Eagles din NFL, cunoscută pentru una dintre cele mai zgomotoase tribune din sportul american.",
+      "mercedes": "Capodopera arhitecturală a orașului Atlanta, cu un acoperiș în formă de elice care se deschide ca diafragma unui aparat foto. Casa echipei Atlanta United, care a stabilit aici recorduri de asistență în MLS.",
+      "hardrock": "Arena descoperită din Miami, renovată cu o copertină care umbrește tribunele, lăsând gazonul sub soarele Floridei. Găzduiește și Marele Premiu de F1 al orașului Miami, precum și Miami Open.",
+      "att": "Colosul echipei Dallas Cowboys din Arlington — unul dintre cele mai mari stadioane acoperite din lume, celebru pentru ecranul video suspendat central, lat de aproape 50 m.",
+      "nrg": "Stadionul cu acoperiș retractabil din Houston, primul astfel de stadion din NFL. A găzduit două ediții Super Bowl și Copa América 2024.",
+      "arrowhead": "Unul dintre cele mai zgomotoase stadioane din lume — suporterii lui Kansas City Chiefs au stabilit aici recordul mondial de zgomot al tribunelor, 142,2 dB, în 2014.",
+      "sofi": "Cel mai scump stadion construit vreodată (~5 mld. dolari), inaugurat în 2020 în Inglewood. Acoperișul său translucid și ecranul Infinity cu două fețe au stabilit un nou reper.",
+      "levis": "Casa de înaltă tehnologie a echipei San Francisco 49ers, în inima Silicon Valley, găzduind al doilea mare eveniment din era Cupelor Mondiale după Super Bowl 50.",
+      "lumen": "Cazanul din Seattle, conceput să capteze zgomotul tribunelor — suporterii lui Sounders și Seahawks fac din el una dintre cele mai intimidante arene din America de Nord.",
+      "bmo": "Arena de fotbal de pe malul lacului din Toronto, casa lui Toronto FC, extinsă la circa 45.000 de locuri pentru Cupa Mondială — naționala masculină a Canadei își joacă aici meciurile din grupă în 2026.",
+      "bcplace": "Arena cu acoperiș retractabil din centrul orașului Vancouver, gazdă a ceremoniilor Jocurilor Olimpice de iarnă din 2010 și a finalei Cupei Mondiale feminine din 2015."
+    }
+  },
+  "reveal": {
+    "title": "Cine a ghicit?",
+    "calledIt": "{{exact}} din {{total}} au prezis acest scor exact",
+    "nobody": "Nimeni nu a anticipat asta 👀",
+    "more": "+ încă {{count}}"
   }
 }

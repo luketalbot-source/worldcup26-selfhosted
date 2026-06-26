@@ -10,7 +10,8 @@
     "leaders": "Leaders",
     "me": "Moi",
     "disclaimer": "Sans aucune affiliation, approbation ni parrainage de la FIFA ou d’un organisme organisateur.",
-    "terms": "Conditions"
+    "terms": "Conditions",
+    "stats": "Stats"
   },
   "boost": {
     "title": "Boost !",
@@ -92,7 +93,21 @@
   "matches": {
     "noMatchesToday": "Aucun match prévu aujourd'hui",
     "loginPrompt": "Connectez-vous pour sauvegarder vos pronostics !",
-    "group": "Groupe {{letter}}"
+    "group": "Groupe {{letter}}",
+    "dayFilter": {
+      "past": "Passés",
+      "yesterday": "Hier",
+      "today": "Aujourd'hui",
+      "tomorrow": "Demain",
+      "future": "À venir"
+    },
+    "noMatchesFor": {
+      "past": "Aucun match passé pour l'instant",
+      "yesterday": "Aucun match n'a été joué hier",
+      "today": "Aucun match programmé aujourd'hui",
+      "tomorrow": "Aucun match programmé demain",
+      "future": "Aucun autre match programmé pour l'instant"
+    }
   },
   "matchCard": {
     "live": "EN DIRECT",
@@ -113,7 +128,14 @@
     "hoursShort": "h",
     "minutesShort": "min",
     "aet": "a.p.",
-    "wonOnPens": "{{winner}} {{score}} aux tirs au but"
+    "wonOnPens": "{{winner}} {{score}} aux tirs au but",
+    "ownGoal": "csc",
+    "penalty": "P",
+    "penalties": "Séance de tirs au but",
+    "penNeedsWinner": "Choisissez un vainqueur aux tirs au but — pas de nul",
+    "penBonus": "+{{count}} bonus tab",
+    "koScoringOpenPlay": "Jeu courant : 3 pts pour le score exact, 1 pt pour le bon résultat.",
+    "koScoringPens": "Vous prédisez un nul ? +1 pour le vainqueur de la séance et +1 pour le score exact de la séance."
   },
   "standings": {
     "title": "Classement Groupe {{letter}}",
@@ -142,7 +164,8 @@
     "correctWinner": "Bon Vainqueur",
     "wrong": "Incorrect",
     "pointsPerType": "Points par type de pronostic",
-    "endOfList": "{{count}} joueurs affichés"
+    "endOfList": "{{count}} joueurs affichés",
+    "liveScoring": "Les points des matchs en cours sont provisoires et évoluent avec le score en direct ; ils sont définitifs au coup de sifflet final."
   },
   "auth": {
     "title": "Entrez votre nom d'utilisateur",
@@ -156,9 +179,25 @@
     "validation": {
       "minLength": "Le nom d'utilisateur doit contenir au moins 2 caractères",
       "maxLength": "Le nom d'utilisateur doit contenir 20 caractères ou moins",
-      "pattern": "Le nom d'utilisateur ne peut contenir que des lettres, des chiffres et des underscores"
+      "pattern": "Le nom d'utilisateur ne peut contenir que des lettres, des chiffres et des underscores",
+      "phoneFormat": "Format de téléphone non valide. Utilisez +1234567890"
     },
-    "unexpectedError": "Une erreur inattendue s'est produite."
+    "unexpectedError": "Une erreur inattendue s'est produite.",
+    "phoneSubtitle": "Saisissez votre numéro de téléphone pour vous connecter ou créer un compte",
+    "phoneLabel": "Numéro de téléphone",
+    "phonePlaceholder": "+1234567890",
+    "phoneHint": "Utilisez le format international avec l'indicatif du pays (p. ex. +1 pour les États-Unis)",
+    "chooseUsername": "Choisissez votre nom d'utilisateur",
+    "usernameSubtitle": "Ce sera votre nom affiché dans le classement",
+    "staySignedIn": "Rester connecté",
+    "sendCode": "Envoyer le code de vérification",
+    "sendingCode": "Envoi du code...",
+    "enterCode": "Saisissez le code de vérification",
+    "codeSentTo": "Nous avons envoyé un code à 6 chiffres au",
+    "verify": "Vérifier et se connecter",
+    "verifying": "Vérification...",
+    "resendCode": "Code non reçu ? Renvoyer",
+    "continue": "Continuer"
   },
   "profile": {
     "guest": "Invité",
@@ -183,12 +222,16 @@
       "displayName": "Nom affiché",
       "updateInGameName": "Mettez à jour votre nom de joueur",
       "cancel": "Annuler",
-      "save": "Enregistrer"
+      "save": "Enregistrer",
+      "change": "Modifier",
+      "add": "Ajouter"
     },
     "loadErrorTitle": "Impossible de charger votre profil",
     "loadErrorSubtitle": "Votre session a peut-être expiré",
     "retry": "Réessayer",
-    "reLogin": "Se reconnecter"
+    "reLogin": "Se reconnecter",
+    "phoneNumber": "Numéro de téléphone",
+    "noPhone": "Non défini"
   },
   "language": {
     "label": "Langue",
@@ -359,5 +402,88 @@
     "rightWinger": "Ailier droit",
     "centreForward": "Avant-centre",
     "secondStriker": "Deuxième attaquant"
+  },
+  "stats": {
+    "title": "Mise à jour de la journée",
+    "hero": {
+      "preKickoff": {
+        "title": "Le tournoi commence bientôt",
+        "subtitle": "Les stats apparaissent ici au coup d'envoi des matchs"
+      },
+      "liveNoGoals": {
+        "title": "Le tournoi est en direct !",
+        "subtitle": "Premier match en cours · les stats arrivent au fil du jeu"
+      },
+      "underway": {
+        "title": "Le tournoi jusqu'ici",
+        "subtitle": "{{played}} matchs joués · {{remaining}} restants"
+      }
+    },
+    "goals": "Buts",
+    "perMatch": "Par match",
+    "redCards": "Cartons rouges",
+    "topScorers": "Meilleurs buteurs",
+    "mostGoals": "Plus de buts (équipe)",
+    "cleanestDefence": "Meilleure défense",
+    "cleanSheetsLabel_one": "clean sheet",
+    "cleanSheetsLabel_other": "clean sheets",
+    "biggestWin": "Plus large victoire",
+    "fastestGoal": "But le plus rapide",
+    "discipline": "Discipline",
+    "yellowCards": "Cartons jaunes",
+    "cardsPerMatch": "{{value}} par match",
+    "redCardEvery_one": "1 par match",
+    "redCardEvery_other": "1 tous les {{count}} matchs",
+    "worstDiscipline": "Pire discipline",
+    "cardsCount_one": "{{count}} carton",
+    "cardsCount_other": "{{count}} cartons",
+    "loadError": "Impossible d'actualiser les stats. Nouvel essai au prochain but.",
+    "empty": {
+      "scorersTitle": "Premiers buts imminents",
+      "scorersSubtitle": "Les meilleurs buteurs apparaîtront ici dès que quelqu'un trouvera le chemin des filets."
+    },
+    "stage": {
+      "group": "Phase de groupes",
+      "round32": "Seizièmes de finale",
+      "round16": "Huitièmes de finale",
+      "quarter": "Quarts de finale",
+      "semi": "Demi-finales",
+      "third": "Match pour la 3e place",
+      "final": "Finale"
+    }
+  },
+  "stadium": {
+    "ariaOpen": "Infos sur le stade",
+    "opened": "Inauguré",
+    "photoCredit": "Photo",
+    "country": {
+      "US": "États-Unis",
+      "MX": "Mexique",
+      "CA": "Canada"
+    },
+    "descriptions": {
+      "azteca": "Le seul stade à avoir accueilli deux finales de Coupe du monde (1970 et 1986) — et, en 2026, le premier à disputer des matchs lors d'un troisième tournoi. Situé à 2 200 m d'altitude, son air raréfié est une épreuve réputée pour les équipes visiteuses.",
+      "akron": "Antre du Chivas Guadalajara, il surgit du paysage tel un volcan avec son talus extérieur recouvert de gazon. L'une des trois enceintes mexicaines pour 2026.",
+      "bbva": "Surnommé « El Gigante de Acero » (le Géant d'acier), avec une large vue dégagée sur le Cerro de la Silla derrière la tribune sud.",
+      "metlife": "Le théâtre de la finale de la Coupe du monde 2026, le 19 juillet. Antre partagé des Giants et des Jets de la NFL, et le plus grand stade du tournoi.",
+      "gillette": "Antre des New England Patriots et du Revolution, à environ 35 km au sud-ouest de Boston. Sa tour en forme de phare est un emblème de la Nouvelle-Angleterre.",
+      "lincoln": "La cathédrale du football de Philadelphie, antre des Eagles de la NFL, réputée pour l'une des foules les plus bruyantes du sport américain.",
+      "mercedes": "Le joyau architectural d'Atlanta, doté d'un toit en moulinet qui s'ouvre comme le diaphragme d'un appareil photo. Antre de l'Atlanta United, qui y a battu des records d'affluence de la MLS.",
+      "hardrock": "L'enceinte à ciel ouvert de Miami, rénovée avec un auvent qui ombrage les tribunes tout en laissant la pelouse sous le soleil de Floride. Elle accueille aussi le Grand Prix de F1 de Miami et le Miami Open.",
+      "att": "Le colosse des Dallas Cowboys à Arlington, l'un des plus grands stades couverts du monde, célèbre pour son écran vidéo suspendu au centre de près de 50 m de large.",
+      "nrg": "Le stade à toit rétractable de Houston, la première enceinte de la NFL à en posséder un. Il a accueilli deux Super Bowls et la Copa América 2024.",
+      "arrowhead": "L'un des stades les plus bruyants de la planète : les supporters des Kansas City Chiefs y ont établi le record mondial de bruit de foule avec 142,2 dB en 2014.",
+      "sofi": "Le stade le plus cher jamais construit (~5 Md$), inauguré en 2020 à Inglewood. Son toit translucide et son Infinity Screen double face ont établi une nouvelle référence.",
+      "levis": "L'antre high-tech des San Francisco 49ers au cœur de la Silicon Valley, qui accueille son deuxième grand événement de l'ère de la Coupe du monde après le Super Bowl 50.",
+      "lumen": "Le chaudron de Seattle, conçu pour emprisonner le bruit de la foule — les supporters des Sounders et des Seahawks en font l'une des enceintes les plus intimidantes d'Amérique du Nord.",
+      "bmo": "Le stade de football au bord du lac à Toronto, antre du Toronto FC, agrandi à environ 45 000 places pour la Coupe du monde — l'équipe masculine du Canada y joue ses matchs de groupe en 2026.",
+      "bcplace": "L'enceinte à toit rétractable du centre-ville de Vancouver, hôte des cérémonies des Jeux olympiques d'hiver de 2010 et de la finale de la Coupe du monde féminine 2015."
+    }
+  },
+  "reveal": {
+    "title": "Qui l'avait prédit ?",
+    "calledIt": "{{exact}} sur {{total}} ont prédit ce score exact",
+    "nobody": "Personne n'avait vu venir celui-là 👀",
+    "more": "+ {{count}} de plus"
   }
 }
