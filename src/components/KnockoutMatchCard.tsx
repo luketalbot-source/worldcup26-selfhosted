@@ -243,7 +243,7 @@ export const KnockoutMatchCard = ({
             and collided with the Save button.) */}
         {(isFinished || isLive) ? (
           <div className="relative z-10 mt-3 flex flex-col items-center gap-2">
-            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
+            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-5 py-4 shadow-lg">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
                 <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
@@ -282,7 +282,7 @@ export const KnockoutMatchCard = ({
           </div>
         ) : (
           <div className="relative z-10 mt-3 flex flex-col items-center">
-            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
+            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-5 py-4 shadow-lg">
               {isMatchLocked ? (
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
@@ -317,8 +317,9 @@ export const KnockoutMatchCard = ({
                       <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         {t('matchCard.penalties', 'Penalty shootout')}
                       </span>
+                      {/* No team names here — the matchup is already shown
+                          in the score row above; repeating it is clutter. */}
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
                         <ScoreSelector
                           value={penHome}
                           onChange={(v) => handlePenChange('home', v)}
@@ -330,7 +331,6 @@ export const KnockoutMatchCard = ({
                           onChange={(v) => handlePenChange('away', v)}
                           disabled={disabled || isMatchLocked}
                         />
-                        <span className="text-xs font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
                       </div>
                       {needsPenWinner && (
                         <span className="text-[10px] text-destructive">
