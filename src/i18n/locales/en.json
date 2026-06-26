@@ -72,7 +72,10 @@
     "aet": "AET",
     "wonOnPens": "{{winner}} {{score}} on pens",
     "ownGoal": "OG",
-    "penalty": "P"
+    "penalty": "P",
+    "penalties": "Penalty shootout",
+    "penNeedsWinner": "Pick a shootout winner — no draws",
+    "penBonus": "+{{count}} pen bonus"
   },
   "standings": {
     "title": "Group {{letter}} Standings",

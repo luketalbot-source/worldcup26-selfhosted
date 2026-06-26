@@ -129,7 +129,10 @@
     "aet": "n.V.",
     "wonOnPens": "{{winner}} {{score}} im Elfmeterschießen",
     "ownGoal": "ET",
-    "penalty": "FE"
+    "penalty": "FE",
+    "penalties": "Elfmeterschießen",
+    "penNeedsWinner": "Sieger wählen — kein Unentschieden",
+    "penBonus": "+{{count}} Elfmeter-Bonus"
   },
   "standings": {
     "title": "Gruppe {{letter}} Tabelle",

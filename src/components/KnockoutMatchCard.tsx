@@ -18,7 +18,13 @@ import { useTeamName } from '@/hooks/useTeamName';
 interface KnockoutMatchCardProps {
   match: KnockoutMatch;
   prediction?: Prediction;
-  onPredict: (matchId: string, homeScore: number, awayScore: number) => void;
+  onPredict: (
+    matchId: string,
+    homeScore: number,
+    awayScore: number,
+    penaltyHomeScore?: number | null,
+    penaltyAwayScore?: number | null,
+  ) => void;
   disabled?: boolean;
   isHighlighted?: boolean;
 }
@@ -34,6 +40,11 @@ export const KnockoutMatchCard = ({
   const { getTeamName } = useTeamName();
   const [homeScore, setHomeScore] = useState(prediction?.homeScore ?? 0);
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
+  // Predicted shootout score, used only when the predicted score is level
+  // (a knockout draw goes to pens). Default 4–3 so the required pick
+  // starts decisive; the user adjusts who wins / the score.
+  const [penHome, setPenHome] = useState(prediction?.penaltyHomeScore ?? 4);
+  const [penAway, setPenAway] = useState(prediction?.penaltyAwayScore ?? 3);
   const [hasEdited, setHasEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [stadiumOpen, setStadiumOpen] = useState(false);
@@ -56,6 +67,8 @@ export const KnockoutMatchCard = ({
     if (prediction) {
       setHomeScore(prediction.homeScore);
       setAwayScore(prediction.awayScore);
+      if (prediction.penaltyHomeScore != null) setPenHome(prediction.penaltyHomeScore);
+      if (prediction.penaltyAwayScore != null) setPenAway(prediction.penaltyAwayScore);
     }
   }, [prediction]);
 
@@ -69,21 +82,47 @@ export const KnockoutMatchCard = ({
     }
   };
 
-  const handleSave = async () => {
+  const handlePenChange = (team: 'home' | 'away', score: number) => {
     if (disabled || isMatchLocked) return;
+    setHasEdited(true);
+    if (team === 'home') setPenHome(score);
+    else setPenAway(score);
+  };
+
+  // A level knockout prediction goes to pens, so the shootout pick is
+  // required and must be decisive (no tie).
+  const isDrawPrediction = homeScore === awayScore;
+  const penDecisive = penHome !== penAway;
+  const needsPenWinner = isDrawPrediction && !penDecisive;
+
+  const handleSave = async () => {
+    if (disabled || isMatchLocked || needsPenWinner) return;
     setIsSaving(true);
-    await onPredict(match.id, homeScore, awayScore);
+    await onPredict(
+      match.id,
+      homeScore,
+      awayScore,
+      isDrawPrediction ? penHome : null,
+      isDrawPrediction ? penAway : null,
+    );
     setHasEdited(false);
     setIsSaving(false);
   };
 
   // Calculate points for finished matches with predictions
-  const predictionResult = isFinished && prediction 
+  const predictionResult = isFinished && prediction
     ? calculatePredictionPoints(
         prediction.homeScore,
         prediction.awayScore,
         match.homeScore ?? null,
-        match.awayScore ?? null
+        match.awayScore ?? null,
+        {
+          predictedPenHome: prediction.penaltyHomeScore,
+          predictedPenAway: prediction.penaltyAwayScore,
+          actualPenHome: match.penaltyHomeScore ?? null,
+          actualPenAway: match.penaltyAwayScore ?? null,
+          wentToPens: match.duration === 'PENALTY_SHOOTOUT',
+        },
       )
     : null;
 
@@ -249,20 +288,53 @@ export const KnockoutMatchCard = ({
                   <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
-                  <ScoreSelector
-                    value={homeScore}
-                    onChange={(v) => handleScoreChange('home', v)}
-                    disabled={disabled || isMatchLocked}
-                  />
-                  <span className="text-lg text-muted-foreground font-medium">:</span>
-                  <ScoreSelector
-                    value={awayScore}
-                    onChange={(v) => handleScoreChange('away', v)}
-                    disabled={disabled || isMatchLocked}
-                  />
-                  <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                    <ScoreSelector
+                      value={homeScore}
+                      onChange={(v) => handleScoreChange('home', v)}
+                      disabled={disabled || isMatchLocked}
+                    />
+                    <span className="text-lg text-muted-foreground font-medium">:</span>
+                    <ScoreSelector
+                      value={awayScore}
+                      onChange={(v) => handleScoreChange('away', v)}
+                      disabled={disabled || isMatchLocked}
+                    />
+                    <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                  </div>
+
+                  {/* Drawn knockout → goes to penalties. Require a decisive
+                      shootout pick (who advances + the score). Shown only
+                      while predicting a level score. */}
+                  {isDrawPrediction && (
+                    <div className="flex flex-col items-center gap-1 border-t border-border/40 pt-2 w-full">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {t('matchCard.penalties', 'Penalty shootout')}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                        <ScoreSelector
+                          value={penHome}
+                          onChange={(v) => handlePenChange('home', v)}
+                          disabled={disabled || isMatchLocked}
+                        />
+                        <span className="text-sm text-muted-foreground font-medium">:</span>
+                        <ScoreSelector
+                          value={penAway}
+                          onChange={(v) => handlePenChange('away', v)}
+                          disabled={disabled || isMatchLocked}
+                        />
+                        <span className="text-xs font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                      </div>
+                      {needsPenWinner && (
+                        <span className="text-[10px] text-destructive">
+                          {t('matchCard.penNeedsWinner', 'Pick a shootout winner — no draws')}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -314,9 +386,9 @@ export const KnockoutMatchCard = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSave}
-                  disabled={isSaving || (!hasEdited && !isPredicted)}
+                  disabled={isSaving || (!hasEdited && !isPredicted) || needsPenWinner}
                   className={`w-full py-1.5 px-3 rounded-lg font-semibold text-xs transition-all backdrop-blur-sm ${
-                    hasEdited
+                    hasEdited && !needsPenWinner
                       ? 'bg-accent text-accent-foreground shadow-md'
                       : 'bg-white/90 text-muted-foreground'
                   }`}
@@ -351,6 +423,7 @@ export const KnockoutMatchCard = ({
               {predictionResult.resultType === 'exact' && ` · ${t('matchCard.exactScore')}`}
               {predictionResult.resultType === 'correct' && ` · ${t('matchCard.correctResult')}`}
               {predictionResult.resultType === 'wrong' && ` · ${t('matchCard.wrongResult')}`}
+              {predictionResult.penaltyBonus > 0 && ` · ${t('matchCard.penBonus', { count: predictionResult.penaltyBonus })}`}
             </span>
           </div>
         )}

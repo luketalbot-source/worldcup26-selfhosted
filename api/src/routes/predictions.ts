@@ -36,6 +36,14 @@ const predictionSchema = z.object({
   home_score: z.number().int().min(0),
   away_score: z.number().int().min(0),
   tenant_id:  z.string().uuid().optional(),
+  // Predicted penalty-shootout score, only meaningful for a knockout
+  // fixture the user predicted level (the UI requires it then). Optional
+  // here; null for group-stage and decisive knockout picks. A shootout
+  // can't tie, so if both are present they must differ — but we only
+  // hard-validate non-negativity and let the scoring ignore a malformed
+  // (equal) pair rather than 400 a prediction the user can still fix.
+  penalty_home_score: z.number().int().min(0).nullable().optional(),
+  penalty_away_score: z.number().int().min(0).nullable().optional(),
 });
 
 router.post("/", requireAuth, zValidator("json", predictionSchema), async (c) => {
@@ -64,21 +72,33 @@ router.post("/", requireAuth, zValidator("json", predictionSchema), async (c) =>
     );
   }
 
+  // Penalty scores only persist for a level prediction (a shootout only
+  // happens on a draw). If the score isn't level, force them null so a
+  // user who first predicted a draw-with-pens then changed to a decisive
+  // score doesn't leave a stale shootout behind.
+  const isDraw = body.home_score === body.away_score;
+  const penHome = isDraw ? (body.penalty_home_score ?? null) : null;
+  const penAway = isDraw ? (body.penalty_away_score ?? null) : null;
+
   const rows = await withUser(user.sub, (tx) =>
     tx`
-      INSERT INTO predictions (id, user_id, match_id, home_score, away_score, tenant_id, created_at, updated_at)
+      INSERT INTO predictions (id, user_id, match_id, home_score, away_score, penalty_home_score, penalty_away_score, tenant_id, created_at, updated_at)
       VALUES (
         gen_random_uuid(),
         ${user.sub},
         ${body.match_id},
         ${body.home_score},
         ${body.away_score},
+        ${penHome},
+        ${penAway},
         ${body.tenant_id ?? null},
         NOW(), NOW()
       )
       ON CONFLICT (user_id, match_id) DO UPDATE
         SET home_score = EXCLUDED.home_score,
             away_score = EXCLUDED.away_score,
+            penalty_home_score = EXCLUDED.penalty_home_score,
+            penalty_away_score = EXCLUDED.penalty_away_score,
             tenant_id  = EXCLUDED.tenant_id,
             updated_at = NOW()
       RETURNING *

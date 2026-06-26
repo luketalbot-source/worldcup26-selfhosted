@@ -6,6 +6,10 @@ export interface Prediction {
   matchId: string;
   homeScore: number;
   awayScore: number;
+  // Predicted penalty-shootout score — only set for a knockout fixture
+  // predicted level (null otherwise). null for group/decisive picks.
+  penaltyHomeScore?: number | null;
+  penaltyAwayScore?: number | null;
   timestamp: string;
 }
 
@@ -13,6 +17,8 @@ interface ApiPrediction {
   match_id: string;
   home_score: number;
   away_score: number;
+  penalty_home_score: number | null;
+  penalty_away_score: number | null;
   updated_at: string;
 }
 
@@ -39,6 +45,8 @@ export const usePredictions = (tenantId?: string | null) => {
         matchId: p.match_id,
         homeScore: p.home_score,
         awayScore: p.away_score,
+        penaltyHomeScore: p.penalty_home_score,
+        penaltyAwayScore: p.penalty_away_score,
         timestamp: p.updated_at,
       })));
     } catch {
@@ -52,14 +60,29 @@ export const usePredictions = (tenantId?: string | null) => {
     fetchPredictions();
   }, [user, tenantId]);
 
-  const addPrediction = async (matchId: string, homeScore: number, awayScore: number) => {
+  const addPrediction = async (
+    matchId: string,
+    homeScore: number,
+    awayScore: number,
+    penaltyHomeScore?: number | null,
+    penaltyAwayScore?: number | null,
+  ) => {
     if (!user) return;
+
+    // Pens only meaningful on a level prediction; otherwise force null so
+    // a draw→decisive edit doesn't leave a stale shootout (server does the
+    // same, this keeps local state in sync).
+    const isDraw = homeScore === awayScore;
+    const penH = isDraw ? (penaltyHomeScore ?? null) : null;
+    const penA = isDraw ? (penaltyAwayScore ?? null) : null;
 
     try {
       await api.post('/predictions', {
         match_id: matchId,
         home_score: homeScore,
         away_score: awayScore,
+        penalty_home_score: penH,
+        penalty_away_score: penA,
         ...(tenantId ? { tenant_id: tenantId } : {}),
       });
 
@@ -68,7 +91,7 @@ export const usePredictions = (tenantId?: string | null) => {
       if (existing) {
         setPredictions(predictions.map(p =>
           p.matchId === matchId
-            ? { ...p, homeScore, awayScore, timestamp: new Date().toISOString() }
+            ? { ...p, homeScore, awayScore, penaltyHomeScore: penH, penaltyAwayScore: penA, timestamp: new Date().toISOString() }
             : p
         ));
       } else {
@@ -76,6 +99,8 @@ export const usePredictions = (tenantId?: string | null) => {
           matchId,
           homeScore,
           awayScore,
+          penaltyHomeScore: penH,
+          penaltyAwayScore: penA,
           timestamp: new Date().toISOString(),
         }]);
       }

@@ -62,6 +62,9 @@ export interface Prediction {
   matchId: string;
   homeScore: number;
   awayScore: number;
+  // Predicted penalty-shootout score (knockout level predictions only).
+  penaltyHomeScore?: number | null;
+  penaltyAwayScore?: number | null;
   timestamp: string;
 }
 

@@ -47,7 +47,9 @@ router.get("/", async (c) => {
         WHERE lm.league_id = ${leagueId}
       ),
       all_preds AS (
-        SELECT pr.user_id, pr.match_id, pr.home_score AS predicted_home_score, pr.away_score AS predicted_away_score
+        SELECT pr.user_id, pr.match_id,
+               pr.home_score AS predicted_home_score, pr.away_score AS predicted_away_score,
+               pr.penalty_home_score AS pred_pen_home, pr.penalty_away_score AS pred_pen_away
         FROM predictions pr
         INNER JOIN league_users lu ON lu.user_id = pr.user_id
         WHERE pr.tenant_id = ${tenantId}
@@ -55,12 +57,26 @@ router.get("/", async (c) => {
       match_pts AS (
         SELECT ap.user_id,
                SUM(
-                 CASE
+                 (CASE
                    WHEN lm2.home_score IS NULL OR lm2.away_score IS NULL THEN 0
                    WHEN ap.predicted_home_score = lm2.home_score AND ap.predicted_away_score = lm2.away_score THEN 3
                    WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm2.home_score - lm2.away_score) THEN 1
                    ELSE 0
-                 END
+                 END)
+                 -- Penalty-shootout bonus (knockout matches that went to
+                 -- pens, where the user predicted a level AET score with a
+                 -- decisive shootout pick): +1 correct winner, +1 more for
+                 -- the exact shootout score.
+                 + (CASE
+                      WHEN lm2.duration = 'PENALTY_SHOOTOUT'
+                       AND lm2.penalty_home_score IS NOT NULL AND lm2.penalty_away_score IS NOT NULL
+                       AND ap.pred_pen_home IS NOT NULL AND ap.pred_pen_away IS NOT NULL
+                       AND ap.pred_pen_home <> ap.pred_pen_away
+                       AND ap.predicted_home_score = ap.predicted_away_score
+                      THEN (CASE WHEN SIGN(ap.pred_pen_home - ap.pred_pen_away) = SIGN(lm2.penalty_home_score - lm2.penalty_away_score) THEN 1 ELSE 0 END)
+                         + (CASE WHEN ap.pred_pen_home = lm2.penalty_home_score AND ap.pred_pen_away = lm2.penalty_away_score THEN 1 ELSE 0 END)
+                      ELSE 0
+                    END)
                ) AS pts,
                COUNT(*) AS pred_count,
                -- Tiebreak: exact-score picks (3pt outcomes).
@@ -202,7 +218,9 @@ router.get("/", async (c) => {
       WHERE oi.tenant_id = ${tenantId}
     ),
     all_preds AS (
-      SELECT pr.user_id, pr.match_id, pr.home_score AS predicted_home_score, pr.away_score AS predicted_away_score
+      SELECT pr.user_id, pr.match_id,
+             pr.home_score AS predicted_home_score, pr.away_score AS predicted_away_score,
+             pr.penalty_home_score AS pred_pen_home, pr.penalty_away_score AS pred_pen_away
       FROM predictions pr
       INNER JOIN tenant_users tu ON tu.user_id = pr.user_id
       WHERE pr.tenant_id = ${tenantId}
@@ -210,12 +228,23 @@ router.get("/", async (c) => {
     match_pts AS (
       SELECT ap.user_id,
              SUM(
-               CASE
+               (CASE
                  WHEN lm.home_score IS NULL OR lm.away_score IS NULL THEN 0
                  WHEN ap.predicted_home_score = lm.home_score AND ap.predicted_away_score = lm.away_score THEN 3
                  WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm.home_score - lm.away_score) THEN 1
                  ELSE 0
-               END
+               END)
+               -- Penalty-shootout bonus — see the league query for rationale.
+               + (CASE
+                    WHEN lm.duration = 'PENALTY_SHOOTOUT'
+                     AND lm.penalty_home_score IS NOT NULL AND lm.penalty_away_score IS NOT NULL
+                     AND ap.pred_pen_home IS NOT NULL AND ap.pred_pen_away IS NOT NULL
+                     AND ap.pred_pen_home <> ap.pred_pen_away
+                     AND ap.predicted_home_score = ap.predicted_away_score
+                    THEN (CASE WHEN SIGN(ap.pred_pen_home - ap.pred_pen_away) = SIGN(lm.penalty_home_score - lm.penalty_away_score) THEN 1 ELSE 0 END)
+                       + (CASE WHEN ap.pred_pen_home = lm.penalty_home_score AND ap.pred_pen_away = lm.penalty_away_score THEN 1 ELSE 0 END)
+                    ELSE 0
+                  END)
              ) AS pts,
              COUNT(*) AS pred_count,
              -- Tiebreak: exact-score picks (3pt outcomes). See the

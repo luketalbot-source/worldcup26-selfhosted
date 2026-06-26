@@ -31,32 +31,64 @@ export interface UserStats {
 /**
  * Calculate points for a single prediction
  */
+/**
+ * Penalty-shootout prediction + result, for knockout matches that go to
+ * pens. All optional — group games and decisive knockouts pass nothing
+ * and scoring is unchanged. Mirrors the server scoring in
+ * api/src/routes/leaderboard.ts.
+ */
+export interface PenaltyScoring {
+  predictedPenHome?: number | null;
+  predictedPenAway?: number | null;
+  actualPenHome?: number | null;
+  actualPenAway?: number | null;
+  /** actual match.duration === 'PENALTY_SHOOTOUT' */
+  wentToPens?: boolean;
+}
+
 export const calculatePredictionPoints = (
   predictedHome: number,
   predictedAway: number,
   actualHome: number | null,
-  actualAway: number | null
-): { points: number; resultType: 'exact' | 'correct' | 'wrong' | 'pending' } => {
+  actualAway: number | null,
+  pens?: PenaltyScoring,
+): { points: number; resultType: 'exact' | 'correct' | 'wrong' | 'pending'; penaltyBonus: number } => {
   // If match hasn't finished yet (no scores), return pending
   if (actualHome === null || actualAway === null) {
-    return { points: 0, resultType: 'pending' };
+    return { points: 0, resultType: 'pending', penaltyBonus: 0 };
   }
 
-  // Exact score match = 3 points
+  let base: number;
+  let resultType: 'exact' | 'correct' | 'wrong';
   if (predictedHome === actualHome && predictedAway === actualAway) {
-    return { points: 3, resultType: 'exact' };
+    base = 3;
+    resultType = 'exact';
+  } else if (getResult(predictedHome, predictedAway) === getResult(actualHome, actualAway)) {
+    base = 1;
+    resultType = 'correct';
+  } else {
+    base = 0;
+    resultType = 'wrong';
   }
 
-  // Check if result (winner/draw) is correct
-  const predictedResult = getResult(predictedHome, predictedAway);
-  const actualResult = getResult(actualHome, actualAway);
-
-  if (predictedResult === actualResult) {
-    return { points: 1, resultType: 'correct' };
+  // Shootout bonus: only when the match actually went to pens AND the
+  // user predicted a level score with a decisive shootout pick.
+  // +1 correct winner, +1 more for the exact shootout score.
+  let penaltyBonus = 0;
+  if (
+    pens?.wentToPens &&
+    predictedHome === predictedAway &&
+    pens.predictedPenHome != null && pens.predictedPenAway != null &&
+    pens.predictedPenHome !== pens.predictedPenAway &&
+    pens.actualPenHome != null && pens.actualPenAway != null
+  ) {
+    const predHomeWins = pens.predictedPenHome > pens.predictedPenAway;
+    const actualHomeWins = pens.actualPenHome > pens.actualPenAway;
+    if (predHomeWins === actualHomeWins) penaltyBonus += 1;
+    if (pens.predictedPenHome === pens.actualPenHome && pens.predictedPenAway === pens.actualPenAway) penaltyBonus += 1;
   }
 
-  // Wrong result = 0 points
-  return { points: 0, resultType: 'wrong' };
+  return { points: base + penaltyBonus, resultType, penaltyBonus };
 };
 
 /**
