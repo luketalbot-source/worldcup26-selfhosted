@@ -14,7 +14,9 @@ interface GroupStandingsProps {
 export const GroupStandings = ({ standings, group }: GroupStandingsProps) => {
   const { t } = useTranslation();
   const { getTeamName } = useTeamName();
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Default open now the group stage is concluding — the table is the
+  // most-wanted view at this point. Still collapsible via the header.
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return (
     <motion.div
