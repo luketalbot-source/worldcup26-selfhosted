@@ -75,7 +75,9 @@
     "penalty": "P",
     "penalties": "Penalty shootout",
     "penNeedsWinner": "Pick a shootout winner — no draws",
-    "penBonus": "+{{count}} pen bonus"
+    "penBonus": "+{{count}} pen bonus",
+    "koScoringOpenPlay": "Open play: 3 pts for the exact score, 1 pt for the correct result.",
+    "koScoringPens": "Predict a draw? +1 for the shootout winner and +1 for the exact shootout score."
   },
   "standings": {
     "title": "Group {{letter}} Standings",

@@ -132,7 +132,9 @@
     "penalty": "FE",
     "penalties": "Elfmeterschießen",
     "penNeedsWinner": "Sieger wählen — kein Unentschieden",
-    "penBonus": "+{{count}} Elfmeter-Bonus"
+    "penBonus": "+{{count}} Elfmeter-Bonus",
+    "koScoringOpenPlay": "Reguläre Zeit: 3 Pkt. für das exakte Ergebnis, 1 Pkt. für den richtigen Ausgang.",
+    "koScoringPens": "Unentschieden getippt? +1 für den Elfmeter-Sieger und +1 für das exakte Elfmeterergebnis."
   },
   "standings": {
     "title": "Gruppe {{letter}} Tabelle",

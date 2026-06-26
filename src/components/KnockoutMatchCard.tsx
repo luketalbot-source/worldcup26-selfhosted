@@ -41,10 +41,11 @@ export const KnockoutMatchCard = ({
   const [homeScore, setHomeScore] = useState(prediction?.homeScore ?? 0);
   const [awayScore, setAwayScore] = useState(prediction?.awayScore ?? 0);
   // Predicted shootout score, used only when the predicted score is level
-  // (a knockout draw goes to pens). Default 4–3 so the required pick
-  // starts decisive; the user adjusts who wins / the score.
-  const [penHome, setPenHome] = useState(prediction?.penaltyHomeScore ?? 4);
-  const [penAway, setPenAway] = useState(prediction?.penaltyAwayScore ?? 3);
+  // (a knockout draw goes to pens). Defaults to 0–0 — the user must set a
+  // decisive score before they can save (a shootout can't tie), rather
+  // than us pre-filling a winner for them.
+  const [penHome, setPenHome] = useState(prediction?.penaltyHomeScore ?? 0);
+  const [penAway, setPenAway] = useState(prediction?.penaltyAwayScore ?? 0);
   const [hasEdited, setHasEdited] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [stadiumOpen, setStadiumOpen] = useState(false);
@@ -440,6 +441,22 @@ export const KnockoutMatchCard = ({
 
         {/* Who-called-it reveal — finished matches only; lazy-fetches on tap. */}
         {isFinished && <ExactPredictionsReveal matchId={match.id} />}
+
+        {/* Knockout scoring explainer — shown while the match is still
+            predictable so users know how KO points (incl. the shootout
+            bonuses) work. Hidden once finished. */}
+        {!isFinished && !isLive && (
+          <div className="mt-2 rounded-lg bg-background/55 backdrop-blur-md px-3 py-2 text-[11px] leading-snug text-foreground/80 space-y-1">
+            <div className="flex items-start gap-1.5">
+              <span aria-hidden>⚽</span>
+              <span>{t('matchCard.koScoringOpenPlay')}</span>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <span aria-hidden>🥅</span>
+              <span>{t('matchCard.koScoringPens')}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {stadium && (
