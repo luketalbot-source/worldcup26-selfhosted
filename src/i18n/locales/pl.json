@@ -484,6 +484,10 @@
     "title": "Kto to przewidział?",
     "calledIt": "{{exact}} z {{total}} obstawiło ten dokładny wynik",
     "nobody": "Nikt tego nie przewidział 👀",
-    "more": "+ {{count}} więcej"
+    "more": "+ {{count}} więcej",
+    "groupOpenPlay": "Wynik w grze",
+    "groupPenWinner": "Zwycięzca karnych",
+    "groupPenScore": "Wynik karnych",
+    "groupEmpty": "Jeszcze nikt"
   }
 }

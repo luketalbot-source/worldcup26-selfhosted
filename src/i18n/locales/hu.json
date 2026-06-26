@@ -484,6 +484,10 @@
     "title": "Ki találta el?",
     "calledIt": "{{exact}} / {{total}} tippelte pontosan ezt az eredményt",
     "nobody": "Ezt senki sem látta előre 👀",
-    "more": "+ még {{count}}"
+    "more": "+ még {{count}}",
+    "groupOpenPlay": "Rendes játékidő",
+    "groupPenWinner": "Büntetők győztese",
+    "groupPenScore": "Büntetők eredménye",
+    "groupEmpty": "Még senki"
   }
 }

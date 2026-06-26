@@ -177,9 +177,14 @@ router.get("/:matchId/exact-predictions", requireAuth, async (c) => {
   }
 
   const matches = await sql<
-    { home_score: number | null; away_score: number | null; status: string }[]
+    {
+      home_score: number | null; away_score: number | null; status: string;
+      penalty_home_score: number | null; penalty_away_score: number | null;
+      duration: string | null;
+    }[]
   >`
-    SELECT home_score, away_score, status
+    SELECT home_score, away_score, status,
+           penalty_home_score, penalty_away_score, duration
       FROM public.live_matches
      WHERE match_id = ${matchId}
      LIMIT 1
@@ -220,11 +225,77 @@ router.get("/:matchId/exact-predictions", requireAuth, async (c) => {
   `;
   const counts = countRows[0] ?? { exact_count: 0, total_count: 0 };
 
+  // Knockout shootout: two extra "who called it" groups beyond the
+  // open-play exact-score list. Both are scoped to users who actually
+  // predicted a shootout (i.e. predicted a level score, so penalty
+  // scores are set). The actual shootout winner is derived from the
+  // live result's pen scores.
+  const wentToPens =
+    match.duration === "PENALTY_SHOOTOUT" &&
+    match.penalty_home_score !== null &&
+    match.penalty_away_score !== null;
+
+  let penWinner: { count: number; users: ExactPredictor[] } | null = null;
+  let penScore: { count: number; users: ExactPredictor[] } | null = null;
+
+  if (wentToPens) {
+    const ph = match.penalty_home_score as number;
+    const pa = match.penalty_away_score as number;
+    const winnerIsHome = ph > pa;
+
+    // Penalty WINNER: predicted a level score + a decisive shootout whose
+    // winning side matches the actual shootout winner.
+    const penWinnerUsers = await sql<ExactPredictor[]>`
+      SELECT pr.user_id, p.display_name, p.avatar_emoji
+        FROM public.predictions pr
+        LEFT JOIN public.profiles p ON p.user_id = pr.user_id
+       WHERE pr.match_id = ${matchId}
+         AND pr.tenant_id = ${tenantId}
+         AND pr.home_score = pr.away_score
+         AND pr.penalty_home_score IS NOT NULL AND pr.penalty_away_score IS NOT NULL
+         AND pr.penalty_home_score <> pr.penalty_away_score
+         AND (pr.penalty_home_score > pr.penalty_away_score) = ${winnerIsHome}
+       ORDER BY pr.created_at ASC
+       LIMIT ${REVEAL_LIST_CAP}
+    `;
+    // Penalty SCORE: predicted the exact shootout scoreline.
+    const penScoreUsers = await sql<ExactPredictor[]>`
+      SELECT pr.user_id, p.display_name, p.avatar_emoji
+        FROM public.predictions pr
+        LEFT JOIN public.profiles p ON p.user_id = pr.user_id
+       WHERE pr.match_id = ${matchId}
+         AND pr.tenant_id = ${tenantId}
+         AND pr.penalty_home_score = ${ph}
+         AND pr.penalty_away_score = ${pa}
+       ORDER BY pr.created_at ASC
+       LIMIT ${REVEAL_LIST_CAP}
+    `;
+    const penCountRows = await sql<{ winner_count: number; score_count: number }[]>`
+      SELECT COUNT(*) FILTER (
+               WHERE home_score = away_score
+                 AND penalty_home_score IS NOT NULL AND penalty_away_score IS NOT NULL
+                 AND penalty_home_score <> penalty_away_score
+                 AND (penalty_home_score > penalty_away_score) = ${winnerIsHome}
+             )::int AS winner_count,
+             COUNT(*) FILTER (
+               WHERE penalty_home_score = ${ph} AND penalty_away_score = ${pa}
+             )::int AS score_count
+        FROM public.predictions
+       WHERE match_id = ${matchId} AND tenant_id = ${tenantId}
+    `;
+    const pc = penCountRows[0] ?? { winner_count: 0, score_count: 0 };
+    penWinner = { count: pc.winner_count, users: penWinnerUsers };
+    penScore = { count: pc.score_count, users: penScoreUsers };
+  }
+
   const body = {
     revealed: true,
     exact_count: counts.exact_count,
     total_count: counts.total_count,
     users,
+    went_to_pens: wentToPens,
+    pen_winner: penWinner,
+    pen_score: penScore,
   };
   revealCache.set(cacheKey, { body, expires: Date.now() + REVEAL_TTL_MS });
   return c.json(body);

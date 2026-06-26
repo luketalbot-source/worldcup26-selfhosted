@@ -484,6 +484,10 @@
     "title": "Cine a ghicit?",
     "calledIt": "{{exact}} din {{total}} au prezis acest scor exact",
     "nobody": "Nimeni nu a anticipat asta 👀",
-    "more": "+ încă {{count}}"
+    "more": "+ încă {{count}}",
+    "groupOpenPlay": "Scor în joc",
+    "groupPenWinner": "Câștigător la penalty-uri",
+    "groupPenScore": "Scor la penalty-uri",
+    "groupEmpty": "Încă nimeni"
   }
 }

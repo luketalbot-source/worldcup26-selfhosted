@@ -484,6 +484,10 @@
     "title": "¿Quién lo acertó?",
     "calledIt": "{{exact}} de {{total}} predijeron este resultado exacto",
     "nobody": "Nadie vio venir este 👀",
-    "more": "+ {{count}} más"
+    "more": "+ {{count}} más",
+    "groupOpenPlay": "Resultado en juego",
+    "groupPenWinner": "Ganador de penales",
+    "groupPenScore": "Marcador de penales",
+    "groupEmpty": "Nadie aún"
   }
 }

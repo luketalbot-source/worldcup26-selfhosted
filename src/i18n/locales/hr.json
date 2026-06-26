@@ -484,6 +484,10 @@
     "title": "Tko je pogodio?",
     "calledIt": "{{exact}} od {{total}} predvidjelo je upravo ovaj rezultat",
     "nobody": "Ovo nitko nije predvidio 👀",
-    "more": "+ još {{count}}"
+    "more": "+ još {{count}}",
+    "groupOpenPlay": "Rezultat u igri",
+    "groupPenWinner": "Pobjednik penala",
+    "groupPenScore": "Rezultat penala",
+    "groupEmpty": "Još nitko"
   }
 }

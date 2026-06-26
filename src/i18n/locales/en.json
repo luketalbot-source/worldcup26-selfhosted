@@ -484,6 +484,10 @@
     "title": "Who called it?",
     "calledIt": "{{exact}} of {{total}} predicted this exact score",
     "nobody": "Nobody saw this one coming 👀",
-    "more": "+ {{count}} more"
+    "more": "+ {{count}} more",
+    "groupOpenPlay": "Open-play score",
+    "groupPenWinner": "Shootout winner",
+    "groupPenScore": "Shootout score",
+    "groupEmpty": "Nobody yet"
   }
 }

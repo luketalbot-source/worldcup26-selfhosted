@@ -484,6 +484,10 @@
     "title": "Kdo je uganil?",
     "calledIt": "{{exact}} od {{total}} je napovedalo točno ta rezultat",
     "nobody": "Tega ni pričakoval nihče 👀",
-    "more": "+ še {{count}}"
+    "more": "+ še {{count}}",
+    "groupOpenPlay": "Rezultat v igri",
+    "groupPenWinner": "Zmagovalec po enajstmetrovkah",
+    "groupPenScore": "Rezultat enajstmetrovk",
+    "groupEmpty": "Še nihče"
   }
 }

@@ -484,6 +484,10 @@
     "title": "Qui l'avait prédit ?",
     "calledIt": "{{exact}} sur {{total}} ont prédit ce score exact",
     "nobody": "Personne n'avait vu venir celui-là 👀",
-    "more": "+ {{count}} de plus"
+    "more": "+ {{count}} de plus",
+    "groupOpenPlay": "Score temps réglementaire",
+    "groupPenWinner": "Vainqueur aux tirs au but",
+    "groupPenScore": "Score aux tirs au but",
+    "groupEmpty": "Personne pour l’instant"
   }
 }

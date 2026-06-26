@@ -484,6 +484,10 @@
     "title": "Kdo to uhodl?",
     "calledIt": "{{exact}} z {{total}} tipovalo toto přesné skóre",
     "nobody": "Tohle nikdo nečekal 👀",
-    "more": "+ {{count}} dalších"
+    "more": "+ {{count}} dalších",
+    "groupOpenPlay": "Výsledek ve hře",
+    "groupPenWinner": "Vítěz penalt",
+    "groupPenScore": "Skóre penalt",
+    "groupEmpty": "Zatím nikdo"
   }
 }

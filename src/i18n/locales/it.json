@@ -484,6 +484,10 @@
     "title": "Chi l'aveva previsto?",
     "calledIt": "{{exact}} su {{total}} hanno previsto questo risultato esatto",
     "nobody": "Nessuno se l'aspettava 👀",
-    "more": "+ altri {{count}}"
+    "more": "+ altri {{count}}",
+    "groupOpenPlay": "Risultato nei tempi",
+    "groupPenWinner": "Vincitore ai rigori",
+    "groupPenScore": "Punteggio ai rigori",
+    "groupEmpty": "Ancora nessuno"
   }
 }

@@ -435,7 +435,11 @@
     "title": "Wer hat's gewusst?",
     "calledIt": "{{exact}} von {{total}} haben genau dieses Ergebnis getippt",
     "nobody": "Das hat niemand kommen sehen 👀",
-    "more": "+ {{count}} weitere"
+    "more": "+ {{count}} weitere",
+    "groupOpenPlay": "Ergebnis regulär",
+    "groupPenWinner": "Elfmeter-Sieger",
+    "groupPenScore": "Elfmeterergebnis",
+    "groupEmpty": "Noch niemand"
   },
   "stats": {
     "title": "Spieltag-Update",

@@ -3,6 +3,11 @@
 // knockout). Lazy: nothing is fetched until the user taps the strip, so
 // the match list stays free of N extra requests; the backend additionally
 // caches per match+tenant for 60s.
+//
+// Knockout matches decided on penalties expand into THREE groups — who
+// called the open-play score, who called the shootout winner, and who
+// called the exact shootout score. Everything else (group games, decisive
+// knockouts) shows the single open-play list.
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,11 +23,19 @@ interface RevealUser {
   avatar_emoji: string | null;
 }
 
+interface RevealGroup {
+  count: number;
+  users: RevealUser[];
+}
+
 interface RevealResponse {
   revealed: boolean;
   exact_count?: number;
   total_count?: number;
   users?: RevealUser[];
+  went_to_pens?: boolean;
+  pen_winner?: RevealGroup | null;
+  pen_score?: RevealGroup | null;
 }
 
 export const ExactPredictionsReveal = ({ matchId }: { matchId: string }) => {
@@ -57,12 +70,53 @@ export const ExactPredictionsReveal = ({ matchId }: { matchId: string }) => {
 
   if (!tenantId) return null;
 
+  const renderUser = (u: RevealUser) => {
+    const isMe = u.user_id === user?.id;
+    return (
+      <div
+        key={u.user_id}
+        className={`flex items-center gap-2 px-2 py-1 rounded ${isMe ? 'bg-primary/10' : ''}`}
+      >
+        <span className="text-base flex-shrink-0">{u.avatar_emoji || '👤'}</span>
+        <span className="text-xs text-foreground truncate min-w-0">
+          <span translate="no">{u.display_name || '—'}</span>
+          {isMe && <span className="ml-1 text-primary">{t('leaderboard.you')}</span>}
+        </span>
+      </div>
+    );
+  };
+
+  // One group's labelled block: title + count, scrollable list (or an
+  // empty line). Native scroll + pan-y per the iOS WebView lesson.
+  const renderGroup = (key: string, title: string, count: number, users: RevealUser[]) => (
+    <div key={key} className="pt-2">
+      <div className="flex items-center justify-between text-[11px] font-semibold text-foreground/90">
+        <span>{title}</span>
+        <span className="text-muted-foreground tabular-nums">{count}</span>
+      </div>
+      {count === 0 ? (
+        <p className="text-[11px] text-muted-foreground/70 py-1">{t('reveal.groupEmpty')}</p>
+      ) : (
+        <>
+          <div
+            className="max-h-40 overflow-y-auto overscroll-contain space-y-0.5 mt-1"
+            style={{ touchAction: 'pan-y' }}
+          >
+            {users.map(renderUser)}
+          </div>
+          {count > users.length && (
+            <p className="text-[10px] text-muted-foreground/70 text-center pt-1">
+              {t('reveal.more', { count: count - users.length })}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  const exactCount = data?.exact_count ?? 0;
+
   return (
-    // bg-card (not bg-white): the first version hardcoded white like the
-    // legacy result strips, which made the theme-token text invisible in
-    // dark mode (white-on-white). bg-card tracks the active theme so
-    // foreground/muted tokens contrast correctly in both. mt-2 separates
-    // the strip from the result banner above it.
     <div className="mt-2 rounded-lg overflow-hidden backdrop-blur-sm bg-card/95 border border-border/40">
       <button
         type="button"
@@ -72,9 +126,7 @@ export const ExactPredictionsReveal = ({ matchId }: { matchId: string }) => {
       >
         <Target className="w-3 h-3 text-fifa-gold" />
         <span>{t('reveal.title')}</span>
-        <ChevronDown
-          className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
-        />
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence initial={false}>
@@ -91,58 +143,39 @@ export const ExactPredictionsReveal = ({ matchId }: { matchId: string }) => {
                 <p className="text-xs text-muted-foreground text-center py-3">…</p>
               )}
 
-              {!loading && data?.revealed && (data.exact_count ?? 0) === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-3">
-                  {t('reveal.nobody')}
-                </p>
+              {/* Knockout shootout → three labelled groups. */}
+              {!loading && data?.revealed && data.went_to_pens && (
+                <div className="divide-y divide-border/20">
+                  {renderGroup('open', t('reveal.groupOpenPlay'), exactCount, data.users ?? [])}
+                  {renderGroup('penW', t('reveal.groupPenWinner'), data.pen_winner?.count ?? 0, data.pen_winner?.users ?? [])}
+                  {renderGroup('penS', t('reveal.groupPenScore'), data.pen_score?.count ?? 0, data.pen_score?.users ?? [])}
+                </div>
               )}
 
-              {!loading && data?.revealed && (data.exact_count ?? 0) > 0 && (
-                <>
-                  <p className="text-[11px] text-muted-foreground text-center pt-2 pb-1">
-                    {t('reveal.calledIt', {
-                      exact: data.exact_count,
-                      total: data.total_count,
-                    })}
+              {/* Single list — group games + decisive knockouts. */}
+              {!loading && data?.revealed && !data.went_to_pens && (
+                exactCount === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">
+                    {t('reveal.nobody')}
                   </p>
-                  {/* Native scroll + pan-y: the iOS WebView lesson — no
-                      ScrollArea, no nested scroll traps. */}
-                  <div
-                    className="max-h-48 overflow-y-auto overscroll-contain space-y-0.5"
-                    style={{ touchAction: 'pan-y' }}
-                  >
-                    {(data.users ?? []).map((u) => {
-                      const isMe = u.user_id === user?.id;
-                      return (
-                        <div
-                          key={u.user_id}
-                          className={`flex items-center gap-2 px-2 py-1 rounded ${
-                            isMe ? 'bg-primary/10' : ''
-                          }`}
-                        >
-                          <span className="text-base flex-shrink-0">
-                            {u.avatar_emoji || '👤'}
-                          </span>
-                          <span className="text-xs text-foreground truncate min-w-0">
-                            <span translate="no">{u.display_name || '—'}</span>
-                            {isMe && (
-                              <span className="ml-1 text-primary">
-                                {t('leaderboard.you')}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {(data.exact_count ?? 0) > (data.users?.length ?? 0) && (
-                    <p className="text-[10px] text-muted-foreground/70 text-center pt-1">
-                      {t('reveal.more', {
-                        count: (data.exact_count ?? 0) - (data.users?.length ?? 0),
-                      })}
+                ) : (
+                  <>
+                    <p className="text-[11px] text-muted-foreground text-center pt-2 pb-1">
+                      {t('reveal.calledIt', { exact: exactCount, total: data.total_count })}
                     </p>
-                  )}
-                </>
+                    <div
+                      className="max-h-48 overflow-y-auto overscroll-contain space-y-0.5"
+                      style={{ touchAction: 'pan-y' }}
+                    >
+                      {(data.users ?? []).map(renderUser)}
+                    </div>
+                    {exactCount > (data.users?.length ?? 0) && (
+                      <p className="text-[10px] text-muted-foreground/70 text-center pt-1">
+                        {t('reveal.more', { count: exactCount - (data.users?.length ?? 0) })}
+                      </p>
+                    )}
+                  </>
+                )
               )}
             </div>
           </motion.div>

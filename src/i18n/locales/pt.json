@@ -484,6 +484,10 @@
     "title": "Quem acertou?",
     "calledIt": "{{exact}} de {{total}} previram este resultado exato",
     "nobody": "Ninguém viu esta a chegar 👀",
-    "more": "+ {{count}} mais"
+    "more": "+ {{count}} mais",
+    "groupOpenPlay": "Resultado no tempo normal",
+    "groupPenWinner": "Vencedor dos pênaltis",
+    "groupPenScore": "Placar dos pênaltis",
+    "groupEmpty": "Ainda ninguém"
   }
 }

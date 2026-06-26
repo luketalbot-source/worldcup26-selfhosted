@@ -484,6 +484,10 @@
     "title": "Kto to uhádol?",
     "calledIt": "{{exact}} z {{total}} tipovalo toto presné skóre",
     "nobody": "Toto nikto nečakal 👀",
-    "more": "+ {{count}} ďalších"
+    "more": "+ {{count}} ďalších",
+    "groupOpenPlay": "Výsledok v hre",
+    "groupPenWinner": "Víťaz pokutových kopov",
+    "groupPenScore": "Skóre pokutových kopov",
+    "groupEmpty": "Zatiaľ nikto"
   }
 }
