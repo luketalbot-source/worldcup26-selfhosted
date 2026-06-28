@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MatchCard } from './MatchCard';
+import { KnockoutMatchCard } from './KnockoutMatchCard';
 import { GroupTabs } from './GroupTabs';
 import { StageSelector } from './StageSelector';
 import { KnockoutView, knockoutStages, type KnockoutStage } from './KnockoutView';
@@ -93,6 +94,19 @@ const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 // chronological left→right; 'today' is the default selection. The tab
 // itself keeps its "Today" label — these just widen what it can show.
 const dayFilters: MatchDayFilter[] = ['past', 'yesterday', 'today', 'tomorrow', 'future'];
+// Knockout fixtures surface in the Today tab once the bracket starts (most
+// users predict from Today, not the separate Knockout tab). They MUST render
+// with KnockoutMatchCard — the plain MatchCard has no penalty-shootout
+// predictor, so a KO game shown here would silently lose the pens feature.
+// Maps the match stage to the round label the knockout card shows top-left.
+const KO_STAGE_LABEL_KEY: Record<Exclude<Match['stage'], 'group'>, string> = {
+  round32: 'knockout.round32',
+  round16: 'knockout.round16',
+  quarter: 'knockout.quarter',
+  semi: 'knockout.semi',
+  third: 'knockout.thirdPlace',
+  final: 'knockout.theFinal',
+};
 export const MatchesView = () => {
   const {
     t
@@ -261,7 +275,17 @@ export const MatchesView = () => {
       }} transition={{
         duration: 0.3
       }} className="space-y-4">
-            {dayFilterMatches.map(match => <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} showGroup />)}
+            {dayFilterMatches.map(match => match.stage === 'group' ? (
+              <MatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} showGroup />
+            ) : (
+              <KnockoutMatchCard
+                key={match.id}
+                match={{ ...match, bracketPosition: t(KO_STAGE_LABEL_KEY[match.stage]) }}
+                prediction={getPrediction(match.id)}
+                onPredict={addPrediction}
+                disabled={!user}
+              />
+            ))}
           </motion.div>}
       </div>;
   }
