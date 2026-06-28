@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLiveMatches } from './useLiveMatches';
 import { Match, GroupStanding } from '@/types/match';
 import { KnockoutMatch } from '@/data/knockoutMatches';
@@ -26,7 +27,19 @@ function mapApiStatus(apiStatus: string): 'upcoming' | 'live' | 'finished' {
   }
 }
 
+// Knockout stage → i18n round-label key (same keys the KO tabs use). Used as
+// the bracketPosition badge on KO fixtures sourced directly from live_matches.
+const KO_STAGE_LABEL: Record<string, string> = {
+  round32: 'knockout.round32',
+  round16: 'knockout.round16',
+  quarter: 'knockout.quarter',
+  semi: 'knockout.semi',
+  third: 'knockout.thirdPlace',
+  final: 'knockout.theFinal',
+};
+
 export const useDynamicKnockout = () => {
+  const { t } = useTranslation();
   const { liveMatches, loading, getGroupMatches } = useLiveMatches();
 
   // Calculate all group standings
@@ -146,9 +159,66 @@ export const useDynamicKnockout = () => {
     });
   }, [liveMatches]);
 
-  // Get matches by knockout stage. Always pass through mergeLiveOntoBracket
-  // so the consumer sees live scores without any extra wiring on its end.
+  // Once football-data.org publishes a round's real fixtures, they land in
+  // live_matches with actual team codes — that's the source of truth and it
+  // sidesteps the client-side projection entirely (whose bracket-slot↔FD
+  // join can't work: FD's api_match_id is its own 6-digit id, not the
+  // M73-style bracket number). Build KnockoutMatch rows straight from the
+  // live data for any stage whose fixtures have resolved to real teams;
+  // return [] otherwise so the caller falls back to the projection (R16+
+  // stay "W M73"-style placeholders until their feeder results come in).
+  const liveKnockoutByStage = useMemo(() => (stage: string): KnockoutMatch[] => {
+    const rows = liveMatches.filter((lm) => lm.stage === stage);
+    const hasRealTeams = rows.some(
+      (r) =>
+        r.home_team_code && r.home_team_code !== 'TBD' &&
+        r.away_team_code && r.away_team_code !== 'TBD',
+    );
+    if (!hasRealTeams) return [];
+    const label = KO_STAGE_LABEL[stage] ? t(KO_STAGE_LABEL[stage]) : '';
+    return rows
+      .slice()
+      .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
+      .map((lm) => ({
+        id: lm.match_id,
+        homeTeam: {
+          id: (lm.home_team_code || 'tbd').toLowerCase(),
+          name: lm.home_team_name,
+          code: lm.home_team_code,
+          flag: '🏳️',
+          group: '',
+        },
+        awayTeam: {
+          id: (lm.away_team_code || 'tbd').toLowerCase(),
+          name: lm.away_team_name,
+          code: lm.away_team_code,
+          flag: '🏳️',
+          group: '',
+        },
+        date: lm.match_date,
+        time: '',
+        dateIso: lm.match_date,
+        venue: lm.venue ?? '',
+        city: lm.city ?? '',
+        stage: stage as KnockoutMatch['stage'],
+        status: mapApiStatus(lm.status),
+        homeScore: lm.home_score ?? undefined,
+        awayScore: lm.away_score ?? undefined,
+        penaltyHomeScore: lm.penalty_home_score ?? undefined,
+        penaltyAwayScore: lm.penalty_away_score ?? undefined,
+        duration: lm.duration ?? undefined,
+        goals: lm.goals ?? [],
+        bookings: lm.bookings ?? [],
+        bracketPosition: label,
+      }));
+  }, [liveMatches, t]);
+
+  // Get matches by knockout stage. Prefer the resolved live fixtures; fall
+  // back to the projected bracket (with live scores merged) for rounds FD
+  // hasn't filled with real teams yet.
   const getKnockoutStageMatches = (stage: string): KnockoutMatch[] => {
+    const live = liveKnockoutByStage(stage);
+    if (live.length > 0) return live;
     switch (stage) {
       case 'round32':
         return mergeLiveOntoBracket(knockoutBracket.round32);
@@ -167,14 +237,15 @@ export const useDynamicKnockout = () => {
     }
   };
 
-  // Check if all group stages are complete
+  // Group stage complete ⟺ every group-stage fixture in the live data has
+  // finished. Authoritative (FD status) and robust — the earlier check ran
+  // off client-side standings derived from a static fixture merge, which
+  // under-counted (showed "6/12 groups decided") whenever a group's static
+  // rows didn't line up with the live ones.
   const areGroupStagesComplete = useMemo(() => {
-    const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-    return groups.every(group => {
-      const standings = allGroupStandings[group];
-      return standings && standings.length >= 4 && standings.every(s => s.played === 3);
-    });
-  }, [allGroupStandings]);
+    const groupRows = liveMatches.filter((m) => m.stage === 'group');
+    return groupRows.length > 0 && groupRows.every((m) => m.status === 'FINISHED');
+  }, [liveMatches]);
 
   // Get summary of qualification status
   const qualificationSummary = useMemo(() => {

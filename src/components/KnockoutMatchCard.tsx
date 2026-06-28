@@ -242,8 +242,8 @@ export const KnockoutMatchCard = ({
             centred for upcoming cards, but the added pen row overflowed
             and collided with the Save button.) */}
         {(isFinished || isLive) ? (
-          <div className="relative z-10 mt-3 flex flex-col items-center gap-2">
-            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-5 py-4 shadow-lg">
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-2 my-3">
+            <div className="bg-background/60 backdrop-blur-md rounded-xl px-5 py-4 shadow-lg">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
                 <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
@@ -281,8 +281,8 @@ export const KnockoutMatchCard = ({
             <MatchEvents goals={match.goals ?? []} bookings={match.bookings ?? []} />
           </div>
         ) : (
-          <div className="relative z-10 mt-3 flex flex-col items-center">
-            <div className="bg-white/30 backdrop-blur-sm rounded-xl px-5 py-4 shadow-lg">
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center my-3">
+            <div className="bg-background/60 backdrop-blur-md rounded-xl px-5 py-4 shadow-lg">
               {isMatchLocked ? (
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
@@ -345,14 +345,9 @@ export const KnockoutMatchCard = ({
           </div>
         )}
 
-        {/* Spacer pushes the prediction button to the bottom — only for
-            upcoming/locked, where the score floats absolute. For
-            live/finished the content stacks top-down (no spacer) so the
-            score, events and reveal read in order. min-h keeps a gap even
-            when the shootout picker makes the content tall enough to
-            collapse the flex spacer to zero (otherwise the score box butts
-            straight against the Save button). */}
-        {!isFinished && !isLive && <div className="flex-1 min-h-[12px]" />}
+        {/* No separate spacer: the score wrapper above is flex-1 with my-3
+            (same as MatchCard), so the prediction section sits at the bottom
+            with a gap even when the shootout picker makes the card tall. */}
 
         {/* Prediction Section */}
         {!isFinished && !isLive && (

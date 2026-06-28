@@ -54,6 +54,12 @@ export const KnockoutView = ({ syncButton, activeKnockoutStage, onKnockoutStageC
     }
   };
   const matches = getStageMatches();
+  // Final & 3rd-place: route through the live-aware source like every other
+  // round. They were rendered straight from the raw projection bracket, so
+  // they'd stay stale (placeholder teams, no scores) even after FD published
+  // the real fixtures. Falls back to the projection until those resolve.
+  const finalMatch = getKnockoutStageMatches('final')[0] ?? knockoutBracket.final;
+  const thirdMatch = getKnockoutStageMatches('third')[0] ?? knockoutBracket.thirdPlace;
   return <div className="space-y-4">
       {/* Non-sticky content: sync button, login prompt */}
       <div className="max-w-[700px] mx-auto space-y-4">
@@ -129,11 +135,11 @@ export const KnockoutView = ({ syncButton, activeKnockoutStage, onKnockoutStageC
                   <h3 className="text-lg font-bold text-foreground">{t('knockout.theFinal')}</h3>
                   <p className="text-sm text-muted-foreground">July 19, 2026 • New York</p>
                 </div>
-                <KnockoutMatchCard match={knockoutBracket.final} prediction={getPrediction(knockoutBracket.final.id)} onPredict={addPrediction} disabled={!user} isHighlighted />
+                <KnockoutMatchCard match={finalMatch} prediction={getPrediction(finalMatch.id)} onPredict={addPrediction} disabled={!user} isHighlighted />
                 <div className="text-center py-2 mt-4">
                   <h3 className="text-base font-semibold text-muted-foreground">{t('knockout.thirdPlace')}</h3>
                 </div>
-                <KnockoutMatchCard match={knockoutBracket.thirdPlace} prediction={getPrediction(knockoutBracket.thirdPlace.id)} onPredict={addPrediction} disabled={!user} />
+                <KnockoutMatchCard match={thirdMatch} prediction={getPrediction(thirdMatch.id)} onPredict={addPrediction} disabled={!user} />
               </>}
 
             {activeKnockoutStage !== 'finals' && matches.map(match => <KnockoutMatchCard key={match.id} match={match} prediction={getPrediction(match.id)} onPredict={addPrediction} disabled={!user} />)}
