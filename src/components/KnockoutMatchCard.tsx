@@ -348,8 +348,11 @@ export const KnockoutMatchCard = ({
         {/* Spacer pushes the prediction button to the bottom — only for
             upcoming/locked, where the score floats absolute. For
             live/finished the content stacks top-down (no spacer) so the
-            score, events and reveal read in order. */}
-        {!isFinished && !isLive && <div className="flex-1" />}
+            score, events and reveal read in order. min-h keeps a gap even
+            when the shootout picker makes the content tall enough to
+            collapse the flex spacer to zero (otherwise the score box butts
+            straight against the Save button). */}
+        {!isFinished && !isLive && <div className="flex-1 min-h-[12px]" />}
 
         {/* Prediction Section */}
         {!isFinished && !isLive && (
