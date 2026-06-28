@@ -66,3 +66,17 @@ describe("Knockout fixture rendered in the Today tab", () => {
     expect(screen.getAllByLabelText("Increase score")).toHaveLength(4);
   });
 });
+
+describe("Unresolved bracket slot is read-only", () => {
+  it("shows no prediction UI for a projection 'M' id (can't be scored yet)", () => {
+    render(
+      <KnockoutMatchCard
+        match={makeTodayKoMatch({ id: "M90", bracketPosition: "M90" })}
+        onPredict={vi.fn()}
+        disabled={false}
+      />,
+    );
+    // A projected slot has no scoreable live fixture behind it → read-only.
+    expect(screen.queryAllByLabelText("Increase score")).toHaveLength(0);
+  });
+});

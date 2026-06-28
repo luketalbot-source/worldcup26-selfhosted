@@ -63,6 +63,12 @@ export const KnockoutMatchCard = ({
   const isLive = match.status === 'live';
   const isPredicted = !!prediction;
   const isTBD = match.homeTeam.code === 'TBD' || match.awayTeam.code === 'TBD';
+  // A projected bracket slot (id "M73"…) or a TBD matchup has no real
+  // live_matches fixture behind it, so a prediction here can't be scored
+  // (scoring joins on the live match id) and the teams aren't even known.
+  // Render such cards read-only until the fixture resolves to real teams
+  // (a canonical "fd-" id from live data).
+  const isUnresolved = isTBD || /^M\d+$/.test(match.id);
 
   useEffect(() => {
     if (prediction) {
@@ -291,6 +297,17 @@ export const KnockoutMatchCard = ({
                   <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayAwayScore}</div>
                   <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
                 </div>
+              ) : isUnresolved ? (
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                    <span className="text-base text-muted-foreground font-medium">vs</span>
+                    <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {t('knockout.tbdMatchup', 'Teams to be decided')}
+                  </span>
+                </div>
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center gap-2">
@@ -349,8 +366,9 @@ export const KnockoutMatchCard = ({
             (same as MatchCard), so the prediction section sits at the bottom
             with a gap even when the shootout picker makes the card tall. */}
 
-        {/* Prediction Section */}
-        {!isFinished && !isLive && (
+        {/* Prediction Section — hidden for unresolved/placeholder fixtures
+            (no real match to predict yet, and it couldn't be scored). */}
+        {!isFinished && !isLive && !isUnresolved && (
           <div className="flex items-center gap-2">
             {/* Countdown Timer */}
             <div className={`px-2 py-1.5 rounded-lg text-xs font-semibold backdrop-blur-sm whitespace-nowrap ${
