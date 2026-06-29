@@ -5,18 +5,25 @@
 //
 // Shape (wide, agreed with Luke):
 //   one row per tenant member, columns = identity → leaderboard summary
-//   → per-match (date, actual, predicted, points) → per built-in boost
-//   (predicted, actual, points) → per tenant-custom boost (same shape).
+//   → per-match (date, actual, predicted, points, shootout) → per built-in
+//   boost (predicted, actual, points) → per tenant-custom boost (same shape).
 //
 // Scoring rules mirror routes/leaderboard.ts exactly so an export at
-// time T agrees with the leaderboard at time T. Per-prediction `_pts`
+// time T agrees with the leaderboard at time T — including the knockout
+// penalty-shootout bonus (+1 correct shootout winner, +1 exact shootout
+// score) and the decisive-advancer result point. Per-prediction `_pts`
 // cells distinguish "wrong" (0) from "not yet decided" (blank).
+//
+// Scorelines (`_actual`, `_pred`, `_pens`, `_pred_pens`) are written with
+// an en-dash ("2–1"), NOT a hyphen: Excel/Sheets coerce a plain "2-1" into
+// a date ("02-Jan"), but leave the en-dash form as text. Visually identical
+// to a reader; the UTF-8 BOM below makes the non-ASCII char round-trip.
 
 import type { Sql } from "postgres";
 
 // ─── shapes ───────────────────────────────────────────────────────────────
 
-interface Match {
+export interface Match {
   match_id: string;
   match_date: string;
   home_team_code: string;
@@ -70,11 +77,15 @@ interface TenantUser {
   display_name: string | null;
 }
 
-interface MatchPrediction {
+export interface MatchPrediction {
   user_id: string;
   match_id: string;
   home_score: number;
   away_score: number;
+  // Predicted shootout score — only set when the user predicted a level
+  // (drawn) knockout score, per routes/predictions.ts. Null otherwise.
+  penalty_home_score: number | null;
+  penalty_away_score: number | null;
 }
 
 interface BoostPrediction {
@@ -93,18 +104,80 @@ interface CustomBoostPrediction {
 
 // ─── scoring helpers — same logic as routes/leaderboard.ts ────────────────
 
-/** Returns 3 / 1 / 0 for played matches, '' (empty cell) for unplayed. */
-function matchPoints(
-  predHome: number,
-  predAway: number,
-  actualHome: number | null,
-  actualAway: number | null,
-): number | "" {
-  if (actualHome === null || actualAway === null) return "";
-  if (predHome === actualHome && predAway === actualAway) return 3;
-  const predSign = Math.sign(predHome - predAway);
-  const actualSign = Math.sign(actualHome - actualAway);
-  return predSign === actualSign ? 1 : 0;
+/**
+ * Score one prediction against one match, mirroring routes/leaderboard.ts
+ * EXACTLY (base 3/1/0 + knockout penalty logic). Returns the total points
+ * plus the tiebreak/breakdown components the wide grid and per-user
+ * aggregates need. `pts` is '' (empty cell) for an unplayed match so the
+ * export distinguishes "wrong" (0) from "not yet decided" (blank).
+ */
+export interface ScoredMatch {
+  pts: number | "";          // base + shootout bonus; '' when unplayed
+  isExact: boolean;          // exact open-play (regulation+ET) score → 3
+  isCorrectResult: boolean;  // correct open-play result, not exact → 1 (mutually excl.)
+  goalDiff: number;          // |Δhome| + |Δaway| vs open-play score; 0 when unplayed
+  penaltyBonus: number;      // shootout-bonus component of pts (0 / 1 / 2)
+}
+
+// Exported for resultsExport.test.ts — the knockout penalty branches go
+// live the moment a real shootout happens, so the math is unit-tested
+// against the leaderboard spec rather than first exercised in prod.
+export function scoreMatch(pred: MatchPrediction, m: Match): ScoredMatch {
+  if (m.home_score === null || m.away_score === null) {
+    return { pts: "", isExact: false, isCorrectResult: false, goalDiff: 0, penaltyBonus: 0 };
+  }
+
+  const wentToPens =
+    m.duration === "PENALTY_SHOOTOUT" &&
+    m.penalty_home_score !== null &&
+    m.penalty_away_score !== null;
+
+  const predSign = Math.sign(pred.home_score - pred.away_score);
+  const actualSign = Math.sign(m.home_score - m.away_score);
+  const isExact = pred.home_score === m.home_score && pred.away_score === m.away_score;
+  const isCorrectResult = !isExact && predSign === actualSign;
+
+  // Base result point — same WHEN ordering as the leaderboard CASE.
+  let base = 0;
+  if (isExact) {
+    base = 3;
+  } else if (isCorrectResult) {
+    base = 1;
+  } else if (
+    // Decisive-advancer: predicted a winner (not a draw), the match went
+    // to pens, and the backed side won the shootout → called who advances.
+    wentToPens &&
+    pred.home_score !== pred.away_score &&
+    Math.sign(pred.home_score - pred.away_score) ===
+      Math.sign((m.penalty_home_score as number) - (m.penalty_away_score as number))
+  ) {
+    base = 1;
+  }
+
+  // Shootout bonus — only for a level prediction with a decisive shootout
+  // pick on a match that actually went to pens. +1 winner, +1 exact score.
+  let penaltyBonus = 0;
+  if (
+    wentToPens &&
+    pred.penalty_home_score !== null &&
+    pred.penalty_away_score !== null &&
+    pred.penalty_home_score !== pred.penalty_away_score &&
+    pred.home_score === pred.away_score
+  ) {
+    const predWinnerIsHome = pred.penalty_home_score > pred.penalty_away_score;
+    const actualWinnerIsHome = (m.penalty_home_score as number) > (m.penalty_away_score as number);
+    if (predWinnerIsHome === actualWinnerIsHome) penaltyBonus += 1;
+    if (
+      pred.penalty_home_score === m.penalty_home_score &&
+      pred.penalty_away_score === m.penalty_away_score
+    ) {
+      penaltyBonus += 1;
+    }
+  }
+
+  const goalDiff =
+    Math.abs(pred.home_score - m.home_score) + Math.abs(pred.away_score - m.away_score);
+  return { pts: base + penaltyBonus, isExact, isCorrectResult, goalDiff, penaltyBonus };
 }
 
 /** Returns the boost's points_value, 0, or '' (no result row yet). */
@@ -246,7 +319,8 @@ export async function buildResultsCsv(
   // 7) All match predictions in this tenant. Key by user+match for the
   //    pivot below.
   const matchPredRows = await sql<MatchPrediction[]>`
-    SELECT user_id, match_id, home_score, away_score
+    SELECT user_id, match_id, home_score, away_score,
+           penalty_home_score, penalty_away_score
       FROM public.predictions
      WHERE tenant_id = ${tenantId}
   `;
@@ -315,16 +389,13 @@ export async function buildResultsCsv(
     if (!agg) continue; // prediction by a non-tenant user (shouldn't happen)
     agg.match_pred_count++;
     const m = matchById.get(p.match_id);
-    if (!m || m.home_score === null || m.away_score === null) continue;
-    const pts = matchPoints(p.home_score, p.away_score, m.home_score, m.away_score);
-    if (pts === 3) agg.exact_count++;
-    else if (pts === 1) agg.correct_count++;
-    if (typeof pts === "number") {
-      agg.total_points += pts;
-      agg.goal_diff_sum +=
-        Math.abs(p.home_score - m.home_score) +
-        Math.abs(p.away_score - m.away_score);
-    }
+    if (!m) continue;
+    const s = scoreMatch(p, m);
+    if (s.pts === "") continue; // match not yet decided
+    agg.total_points += s.pts;
+    if (s.isExact) agg.exact_count++;
+    else if (s.isCorrectResult) agg.correct_count++;
+    agg.goal_diff_sum += s.goalDiff;
   }
 
   const boostById = new Map(boosts.map((b) => [b.id, b]));
@@ -391,6 +462,22 @@ export async function buildResultsCsv(
     return d.toISOString().slice(0, 10).replace(/-/g, "");
   };
 
+  // Scoreline cells use an en-dash so Excel/Sheets don't read "2-1" as a
+  // date — see the file header. fmtScore returns '' for a missing half so
+  // unplayed matches / absent predictions stay blank.
+  const SCORE_SEP = "–"; // en-dash (U+2013)
+  const fmtScore = (h: number | null, a: number | null): string =>
+    h !== null && a !== null ? `${h}${SCORE_SEP}${a}` : "";
+
+  // Kickoff → canonical ISO 8601. match_date may arrive as a Date or a
+  // string depending on the driver; normalise both. A datetime SHOULD be
+  // date-typed in a spreadsheet (unlike a scoreline), so this one stays ISO.
+  const fmtKickoff = (v: unknown): string => {
+    if (v === null || v === undefined) return "";
+    const d = v instanceof Date ? v : new Date(String(v));
+    return Number.isNaN(d.getTime()) ? String(v) : d.toISOString();
+  };
+
   const headerCols: string[] = [
     "user_id",
     "display_name",
@@ -403,19 +490,24 @@ export async function buildResultsCsv(
     "goal_diff_sum",
   ];
 
-  // Per-match: 6 columns. M{n}_{date}_{HOME}_{AWAY}_{suffix}
+  // Per-match: 8 columns. M{n}_{date}_{HOME}_{AWAY}_{suffix}
   matches.forEach((m, i) => {
     const idx = i + 1;
     const base = `M${idx}_${fmtDate(m.match_date)}_${m.home_team_code}_${m.away_team_code}`;
-    headerCols.push(`${base}_actual`);   // "2-1" regulation+ET score / blank
-    headerCols.push(`${base}_pred`);     // "2-1" / blank
-    headerCols.push(`${base}_pts`);      // 3 / 1 / 0 / blank
-    headerCols.push(`${base}_kickoff`);  // ISO date for reference
-    // Match duration + penalty shootout result. duration is one of
-    // REGULAR / EXTRA_TIME / PENALTY_SHOOTOUT (FD's enum), blank for
-    // unplayed matches. pens = "5-4" when PSO happened, blank otherwise.
+    headerCols.push(`${base}_actual`);    // "2–1" regulation+ET score / blank
+    headerCols.push(`${base}_pred`);      // "2–1" predicted open-play score / blank
+    headerCols.push(`${base}_pts`);       // total points 0–5 (incl. shootout bonus) / blank
+    headerCols.push(`${base}_kickoff`);   // ISO 8601 kickoff for reference
+    // Match duration + shootout columns. duration is FD's enum
+    // (REGULAR / EXTRA_TIME / PENALTY_SHOOTOUT), blank for unplayed.
+    // _pens = actual shootout score, _pred_pens = the user's predicted
+    // shootout score (only set for a drawn KO prediction), _pen_bonus =
+    // the shootout-bonus points (0–2) earned on this match — blank unless
+    // the match went to pens.
     headerCols.push(`${base}_duration`);
     headerCols.push(`${base}_pens`);
+    headerCols.push(`${base}_pred_pens`);
+    headerCols.push(`${base}_pen_bonus`);
   });
 
   // Per built-in boost: 3 columns. boost_{slug}_{suffix}
@@ -452,26 +544,23 @@ export async function buildResultsCsv(
     row.push(u.goal_diff_sum);
 
     for (const m of matches) {
-      const actual =
-        m.home_score !== null && m.away_score !== null
-          ? `${m.home_score}-${m.away_score}`
-          : "";
       const p = matchPredsByKey.get(`${u.user_id}::${m.match_id}`);
-      const predStr = p ? `${p.home_score}-${p.away_score}` : "";
-      const pts = p ? matchPoints(p.home_score, p.away_score, m.home_score, m.away_score) : "";
-      row.push(actual);
-      row.push(predStr);
-      row.push(pts);
-      row.push(m.match_date);
-      // Duration is FD's enum verbatim (REGULAR / EXTRA_TIME /
-      // PENALTY_SHOOTOUT) — easier to filter on in Excel/Sheets
-      // than a localised string. Pens column "5-4" or blank.
-      row.push(m.duration ?? "");
-      const pens =
-        m.penalty_home_score !== null && m.penalty_away_score !== null
-          ? `${m.penalty_home_score}-${m.penalty_away_score}`
-          : "";
-      row.push(pens);
+      const s = p ? scoreMatch(p, m) : null;
+      const wentToPens =
+        m.duration === "PENALTY_SHOOTOUT" &&
+        m.penalty_home_score !== null &&
+        m.penalty_away_score !== null;
+      row.push(fmtScore(m.home_score, m.away_score));           // _actual
+      row.push(p ? fmtScore(p.home_score, p.away_score) : "");  // _pred
+      row.push(s ? s.pts : "");                                 // _pts
+      row.push(fmtKickoff(m.match_date));                       // _kickoff
+      // Duration is FD's enum verbatim — easy to filter on in Excel/Sheets.
+      row.push(m.duration ?? "");                               // _duration
+      row.push(fmtScore(m.penalty_home_score, m.penalty_away_score)); // _pens (actual)
+      row.push(p ? fmtScore(p.penalty_home_score, p.penalty_away_score) : ""); // _pred_pens
+      // Shootout bonus is only meaningful once a match has gone to pens;
+      // blank elsewhere (vs 0 = "went to pens but earned no bonus").
+      row.push(s && wentToPens ? s.penaltyBonus : "");          // _pen_bonus
     }
 
     for (const b of boosts) {
