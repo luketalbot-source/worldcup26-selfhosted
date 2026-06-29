@@ -211,6 +211,33 @@ function mapStage(apiStage: string): string {
   return m[apiStage] ?? apiStage.toLowerCase();
 }
 
+// football-data.org folds the shootout tally into `score.fullTime` for
+// penalty-decided matches — a 1-1 AET won 4-3 on pens arrives as fullTime
+// 5-4 (and mid-shootout it churns: 5-5 at 4-4, etc.). Our live_matches score
+// columns must hold the OPEN-PLAY (regulation+ET) result — always a draw for
+// a PSO match — with the shootout kept separately in penalty_*. Recover it by
+// subtracting the pens back out, but ONLY when that yields a level score, so
+// we never double-subtract a feed that already reports AET-only. Exported for
+// matchSync.test.ts. Keeping this correct keeps the displayed score, the
+// leaderboard scoring and the "who called it" reveal all consistent.
+export function openPlayScore(
+  ftHome: number | null,
+  ftAway: number | null,
+  penHome: number | null,
+  penAway: number | null,
+  duration: string | null,
+): { home: number | null; away: number | null } {
+  if (
+    duration === "PENALTY_SHOOTOUT" &&
+    ftHome != null && ftAway != null &&
+    penHome != null && penAway != null &&
+    ftHome - penHome === ftAway - penAway
+  ) {
+    return { home: ftHome - penHome, away: ftAway - penAway };
+  }
+  return { home: ftHome, away: ftAway };
+}
+
 // Football-Data.org /competitions/WC/teams response. Populated once FIFA
 // finalises the roster (post-playoffs, post-March 2026). The payload
 // also carries inline `squad` arrays but those are consumed by the
@@ -326,6 +353,14 @@ export async function runSync(apiKey: string): Promise<void> {
         const penHome = match.score?.penalties?.home ?? null;
         const penAway = match.score?.penalties?.away ?? null;
         const duration = match.score?.duration ?? null;
+        // Store the open-play (AET) score, not FD's pens-inflated fullTime.
+        const { home: homeScore, away: awayScore } = openPlayScore(
+          match.score?.fullTime?.home ?? null,
+          match.score?.fullTime?.away ?? null,
+          penHome,
+          penAway,
+          duration,
+        );
         const upserted = await sql`
           INSERT INTO public.live_matches (
             match_id, api_match_id, home_team_name, home_team_code,
@@ -339,8 +374,8 @@ export async function runSync(apiKey: string): Promise<void> {
             ${homeCode},
             ${match.awayTeam?.name ?? "TBD"},
             ${awayCode},
-            ${match.score?.fullTime?.home ?? null},
-            ${match.score?.fullTime?.away ?? null},
+            ${homeScore},
+            ${awayScore},
             ${penHome},
             ${penAway},
             ${duration},
