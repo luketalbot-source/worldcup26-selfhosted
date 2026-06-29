@@ -95,7 +95,7 @@ export const ExactPredictionsReveal = ({ matchId }: { matchId: string }) => {
         <span className="text-muted-foreground tabular-nums">{count}</span>
       </div>
       {count === 0 ? (
-        <p className="text-[11px] text-muted-foreground/70 py-1">{t('reveal.groupEmpty')}</p>
+        <p className="text-[11px] text-muted-foreground/70 py-1">{t('reveal.nobody')}</p>
       ) : (
         <>
           <div

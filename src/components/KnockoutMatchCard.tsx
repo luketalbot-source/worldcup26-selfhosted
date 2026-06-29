@@ -152,6 +152,14 @@ export const KnockoutMatchCard = ({
   const displayHomeScore = (isLive || isFinished) ? (match.homeScore ?? 0) : homeScore;
   const displayAwayScore = (isLive || isFinished) ? (match.awayScore ?? 0) : awayScore;
 
+  // When the user predicted a draw they also picked a shootout score — surface
+  // it next to their predicted scoreline wherever the prediction is shown (🥅
+  // matches the scoring explainer's shootout marker; locale-free).
+  const predPenSuffix =
+    prediction?.penaltyHomeScore != null && prediction?.penaltyAwayScore != null
+      ? ` · 🥅 ${prediction.penaltyHomeScore}–${prediction.penaltyAwayScore}`
+      : '';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -392,14 +400,14 @@ export const KnockoutMatchCard = ({
                 </div>
               ) : isMatchLocked ? (
                 <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-white/90 text-muted-foreground text-xs backdrop-blur-sm">
-                  {isPredicted 
-                    ? `${prediction.homeScore} - ${prediction.awayScore}` 
+                  {isPredicted
+                    ? `${prediction.homeScore} - ${prediction.awayScore}${predPenSuffix}`
                     : t('matchCard.noPrediction')}
                 </div>
               ) : isPredicted && !hasEdited ? (
                 <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-primary/90 text-white text-xs font-medium backdrop-blur-sm">
                   <Check className="w-3 h-3" />
-                  {prediction.homeScore} - {prediction.awayScore}
+                  {prediction.homeScore} - {prediction.awayScore}{predPenSuffix}
                 </div>
               ) : (
                 <motion.button
@@ -423,7 +431,7 @@ export const KnockoutMatchCard = ({
         {/* Show prediction for live matches */}
         {isLive && prediction && (
           <div className="py-1.5 px-3 rounded-lg text-xs font-medium text-center backdrop-blur-sm bg-white/90 text-muted-foreground">
-            {t('matchCard.yourPrediction', { home: prediction.homeScore, away: prediction.awayScore })}
+            {t('matchCard.yourPrediction', { home: prediction.homeScore, away: prediction.awayScore })}{predPenSuffix}
           </div>
         )}
 
@@ -439,7 +447,7 @@ export const KnockoutMatchCard = ({
             {predictionResult.resultType === 'exact' && <Zap className="w-3 h-3" />}
             {predictionResult.resultType === 'correct' && <Check className="w-3 h-3" />}
             <span>
-              {prediction.homeScore} - {prediction.awayScore}
+              {prediction.homeScore} - {prediction.awayScore}{predPenSuffix}
               {predictionResult.resultType === 'exact' && ` · ${t('matchCard.exactScore')}`}
               {predictionResult.resultType === 'correct' && ` · ${t('matchCard.correctResult')}`}
               {predictionResult.resultType === 'wrong' && ` · ${t('matchCard.wrongResult')}`}
