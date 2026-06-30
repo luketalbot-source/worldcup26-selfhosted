@@ -180,8 +180,9 @@ export function scoreMatch(pred: MatchPrediction, m: Match): ScoredMatch {
   return { pts: base + penaltyBonus, isExact, isCorrectResult, goalDiff, penaltyBonus };
 }
 
-/** Returns the boost's points_value, 0, or '' (no result row yet). */
-function boostPoints(
+/** Returns the boost's points_value, 0, or '' (no result row yet). Exported so
+ *  the leagues export (lib/leaguesExport.ts) scores boosts the same way. */
+export function boostPoints(
   pred: { predicted_team_code: string | null; predicted_player_name: string | null },
   result: BoostResult | CustomBoostResult | undefined,
   pointsValue: number,

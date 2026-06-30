@@ -4,6 +4,7 @@ import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, type AuthEnv } from "../auth/middleware";
 import { buildResultsCsv } from "../lib/resultsExport";
+import { buildLeaguesCsv } from "../lib/leaguesExport";
 
 const router = new Hono<AuthEnv>();
 
@@ -482,6 +483,45 @@ router.get("/:id/results-export.csv", requireAdmin, async (c) => {
       // No-cache: results are dynamic (matches finishing, points
       // recomputing), and admins re-pull this throughout the
       // tournament. Avoid intermediaries serving stale data.
+      "Cache-Control": "no-store",
+    },
+  });
+});
+
+// GET /tenants/:id/leagues-export.csv
+//
+// Per-league standings for this tenant — long format, one row per league
+// member ranked WITHIN the league (rank 1 = that league's winner). Built for
+// customers who run a league per department and want each one's winner. Points
+// + ranking reuse the live leaderboard scoring; see lib/leaguesExport.ts.
+router.get("/:id/leagues-export.csv", requireAdmin, async (c) => {
+  const tenantId = c.req.param("id");
+
+  const tenantRows = await sql<{ uid: string; name: string }[]>`
+    SELECT uid, name FROM public.tenants WHERE id = ${tenantId} LIMIT 1
+  `;
+  if (tenantRows.length === 0) return c.json({ error: "Tenant not found" }, 404);
+  const tenant = tenantRows[0]!;
+
+  let csv: string;
+  try {
+    csv = await buildLeaguesCsv(sql, tenantId);
+  } catch (err) {
+    console.error("[leagues-export] failed for tenant", tenantId, err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Export failed" },
+      500,
+    );
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const filename = `${tenant.uid}-leagues-${today}.csv`;
+
+  return new Response(csv, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
     },
   });

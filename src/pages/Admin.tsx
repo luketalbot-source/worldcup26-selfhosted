@@ -119,6 +119,7 @@ const Admin = () => {
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [deleteUserConfirmation, setDeleteUserConfirmation] = useState('');
   const [exportingResults, setExportingResults] = useState(false);
+  const [exportingLeagues, setExportingLeagues] = useState(false);
 
   // Set document title
   useEffect(() => {
@@ -328,6 +329,53 @@ const Admin = () => {
       toast.error(err instanceof Error ? err.message : 'Export failed');
     } finally {
       setExportingResults(false);
+    }
+  };
+
+  // Per-league standings CSV (one row per league member, ranked within the
+  // league). Mirrors handleExportResults; see api/src/lib/leaguesExport.ts.
+  const handleExportLeagues = async () => {
+    if (!selectedTenant) return;
+    setExportingLeagues(true);
+    try {
+      const apiBase = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
+      const token = getAccessToken();
+      const res = await fetch(
+        `${apiBase}/tenants/${selectedTenant.id}/leagues-export.csv`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: 'include',
+        },
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        let msg = `Export failed (${res.status})`;
+        try {
+          const parsed = JSON.parse(body) as { error?: string };
+          if (parsed.error) msg = parsed.error;
+        } catch {
+          /* not JSON, keep default */
+        }
+        toast.error(msg);
+        return;
+      }
+      const blob = await res.blob();
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `${selectedTenant.uid}-leagues-${today}.csv`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${filename}`);
+    } catch (err) {
+      console.error('[leagues-export] failed', err);
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExportingLeagues(false);
     }
   };
 
@@ -592,24 +640,41 @@ const Admin = () => {
                       </CardTitle>
                       <CardDescription className="mt-1.5">Manage users in this tenant</CardDescription>
                     </div>
-                    {/* Wide-format CSV dump: every user × every match
-                        prediction (with points) × every boost pick. See
-                        api/src/lib/resultsExport.ts for the shape. */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportResults}
-                      disabled={exportingResults || tenantUsers.length === 0}
-                      className="shrink-0"
-                    >
-                      {exportingResults ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4 mr-2" />
-                      )}
-                      Results export
-                    </Button>
+                    <div className="flex gap-2 shrink-0">
+                      {/* Wide-format CSV dump: every user × every match
+                          prediction (with points) × every boost pick. See
+                          api/src/lib/resultsExport.ts for the shape. */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportResults}
+                        disabled={exportingResults || tenantUsers.length === 0}
+                      >
+                        {exportingResults ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4 mr-2" />
+                        )}
+                        Results export
+                      </Button>
+                      {/* Per-league standings, ranked within each league
+                          (rank 1 = winner). See api/src/lib/leaguesExport.ts. */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportLeagues}
+                        disabled={exportingLeagues || tenantUsers.length === 0}
+                      >
+                        {exportingLeagues ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4 mr-2" />
+                        )}
+                        League export
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
