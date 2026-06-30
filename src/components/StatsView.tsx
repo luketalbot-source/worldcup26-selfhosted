@@ -62,6 +62,8 @@ interface FastestGoal {
   match_id: string;
   opponent_code: string;
   opponent_name: string;
+  // Precise seconds (ground-truth) when available — FD only gives the minute.
+  total_seconds: number | null;
 }
 
 interface WorstDiscipline {
@@ -456,7 +458,13 @@ export const StatsView = () => {
                   className="w-3.5 shrink-0"
                   label={stats.fastest_goal.team_name}
                 />
-                <span className="tabular-nums">{stats.fastest_goal.minute}'</span>
+                <span className="tabular-nums">
+                  {/* Precise seconds when we have ground-truth (override); FD
+                      otherwise only gives the integer minute. */}
+                  {stats.fastest_goal.total_seconds != null
+                    ? `${stats.fastest_goal.total_seconds}s`
+                    : `${stats.fastest_goal.minute}'`}
+                </span>
                 <span>·</span>
                 <span className="truncate">
                   {stats.fastest_goal.team_code} – {stats.fastest_goal.opponent_code}

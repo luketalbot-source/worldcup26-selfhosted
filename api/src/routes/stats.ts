@@ -59,6 +59,9 @@ interface FastestGoal {
   match_id: string;
   opponent_code: string;
   opponent_name: string;
+  // Ground-truth seconds from goal_time_overrides when we have them (FD only
+  // reports integer minutes). Drives precise ranking + display; null = use minute.
+  total_seconds: number | null;
 }
 
 // Worst-discipline team — red weighted ×3 vs yellow ×1 + second_yellow
@@ -182,9 +185,12 @@ router.get("/tournament", async (c) => {
   `;
   const biggestWin = biggestWinRows[0] ?? null;
 
-  // 6) Fastest goal. minute is non-null on every match_goals row by
-  //    schema (NOT NULL). Ties broken by oldest match (i.e. first
-  //    early-goal record holds).
+  // 6) Fastest goal. minute is non-null on every match_goals row by schema
+  //    (NOT NULL), but FD only reports integer minutes — so goals in the same
+  //    minute tie. goal_time_overrides supplies ground-truth seconds when we
+  //    have them; rank by those (else minute*60), so a genuinely-earlier goal
+  //    that FD rounded into a shared minute wins. Remaining ties broken by
+  //    oldest match (first early-goal record holds).
   const fastestRows = await sql<FastestGoal[]>`
     SELECT mg.player_name,
            CASE WHEN mg.team_side = 'home' THEN lm.home_team_code
@@ -200,11 +206,17 @@ router.get("/tournament", async (c) => {
            END AS opponent_code,
            CASE WHEN mg.team_side = 'home' THEN lm.away_team_name
                 ELSE lm.home_team_name
-           END AS opponent_name
+           END AS opponent_name,
+           o.total_seconds
       FROM public.match_goals mg
       JOIN public.live_matches lm ON lm.match_id = mg.match_id
+      -- Override is keyed per player-per-match (its PK), not per-goal — fine
+      -- for "fastest goal" (a player's earliest goal in a match is what we
+      -- pin); add minute to the key if per-goal precision is ever needed.
+      LEFT JOIN public.goal_time_overrides o
+        ON o.match_id = mg.match_id AND o.player_name = mg.player_name
      WHERE mg.player_name IS NOT NULL AND mg.player_name <> ''
-     ORDER BY mg.minute ASC, lm.match_date ASC
+     ORDER BY COALESCE(o.total_seconds, mg.minute * 60) ASC, lm.match_date ASC
      LIMIT 1
   `;
   const fastestGoal = fastestRows[0] ?? null;
