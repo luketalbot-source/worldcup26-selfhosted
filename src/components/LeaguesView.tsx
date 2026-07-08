@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { EmojiPicker } from '@/components/EmojiPicker';
+import { TiebreakInfo } from '@/components/TiebreakInfo';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -365,6 +366,10 @@ const ExpandableLeagueCard = ({
                 </div>
               )}
               
+              {/* Tiebreak explainer — collapsible; lets players self-serve on
+                  "why am I ranked here?" instead of asking support. */}
+              <TiebreakInfo />
+
               {/* League Leaderboard - Scrollable with infinite scroll for dev mode */}
               {activeLeaderboardLoading ? (
                 <div className="p-6 text-center text-muted-foreground">{t('leaderboard.loading')}</div>

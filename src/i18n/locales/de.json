@@ -165,7 +165,14 @@
     "wrong": "Falsch",
     "pointsPerType": "Punkte pro Tipp-Typ",
     "endOfList": "Alle {{count}} Spieler angezeigt",
-    "liveScoring": "Punkte aus laufenden Spielen sind vorläufig und bewegen sich mit dem Live-Ergebnis — endgültig werden sie mit dem Abpfiff."
+    "liveScoring": "Punkte aus laufenden Spielen sind vorläufig und bewegen sich mit dem Live-Ergebnis — endgültig werden sie mit dem Abpfiff.",
+    "tiebreakTitle": "Wie werden Gleichstände aufgelöst?",
+    "tiebreakIntro": "Bei Punktgleichheit entscheidet der Reihe nach:",
+    "tiebreak1": "Meiste exakte Ergebnisse (je 3 Punkte)",
+    "tiebreak2": "Meiste richtige Sieger (je 1 Punkt)",
+    "tiebreak3": "Kleinste Tordifferenz — geringster Gesamtabstand zu den echten Ergebnissen",
+    "tiebreak4": "Meiste abgegebene Tipps (Spiele + Bonus-Tipps)",
+    "tiebreakShared": "Bleibt es weiterhin gleich, teilen sich die Spieler den Platz."
   },
   "auth": {
     "title": "Gib deinen Benutzernamen ein",

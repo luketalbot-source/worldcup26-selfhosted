@@ -107,7 +107,14 @@
     "wrong": "Wrong",
     "pointsPerType": "Points per prediction type",
     "endOfList": "All {{count}} players shown",
-    "liveScoring": "Points from matches in play are provisional and move with the live score — they lock in at full time."
+    "liveScoring": "Points from matches in play are provisional and move with the live score — they lock in at full time.",
+    "tiebreakTitle": "How are ties broken?",
+    "tiebreakIntro": "When players have the same points, we rank them by, in order:",
+    "tiebreak1": "Most exact scores (3 points each)",
+    "tiebreak2": "Most correct winners (1 point each)",
+    "tiebreak3": "Closest goal difference — smallest total gap to the real scores",
+    "tiebreak4": "Most predictions made (matches + bonuses)",
+    "tiebreakShared": "If players are still level, they share the position."
   },
   "auth": {
     "title": "Welcome",
