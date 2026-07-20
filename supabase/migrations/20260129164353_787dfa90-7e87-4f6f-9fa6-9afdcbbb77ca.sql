@@ -82,7 +82,7 @@ INSERT INTO public.boost_awards (slug, name, description, prediction_type, lock_
   ('golden-glove', 'Golden Glove', 'Who will be the best goalkeeper?', 'player', '2026-06-11 00:00:00+00', 3),
   ('golden-ball', 'Golden Ball', 'Who will be the best player?', 'player', '2026-06-11 00:00:00+00', 4),
   ('wooden-spoon', 'Wooden Spoon', 'Which team will score zero goals?', 'team', '2026-06-11 00:00:00+00', 5),
-  ('goal-rush', 'Goal Rush!', 'Which team will score the most goals in a single game?', 'team', '2026-06-11 00:00:00+00', 6),
+  ('goal-rush', 'Goal Rush!', 'Which team will score the most goals?', 'team', '2026-06-11 00:00:00+00', 6),
   ('shame', 'Shame!', 'Which team will get the most red and yellow cards?', 'team', '2026-06-11 00:00:00+00', 7),
   ('flash', 'Flash!', 'Which team will score the fastest goal?', 'team', '2026-06-11 00:00:00+00', 8),
   ('young-player', 'FIFA Young Player', 'Best player under 21?', 'player', '2026-06-11 00:00:00+00', 9),
