@@ -16,7 +16,7 @@ import type { Match } from '@/types/match';
 // logic, points) — 9 (BL1) or 18 (CL) cards per matchday is a fine scroll,
 // no virtualization needed at matchday scope.
 export const MatchdayBrowser = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { tenantId } = useTenant();
   const { getMatchdays, getCurrentMatchday, getMatchesByMatchday } = useLiveMatches();
@@ -46,6 +46,27 @@ export const MatchdayBrowser = () => {
     () => matches.filter((m) => predictions.some((p) => p.matchId === m.id)).length,
     [matches, predictions],
   );
+
+  // "20.–22. Juli" style range of the selected matchday's fixtures,
+  // locale-aware. formatRange collapses same-month ranges neatly and a
+  // single-day matchday renders as one date.
+  const dateRangeLabel = useMemo(() => {
+    const times = matches
+      .map((m) => new Date(m.dateIso ?? m.date).getTime())
+      .filter((tms) => Number.isFinite(tms));
+    if (times.length === 0) return null;
+    const fmt = new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'short' });
+    const from = new Date(Math.min(...times));
+    const to = new Date(Math.max(...times));
+    try {
+      return fmt.formatRange(from, to);
+    } catch {
+      // Older engines without formatRange: fall back to "from – to".
+      const a = fmt.format(from);
+      const b = fmt.format(to);
+      return a === b ? a : `${a} – ${b}`;
+    }
+  }, [matches, i18n.language]);
 
   if (day === null || matchdays.length === 0) {
     return (
@@ -101,6 +122,11 @@ export const MatchdayBrowser = () => {
           >
             <Grid3X3 className="w-4 h-4 text-muted-foreground" />
             {t('matchday.title', { n: day })}
+            {dateRangeLabel && (
+              <span className="text-xs font-normal text-muted-foreground whitespace-nowrap">
+                {dateRangeLabel}
+              </span>
+            )}
             {day === currentMatchday && (
               <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary/10 text-primary font-medium">
                 {t('matchday.current')}
