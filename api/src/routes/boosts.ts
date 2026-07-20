@@ -5,6 +5,7 @@ import { sql, withUser } from "../db";
 import { requireAuth, requireAdmin, type AuthEnv } from "../auth/middleware";
 import { getBoostDeadlineMs, BOOSTS_LOCKED_ERROR } from "../lib/boostDeadline";
 import { isBoostLocked } from "../lib/predictionLock";
+import { normalizeWinners } from "../lib/resultsExport";
 
 const router = new Hono<AuthEnv>();
 
@@ -88,11 +89,16 @@ router.post(
   ),
   async (c) => {
     const body = c.req.valid("json");
+    // A result may list several winners for a tie ("ENG,FRA"). Normalise to a
+    // clean comma-joined form so the SQL scorers' string_to_array(..., ',')
+    // splits cleanly. Shared with the custom-boost write path.
+    const resultTeamCode = normalizeWinners(body.result_team_code);
+    const resultPlayerName = normalizeWinners(body.result_player_name);
     const rows = await sql`
       INSERT INTO boost_results (id, award_id, result_team_code, result_player_name, created_at, updated_at)
       VALUES (
         gen_random_uuid(), ${body.award_id},
-        ${body.result_team_code ?? null}, ${body.result_player_name ?? null},
+        ${resultTeamCode}, ${resultPlayerName},
         NOW(), NOW()
       )
       ON CONFLICT (award_id) DO UPDATE

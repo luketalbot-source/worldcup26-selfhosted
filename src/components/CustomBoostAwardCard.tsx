@@ -17,6 +17,7 @@ import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { Flag } from '@/components/Flag';
+import { parseBoostResult, boostResultIncludes } from '@/lib/boostMatch';
 
 
 interface CustomBoostAwardCardProps {
@@ -54,8 +55,8 @@ export const CustomBoostAwardCard = ({
     : !!prediction?.predicted_player_name;
 
   const isCorrect = result && (
-    (award.prediction_type === 'team' && prediction?.predicted_team_code === result.result_team_code) ||
-    (award.prediction_type === 'player' && prediction?.predicted_player_name === result.result_player_name)
+    (award.prediction_type === 'team' && boostResultIncludes(result.result_team_code, prediction?.predicted_team_code)) ||
+    (award.prediction_type === 'player' && boostResultIncludes(result.result_player_name, prediction?.predicted_player_name))
   );
 
   const handleSave = async () => {
@@ -252,8 +253,13 @@ export const CustomBoostAwardCard = ({
             <div className="text-center py-2">
               <div className="text-sm text-muted-foreground mb-1">{t('boost.result')}:</div>
               <div className="font-bold text-lg">
-                {award.prediction_type === 'team' 
-                  ? getTeamDisplay(result.result_team_code || '')
+                {award.prediction_type === 'team'
+                  ? parseBoostResult(result.result_team_code).map((code, i) => (
+                      <span key={code} className="inline-flex items-center">
+                        {i > 0 && <span className="mx-1.5 text-muted-foreground">·</span>}
+                        {getTeamDisplay(code)}
+                      </span>
+                    ))
                   : result.result_player_name
                 }
               </div>

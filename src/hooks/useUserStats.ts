@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cachedGet } from '@/lib/requestCache';
+import { boostResultIncludes } from '@/lib/boostMatch';
 import { calculateUserStats, UserStats } from '@/lib/scoringCalculator';
 import { groupStageMatches } from '@/data/matches';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
@@ -142,10 +143,10 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
       const award = awards.find((a) => a.id === prediction.award_id);
       if (result && award) {
         if (award.prediction_type === 'team') {
-          if (prediction.predicted_team_code === result.result_team_code) {
+          if (boostResultIncludes(result.result_team_code, prediction.predicted_team_code)) {
             boostPoints += award.points_value;
           }
-        } else if (prediction.predicted_player_name === result.result_player_name) {
+        } else if (boostResultIncludes(result.result_player_name, prediction.predicted_player_name)) {
           boostPoints += award.points_value;
         }
       }
@@ -161,10 +162,10 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
       const award = customAwards.find((a) => a.id === prediction.custom_boost_id);
       if (result && award) {
         if (award.prediction_type === 'team') {
-          if (prediction.predicted_team_code === result.result_team_code) {
+          if (boostResultIncludes(result.result_team_code, prediction.predicted_team_code)) {
             boostPoints += award.points_value;
           }
-        } else if (prediction.predicted_player_name === result.result_player_name) {
+        } else if (boostResultIncludes(result.result_player_name, prediction.predicted_player_name)) {
           boostPoints += award.points_value;
         }
       }

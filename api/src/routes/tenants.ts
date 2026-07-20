@@ -387,8 +387,8 @@ router.get("/:id/users", requireAdmin, async (c) => {
       SELECT bp.user_id,
              SUM(
                CASE
-                 WHEN br.result_team_code   IS NOT NULL AND bp.predicted_team_code   = br.result_team_code   THEN ba.points_value
-                 WHEN br.result_player_name IS NOT NULL AND bp.predicted_player_name = br.result_player_name THEN ba.points_value
+                 WHEN br.result_team_code   IS NOT NULL AND bp.predicted_team_code   = ANY(string_to_array(br.result_team_code, ','))   THEN ba.points_value
+                 WHEN br.result_player_name IS NOT NULL AND bp.predicted_player_name = ANY(string_to_array(br.result_player_name, ',')) THEN ba.points_value
                  ELSE 0
                END
              ) AS pts
@@ -402,8 +402,8 @@ router.get("/:id/users", requireAdmin, async (c) => {
       SELECT cbp.user_id,
              SUM(
                CASE
-                 WHEN cbr.result_team_code   IS NOT NULL AND cbp.predicted_team_code   = cbr.result_team_code   THEN cb.points_value
-                 WHEN cbr.result_player_name IS NOT NULL AND cbp.predicted_player_name = cbr.result_player_name THEN cb.points_value
+                 WHEN cbr.result_team_code   IS NOT NULL AND cbp.predicted_team_code   = ANY(string_to_array(cbr.result_team_code, ','))   THEN cb.points_value
+                 WHEN cbr.result_player_name IS NOT NULL AND cbp.predicted_player_name = ANY(string_to_array(cbr.result_player_name, ',')) THEN cb.points_value
                  ELSE 0
                END
              ) AS pts

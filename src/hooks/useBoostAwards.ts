@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/apiClient';
+import { boostResultIncludes } from '@/lib/boostMatch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
@@ -128,11 +129,11 @@ export const useBoostAwards = () => {
     if (!prediction || !result || !award) return 0;
 
     if (award.prediction_type === 'team') {
-      if (prediction.predicted_team_code === result.result_team_code) {
+      if (boostResultIncludes(result.result_team_code, prediction.predicted_team_code)) {
         return award.points_value;
       }
     } else {
-      if (prediction.predicted_player_name === result.result_player_name) {
+      if (boostResultIncludes(result.result_player_name, prediction.predicted_player_name)) {
         return award.points_value;
       }
     }

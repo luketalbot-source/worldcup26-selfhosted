@@ -194,6 +194,25 @@ export const AdminBoostResults = () => {
     setFormValues(newFormValues);
   };
 
+  // Team results support multiple winners (comma-separated) so a tie — e.g. two
+  // teams sharing the most goals — can be recorded and anyone who picked either
+  // one scores. Codes are stored as a clean "ENG,FRA" CSV.
+  const getTeamCodes = (awardId: string): string[] =>
+    (formValues.get(awardId)?.teamCode || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const addTeamWinner = (awardId: string, code: string) => {
+    const current = getTeamCodes(awardId);
+    if (current.includes(code)) return;
+    updateFormValue(awardId, 'teamCode', [...current, code].join(','));
+  };
+
+  const removeTeamWinner = (awardId: string, code: string) => {
+    updateFormValue(awardId, 'teamCode', getTeamCodes(awardId).filter((c) => c !== code).join(','));
+  };
+
   const handleSavePoints = async (award: BoostAward) => {
     setSavingPoints(award.id);
     const newPoints = pointsValues.get(award.id) ?? award.points_value;
@@ -410,24 +429,47 @@ export const AdminBoostResults = () => {
 
                   <div className="flex items-center gap-2">
                     {award.prediction_type === 'team' ? (
-                      <Select
-                        value={formValue.teamCode}
-                        onValueChange={(value) => updateFormValue(award.id, 'teamCode', value)}
-                      >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Select winner..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {uniqueTeams.map((team) => (
-                            <SelectItem key={team.id} value={team.code}>
-                              <span className="inline-flex items-center gap-1.5">
-                                <Flag code={team.code} className="w-4" />
-                                <span>{team.name}</span>
+                      <div className="flex flex-col gap-1.5 w-[220px]">
+                        {getTeamCodes(award.id).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {getTeamCodes(award.id).map((code) => (
+                              <span
+                                key={code}
+                                className="inline-flex items-center gap-1 bg-muted rounded px-2 py-0.5 text-xs"
+                              >
+                                {getTeamDisplay(code)}
+                                <button
+                                  type="button"
+                                  onClick={() => removeTeamWinner(award.id, code)}
+                                  className="ml-0.5 text-muted-foreground hover:text-destructive leading-none"
+                                  aria-label={`Remove ${code}`}
+                                >
+                                  ×
+                                </button>
                               </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                            ))}
+                          </div>
+                        )}
+                        <Select value="" onValueChange={(value) => addTeamWinner(award.id, value)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue
+                              placeholder={getTeamCodes(award.id).length ? 'Add tied team…' : 'Select winner…'}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {uniqueTeams
+                              .filter((team) => !getTeamCodes(award.id).includes(team.code))
+                              .map((team) => (
+                                <SelectItem key={team.id} value={team.code}>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <Flag code={team.code} className="w-4" />
+                                    <span>{team.name}</span>
+                                  </span>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     ) : (
                       <div className="w-[200px]">
                         <PlayerPicker

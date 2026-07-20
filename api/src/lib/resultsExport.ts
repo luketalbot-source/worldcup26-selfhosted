@@ -180,6 +180,35 @@ export function scoreMatch(pred: MatchPrediction, m: Match): ScoredMatch {
   return { pts: base + penaltyBonus, isExact, isCorrectResult, goalDiff, penaltyBonus };
 }
 
+/** Normalise a boost result value written by an admin into a clean comma-joined
+ *  list of winners: trim each entry, drop blanks, empty → NULL. Every write path
+ *  (built-in boosts.ts AND custom custom-boosts.ts) must run this so the stored
+ *  form is unambiguous — the SQL scorers split on ',' WITHOUT trimming, so a
+ *  stray "ENG, FRA" would otherwise score differently in SQL vs JS. */
+export function normalizeWinners(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  const parts = v.split(",").map((s) => s.trim()).filter(Boolean);
+  return parts.length ? parts.join(",") : null;
+}
+
+/** A boost result may name several winners separated by commas — used when a
+ *  category ends in a tie (e.g. two teams share the most goals). Returns true
+ *  when `predicted` is one of them. A comma-free result behaves as an exact
+ *  match, so this is fully backwards-compatible with single-winner results.
+ *  Values are normalised on write (see normalizeWinners), so this agrees with
+ *  the SQL scorers' `predicted = ANY(string_to_array(result, ','))`; the trims
+ *  here are defensive against any non-normalised legacy value. */
+export function boostResultIncludes(
+  resultValue: string | null | undefined,
+  predicted: string | null | undefined,
+): boolean {
+  if (!resultValue || !predicted) return false;
+  return resultValue
+    .split(",")
+    .map((s) => s.trim())
+    .includes(predicted.trim());
+}
+
 /** Returns the boost's points_value, 0, or '' (no result row yet). Exported so
  *  the leagues export (lib/leaguesExport.ts) scores boosts the same way. */
 export function boostPoints(
@@ -191,11 +220,11 @@ export function boostPoints(
   if (!result) return "";
   if (predictionType === "team") {
     if (!result.result_team_code) return ""; // result row exists but column blank
-    return pred.predicted_team_code === result.result_team_code ? pointsValue : 0;
+    return boostResultIncludes(result.result_team_code, pred.predicted_team_code) ? pointsValue : 0;
   }
   // player path
   if (!result.result_player_name) return "";
-  return pred.predicted_player_name === result.result_player_name ? pointsValue : 0;
+  return boostResultIncludes(result.result_player_name, pred.predicted_player_name) ? pointsValue : 0;
 }
 
 // ─── CSV escape ───────────────────────────────────────────────────────────

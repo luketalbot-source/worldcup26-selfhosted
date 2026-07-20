@@ -5,7 +5,14 @@
 // (+1 correct winner, +1 exact shootout score) — before they go live.
 // Run: `bun test` (in api/).
 import { describe, expect, test } from "bun:test";
-import { scoreMatch, type Match, type MatchPrediction } from "./resultsExport";
+import {
+  scoreMatch,
+  boostPoints,
+  boostResultIncludes,
+  normalizeWinners,
+  type Match,
+  type MatchPrediction,
+} from "./resultsExport";
 
 const mkMatch = (over: Partial<Match>): Match => ({
   match_id: "fd-1",
@@ -140,5 +147,83 @@ describe("scoreMatch — shootout prediction ignored when match did not go to pe
     );
     expect(s.penaltyBonus).toBe(0);
     expect(s.pts).toBe(0); // predicted a draw, match was a home win
+  });
+});
+
+// A boost result may list several winners (comma-separated) for a tie. These
+// pin the shared matcher used by boostPoints, and mirror the SQL scorers'
+// `predicted = ANY(string_to_array(result, ','))`.
+describe("boostResultIncludes — single & tied winners", () => {
+  test("single winner: exact match", () => {
+    expect(boostResultIncludes("FRA", "FRA")).toBe(true);
+    expect(boostResultIncludes("FRA", "ENG")).toBe(false);
+  });
+  test("tie: either winner matches", () => {
+    expect(boostResultIncludes("ENG,FRA", "ENG")).toBe(true);
+    expect(boostResultIncludes("ENG,FRA", "FRA")).toBe(true);
+    expect(boostResultIncludes("ENG,FRA", "ESP")).toBe(false);
+  });
+  test("tolerates stray spaces around a separator", () => {
+    expect(boostResultIncludes("ENG, FRA", "FRA")).toBe(true);
+    expect(boostResultIncludes("ENG,FRA", " ENG ")).toBe(true);
+  });
+  test("null/blank inputs never match", () => {
+    expect(boostResultIncludes(null, "FRA")).toBe(false);
+    expect(boostResultIncludes("", "FRA")).toBe(false);
+    expect(boostResultIncludes("ENG,FRA", null)).toBe(false);
+    expect(boostResultIncludes("ENG,FRA", "")).toBe(false);
+  });
+  test("player-name winners (with internal spaces) split only on comma", () => {
+    expect(boostResultIncludes("Lionel Messi,Kylian Mbappé", "Kylian Mbappé")).toBe(true);
+    expect(boostResultIncludes("Lionel Messi", "Lionel Messi")).toBe(true);
+    expect(boostResultIncludes("Lionel Messi,Kylian Mbappé", "Lionel")).toBe(false);
+  });
+});
+
+// normalizeWinners runs on every result write (built-in + custom) so stored
+// values are clean and the SQL scorers (which split without trimming) agree
+// with the JS scorers.
+describe("normalizeWinners — clean storage form", () => {
+  test("single value passes through", () => {
+    expect(normalizeWinners("FRA")).toBe("FRA");
+  });
+  test("tie is joined without spaces", () => {
+    expect(normalizeWinners("ENG,FRA")).toBe("ENG,FRA");
+    expect(normalizeWinners("ENG, FRA")).toBe("ENG,FRA");
+    expect(normalizeWinners(" ENG , FRA ")).toBe("ENG,FRA");
+  });
+  test("blanks & trailing separators dropped", () => {
+    expect(normalizeWinners("ENG,")).toBe("ENG");
+    expect(normalizeWinners("ENG,,FRA")).toBe("ENG,FRA");
+    expect(normalizeWinners("  ")).toBeNull();
+    expect(normalizeWinners("")).toBeNull();
+    expect(normalizeWinners(null)).toBeNull();
+  });
+  test("player names keep internal spaces, split only on comma", () => {
+    expect(normalizeWinners("Lionel Messi, Kylian Mbappé")).toBe("Lionel Messi,Kylian Mbappé");
+  });
+});
+
+describe("boostPoints — tie awards points to every backed winner", () => {
+  const teamResult = { award_id: "a1", result_team_code: "ENG,FRA", result_player_name: null };
+  test("picked one of the tied teams → full points", () => {
+    expect(boostPoints({ predicted_team_code: "ENG", predicted_player_name: null }, teamResult, 5, "team")).toBe(5);
+    expect(boostPoints({ predicted_team_code: "FRA", predicted_player_name: null }, teamResult, 5, "team")).toBe(5);
+  });
+  test("picked a non-winner → 0", () => {
+    expect(boostPoints({ predicted_team_code: "ARG", predicted_player_name: null }, teamResult, 5, "team")).toBe(0);
+  });
+  test("single-winner result still scores exactly (back-compat)", () => {
+    const single = { award_id: "a1", result_team_code: "ESP", result_player_name: null };
+    expect(boostPoints({ predicted_team_code: "ESP", predicted_player_name: null }, single, 5, "team")).toBe(5);
+    expect(boostPoints({ predicted_team_code: "FRA", predicted_player_name: null }, single, 5, "team")).toBe(0);
+  });
+  test("no result row → blank", () => {
+    expect(boostPoints({ predicted_team_code: "ENG", predicted_player_name: null }, undefined, 5, "team")).toBe("");
+  });
+  test("result row exists but column blank → blank", () => {
+    expect(
+      boostPoints({ predicted_team_code: "ENG", predicted_player_name: null }, { award_id: "a1", result_team_code: null, result_player_name: null }, 5, "team"),
+    ).toBe("");
   });
 });
