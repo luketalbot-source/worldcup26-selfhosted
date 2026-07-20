@@ -33,18 +33,26 @@ router.get("/", async (c) => {
   const tenantId = c.req.query("tenant_id");
   const all = await getAllCompetitions();
 
-  let visible = all;
+  // Tenant-scoped: ENABLED competitions (any state — includes archived
+  // history) plus ACTIVE-but-not-enabled ones as teasers, each row
+  // carrying an `enabled` flag. Teasers let the app show launched games
+  // muted with "coming soon" so customers know to ask for them; inactive
+  // competitions (not launched platform-wide) never appear as teasers.
   if (tenantId) {
-    const enabled = await sql<{ competition_id: string }[]>`
+    const enabledRows = await sql<{ competition_id: string }[]>`
       SELECT competition_id FROM public.tenant_competitions
        WHERE tenant_id = ${tenantId}
     `;
-    const enabledIds = new Set(enabled.map((r) => r.competition_id));
-    visible = all.filter((comp) => enabledIds.has(comp.id));
+    const enabledIds = new Set(enabledRows.map((r) => r.competition_id));
+    const visible = all
+      .filter((comp) => enabledIds.has(comp.id) || comp.is_active)
+      .map((comp) => ({ ...comp, enabled: enabledIds.has(comp.id) }));
+    c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
+    return c.json(visible);
   }
 
   c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
-  return c.json(visible);
+  return c.json(all.map((comp) => ({ ...comp, enabled: true })));
 });
 
 /** Shared with the /api/wc2026/teams back-compat alias. */

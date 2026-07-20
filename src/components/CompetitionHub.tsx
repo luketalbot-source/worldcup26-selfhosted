@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Archive, ChevronRight, Swords, Table2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useCompetitions, type Competition } from '@/contexts/CompetitionContext';
+import { isEnabled, useCompetitions, type Competition } from '@/contexts/CompetitionContext';
 import { competitionBanners } from '@/assets/competitions';
 
 // The game hub: entry page for tenants with several competitions enabled.
@@ -21,30 +21,53 @@ const FORMAT_META: Record<Competition['format'], { icon: typeof Trophy; subtitle
 const GameCard = ({
   comp,
   archived,
+  comingSoon = false,
   onEnter,
   index,
 }: {
   comp: Competition;
   archived: boolean;
+  comingSoon?: boolean;
   onEnter: () => void;
   index: number;
 }) => {
   const { t } = useTranslation();
   const Icon = archived ? Archive : FORMAT_META[comp.format].icon;
   const banner = competitionBanners[comp.fd_code];
+  const muted = archived || comingSoon;
+
+  const subtitle = comingSoon
+    ? t('competitions.comingSoonHint')
+    : archived
+      ? t('competitions.seasonEnded')
+      : t(FORMAT_META[comp.format].subtitleKey);
+
+  const badge = comingSoon ? (
+    <span className="bg-accent text-accent-foreground text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded shrink-0">
+      {t('competitions.comingSoon')}
+    </span>
+  ) : archived ? (
+    <span className="flex items-center gap-1 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0">
+      <Archive className="w-3 h-3" />
+      {t('competitions.completedBadge')}
+    </span>
+  ) : null;
 
   if (banner) {
     // Banner card: illustrated art with a left-to-right dark scrim so the
-    // white text stays readable over any artwork. Archived games render
-    // desaturated with the archive badge.
+    // white text stays readable over any artwork. Archived and coming-soon
+    // games render desaturated; coming-soon isn't clickable.
     return (
       <motion.button
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.06 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={onEnter}
-        className="relative w-full text-left rounded-2xl border border-border/50 shadow-card overflow-hidden transition-all hover:shadow-lg h-28"
+        whileTap={comingSoon ? undefined : { scale: 0.98 }}
+        onClick={comingSoon ? undefined : onEnter}
+        disabled={comingSoon}
+        className={`relative w-full text-left rounded-2xl border border-border/50 shadow-card overflow-hidden transition-all h-28 ${
+          comingSoon ? 'cursor-default' : 'hover:shadow-lg'
+        }`}
       >
         <img
           src={banner}
@@ -52,7 +75,7 @@ const GameCard = ({
           aria-hidden
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 w-full h-full object-cover ${archived ? 'grayscale-[0.7] opacity-70' : ''}`}
+          className={`absolute inset-0 w-full h-full object-cover ${muted ? 'grayscale-[0.7] opacity-70' : ''}`}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-black/10" />
         <div className="relative h-full flex items-center gap-4 p-4">
@@ -60,18 +83,11 @@ const GameCard = ({
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-white truncate drop-shadow">{comp.name}</h3>
               <span className="text-xs text-white/70 shrink-0">{comp.season}</span>
-              {archived && (
-                <span className="flex items-center gap-1 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0">
-                  <Archive className="w-3 h-3" />
-                  {t('competitions.completedBadge')}
-                </span>
-              )}
+              {badge}
             </div>
-            <p className="text-sm text-white/80 truncate drop-shadow">
-              {archived ? t('competitions.seasonEnded') : t(FORMAT_META[comp.format].subtitleKey)}
-            </p>
+            <p className="text-sm text-white/80 truncate drop-shadow">{subtitle}</p>
           </div>
-          <ChevronRight className="w-5 h-5 text-white/80 shrink-0" />
+          {!comingSoon && <ChevronRight className="w-5 h-5 text-white/80 shrink-0" />}
         </div>
       </motion.button>
     );
@@ -82,32 +98,36 @@ const GameCard = ({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onEnter}
-      className={`w-full text-left rounded-2xl border shadow-card overflow-hidden transition-all hover:shadow-lg ${
-        archived ? 'bg-muted/40 border-border/40' : 'bg-card border-border/50'
-      }`}
+      whileTap={comingSoon ? undefined : { scale: 0.98 }}
+      onClick={comingSoon ? undefined : onEnter}
+      disabled={comingSoon}
+      className={`w-full text-left rounded-2xl border shadow-card overflow-hidden transition-all ${
+        muted ? 'bg-muted/40 border-border/40' : 'bg-card border-border/50'
+      } ${comingSoon ? 'cursor-default' : 'hover:shadow-lg'}`}
     >
       <div className="flex items-center gap-4 p-4">
         <div
           className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-            archived ? 'bg-muted text-muted-foreground' : 'gradient-navy text-white'
+            muted ? 'bg-muted text-muted-foreground' : 'gradient-navy text-white'
           }`}
         >
           <Icon className="w-6 h-6" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className={`font-bold truncate ${archived ? 'text-muted-foreground' : 'text-foreground'}`}>
+            <h3 className={`font-bold truncate ${muted ? 'text-muted-foreground' : 'text-foreground'}`}>
               {comp.name}
             </h3>
             <span className="text-xs text-muted-foreground shrink-0">{comp.season}</span>
+            {comingSoon && (
+              <span className="bg-accent text-accent-foreground text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded shrink-0">
+                {t('competitions.comingSoon')}
+              </span>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground truncate">
-            {archived ? t('competitions.seasonEnded') : t(FORMAT_META[comp.format].subtitleKey)}
-          </p>
+          <p className="text-sm text-muted-foreground truncate">{subtitle}</p>
         </div>
-        <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+        {!comingSoon && <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />}
       </div>
     </motion.button>
   );
@@ -117,8 +137,12 @@ export const CompetitionHub = () => {
   const { t } = useTranslation();
   const { competitions, setActiveCompetition } = useCompetitions();
 
-  const active = competitions.filter((c) => c.is_active);
-  const completed = competitions.filter((c) => !c.is_active);
+  // Available = playable now; teasers = launched but not enabled for this
+  // tenant (muted "coming soon", prompts the customer to get in touch);
+  // completed = enabled archives, kept forever as browsable history.
+  const available = competitions.filter((c) => c.is_active && isEnabled(c));
+  const teasers = competitions.filter((c) => c.is_active && !isEnabled(c));
+  const completed = competitions.filter((c) => !c.is_active && isEnabled(c));
 
   return (
     <div className="max-w-[700px] mx-auto space-y-6">
@@ -130,18 +154,28 @@ export const CompetitionHub = () => {
         </div>
       </div>
 
-      {active.length > 0 && (
+      {(available.length > 0 || teasers.length > 0) && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
             {t('competitions.availableGames')}
           </h3>
-          {active.map((comp, i) => (
+          {available.map((comp, i) => (
             <GameCard
               key={comp.id}
               comp={comp}
               archived={false}
               index={i}
               onEnter={() => setActiveCompetition(comp.id)}
+            />
+          ))}
+          {teasers.map((comp, i) => (
+            <GameCard
+              key={comp.id}
+              comp={comp}
+              archived={false}
+              comingSoon
+              index={available.length + i}
+              onEnter={() => {}}
             />
           ))}
         </div>
@@ -157,7 +191,7 @@ export const CompetitionHub = () => {
               key={comp.id}
               comp={comp}
               archived
-              index={active.length + i}
+              index={available.length + teasers.length + i}
               onEnter={() => setActiveCompetition(comp.id)}
             />
           ))}

@@ -23,7 +23,20 @@ export interface Competition {
   boost_lock_at: string | null;
   is_active: boolean;
   display_order: number;
+  // False = launched platform-wide but NOT enabled for this tenant — shown
+  // as a muted "coming soon" teaser in the game hub, never playable.
+  // Optional for back-compat with older API responses (absent = enabled).
+  enabled?: boolean;
 }
+
+/** Season-qualified display label — "Bundesliga 2026/27". Use wherever a
+ *  game is referenced outside its own context (league scope badges, scope
+ *  pickers), so this season's and next season's games stay distinguishable
+ *  as history accumulates. */
+export const competitionLabel = (comp: Pick<Competition, 'short_name' | 'season'>): string =>
+  `${comp.short_name} ${comp.season}`;
+
+export const isEnabled = (comp: Competition): boolean => comp.enabled !== false;
 
 interface CompetitionContextValue {
   competitions: Competition[];
@@ -74,16 +87,16 @@ export const CompetitionProvider = ({ children }: { children: ReactNode }) => {
         const rows = await api.get<Competition[]>(`/competitions?tenant_id=${tenant.id}`);
         if (cancelled) return;
         setCompetitions(rows);
+        const playable = rows.filter(isEnabled);
         if (rows.length > 1) {
-          // Multiple games: greet the user with the game hub (active id
-          // stays null) — they pick a card. The last-viewed game is still
-          // remembered for highlighting, but entry always goes through
-          // the hub so "what can I play?" is one glance away.
+          // Multiple games (playable or coming-soon teasers): greet the
+          // user with the game hub (active id stays null) — they pick a
+          // card, and teasers advertise what could be unlocked.
           setActiveId(null);
         } else {
-          // Exactly one (or zero) games: skip the hub entirely — the app
-          // looks and behaves like the single-competition era.
-          setActiveId(rows[0]?.id ?? null);
+          // Exactly one game and nothing to tease: skip the hub entirely —
+          // the app looks and behaves like the single-competition era.
+          setActiveId(playable[0]?.id ?? null);
         }
       } catch (err) {
         console.error('[competitions] load failed — falling back to WC archive:', err);
@@ -102,6 +115,9 @@ export const CompetitionProvider = ({ children }: { children: ReactNode }) => {
   }, [tenant?.id, tenant?.uid]);
 
   const setActiveCompetition = (id: string) => {
+    // Teasers are display-only — entering one is a no-op.
+    const target = competitions.find((c) => c.id === id);
+    if (target && !isEnabled(target)) return;
     setActiveId(id);
     if (tenant?.uid) localStorage.setItem(storageKey(tenant.uid), id);
   };

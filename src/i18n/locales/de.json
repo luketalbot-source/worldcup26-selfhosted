@@ -530,6 +530,8 @@
     "formatTournament": "Gruppenphase + K.-o.-Turnier",
     "formatLeague": "Ganze Saison — jeden Spieltag tippen",
     "formatHybrid": "Ligaphase + K.-o.-Runden",
-    "completedBadge": "Beendet"
+    "completedBadge": "Beendet",
+    "comingSoon": "Bald verfügbar!",
+    "comingSoonHint": "Noch nicht freigeschaltet — frag deinen Admin danach"
   }
 }

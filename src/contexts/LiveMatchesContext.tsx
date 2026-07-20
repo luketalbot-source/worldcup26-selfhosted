@@ -25,7 +25,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api, ApiError } from '@/lib/apiClient';
-import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
+import { isEnabled, useCompetitionsSafe } from '@/contexts/CompetitionContext';
 
 export interface MatchGoal {
   id: string;
@@ -189,12 +189,13 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
   const matches = buckets[activeBucketKey] ?? [];
 
   // Enabled-competition ids for SSE filtering, as a ref so the (mount-once)
-  // stream handler always sees the current set. null = no provider or
-  // competitions still resolving → don't filter (legacy behavior).
+  // stream handler always sees the current set. Coming-soon teasers are
+  // excluded — a game the tenant can't play must not celebrate goals.
+  // null = no provider or competitions still resolving → don't filter.
   const enabledCompIdsRef = useRef<Set<string> | null>(null);
   enabledCompIdsRef.current =
     competitionCtx && !competitionCtx.loading
-      ? new Set(competitionCtx.competitions.map((comp) => comp.id))
+      ? new Set(competitionCtx.competitions.filter(isEnabled).map((comp) => comp.id))
       : null;
 
   // Per-match score snapshot updated SYNCHRONOUSLY inside the SSE handler,

@@ -8,7 +8,7 @@ import { useLeagues, League } from '@/hooks/useLeagues';
 import { useLeagueLeaderboard } from '@/hooks/useLeagueLeaderboard';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useLiveMatchesOptional } from '@/contexts/LiveMatchesContext';
-import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
+import { competitionLabel, isEnabled, useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { useLoadTestLeaderboard } from '@/hooks/useLoadTestLeaderboard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -186,17 +186,23 @@ const ExpandableLeagueCard = ({
   // standings reset for each game instead of summing Bundesliga + CL + WC
   // into one confusing number.
   const competitionCtx = useCompetitionsSafe();
+  const enabledComps = (competitionCtx?.competitions ?? []).filter(isEnabled);
   const everyoneScopeComp = isEveryone
     ? competitionCtx?.activeCompetition ??
-      competitionCtx?.competitions.find((c) => c.is_active) ??
-      competitionCtx?.competitions[0] ??
+      enabledComps.find((c) => c.is_active) ??
+      enabledComps[0] ??
       null
     : null;
-  const hasMultipleGames = (competitionCtx?.competitions.length ?? 0) > 1;
-  const scopeName = league.competition_id
-    ? competitionCtx?.competitions.find((c) => c.id === league.competition_id)?.short_name ?? null
-    : isEveryone && hasMultipleGames
-      ? everyoneScopeComp?.short_name ?? null
+  const hasMultipleGames = enabledComps.length > 1;
+  // Badges are season-qualified ("Bundesliga 2026/27") — as seasons
+  // accumulate, this year's and last year's leagues stay distinguishable.
+  const scopedComp = league.competition_id
+    ? competitionCtx?.competitions.find((c) => c.id === league.competition_id) ?? null
+    : null;
+  const scopeName = scopedComp
+    ? competitionLabel(scopedComp)
+    : isEveryone && hasMultipleGames && everyoneScopeComp
+      ? competitionLabel(everyoneScopeComp)
       : null;
   
   const handleCopyCode = async (e: React.MouseEvent) => {
@@ -748,10 +754,13 @@ export const LeaguesView = () => {
   const [newScope, setNewScope] = useState<string | null>(null);
   const [createdLeague, setCreatedLeague] = useState<League | null>(null);
   const [copied, setCopied] = useState(false);
-  // Scope options: only ACTIVE competitions the tenant has enabled —
-  // scoping a new league to a finished archive makes no sense.
+  // Scope options: only ACTIVE competitions the tenant has ENABLED —
+  // scoping a new league to a finished archive or a coming-soon teaser
+  // makes no sense.
   const competitionCtxTop = useCompetitionsSafe();
-  const scopeOptions = (competitionCtxTop?.competitions ?? []).filter((c) => c.is_active);
+  const scopeOptions = (competitionCtxTop?.competitions ?? []).filter(
+    (c) => c.is_active && isEnabled(c),
+  );
   
   // Join form state
   const [joinCode, setJoinCode] = useState('');
@@ -1028,7 +1037,7 @@ export const LeaguesView = () => {
                             : 'bg-muted text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        {comp.short_name}
+                        {competitionLabel(comp)}
                       </button>
                     ))}
                   </div>
@@ -1036,7 +1045,10 @@ export const LeaguesView = () => {
                     {newScope === null
                       ? t('leagues.scopeAllHint')
                       : t('leagues.scopedTo', {
-                          competition: scopeOptions.find((c) => c.id === newScope)?.short_name ?? '',
+                          competition: (() => {
+                            const comp = scopeOptions.find((c) => c.id === newScope);
+                            return comp ? competitionLabel(comp) : '';
+                          })(),
                         })}
                   </p>
                 </div>
