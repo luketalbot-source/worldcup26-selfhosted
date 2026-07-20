@@ -137,8 +137,15 @@ export const BoostAwardCard = ({
   
   // Get translated award name and description
   const awardKeys = getAwardTranslationKey(award.slug);
-  const translatedName = t(awardKeys.name, award.name);
-  const translatedDesc = t(awardKeys.desc, award.description || '');
+  // Competition-suffixed keys win over the base key, which wins over the
+  // raw DB text — so 'boost.awards.winnersDesc_BL1' ("…win the
+  // Bundesliga?") overrides the WC-flavoured base 'winnersDesc' ("…win
+  // the World Cup?") without touching the archive's wording. Suffix is
+  // the competition's FD code (WC/CL/BL1).
+  const compSuffix = useCompetitionsSafe()?.activeCompetition?.fd_code;
+  const suffixed = (base: string) => (compSuffix ? [`${base}_${compSuffix}`, base] : [base]);
+  const translatedName = t(suffixed(awardKeys.name), { defaultValue: award.name });
+  const translatedDesc = t(suffixed(awardKeys.desc), { defaultValue: award.description || '' });
 
   return (
     <motion.div

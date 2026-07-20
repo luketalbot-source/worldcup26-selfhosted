@@ -64,7 +64,9 @@
       "shame": "Gang der Schande",
       "shameDesc": "Team mit den meisten roten/gelben Karten",
       "woodenSpoon": "Holzlöffel",
-      "woodenSpoonDesc": "Team mit der schwächsten Leistung"
+      "woodenSpoonDesc": "Team mit der schwächsten Leistung",
+      "winnersDesc_CL": "Welches Team gewinnt die Champions League?",
+      "winnersDesc_BL1": "Welches Team gewinnt die Bundesliga?"
     },
     "custom": "Benutzerdefiniert",
     "daysCount": "{{count}} Tagen",

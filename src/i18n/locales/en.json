@@ -278,7 +278,9 @@
       "shame": "Walk of Shame",
       "shameDesc": "Team that gets the most red/yellow cards",
       "woodenSpoon": "Wooden Spoon",
-      "woodenSpoonDesc": "Team with the worst performance"
+      "woodenSpoonDesc": "Team with the worst performance",
+      "winnersDesc_CL": "Which team will win the Champions League?",
+      "winnersDesc_BL1": "Which team will win the Bundesliga?"
     },
     "custom": "Custom",
     "daysCount": "{{count}} days",
