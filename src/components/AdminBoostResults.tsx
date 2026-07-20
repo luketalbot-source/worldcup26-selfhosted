@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Trophy, Save, Check, RotateCcw, Settings } from 'lucide-react';
 import { api } from '@/lib/apiClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
+import { useTeams } from '@/hooks/useTeams';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { Flag } from '@/components/Flag';
 
@@ -44,6 +44,16 @@ interface BoostResult {
   result_player_name: string | null;
 }
 
+interface CompetitionRow {
+  slug: string;
+  name: string;
+  short_name: string;
+  season: string;
+  format: 'tournament' | 'league' | 'hybrid';
+  is_active: boolean;
+  display_order: number;
+}
+
 export const AdminBoostResults = () => {
   const [awards, setAwards] = useState<BoostAward[]>([]);
   const [results, setResults] = useState<Map<string, BoostResult>>(new Map());
@@ -61,13 +71,31 @@ export const AdminBoostResults = () => {
   const [savingPoints, setSavingPoints] = useState<string | null>(null);
   const [savedPointsRecently, setSavedPointsRecently] = useState<Set<string>>(new Set());
 
-  const uniqueTeams = useQualifiedTeams();
+  // Competition selector: awards, teams and players are all per-competition
+  // now. The admin renders outside a CompetitionProvider, so we fetch the
+  // full registry here and scope every fetch to the chosen game.
+  const [competitions, setCompetitions] = useState<CompetitionRow[]>([]);
+  const [selectedSlug, setSelectedSlug] = useState<string>('');
+  const selectedComp = competitions.find((c) => c.slug === selectedSlug) ?? null;
+  // Clubs (league/hybrid) render crests; the WC tournament renders flags.
+  const teamKind: 'country' | 'club' = selectedComp && selectedComp.format !== 'tournament' ? 'club' : 'country';
 
-  const fetchData = async () => {
+  // Roster for the selected competition (crest_url carries club badges).
+  const { teams: rosterTeams } = useTeams(selectedSlug || undefined);
+  const uniqueTeams = useMemo(
+    () =>
+      rosterTeams
+        .filter((t) => t.tla && t.tla !== 'TBD' && t.tla !== '???')
+        .map((t) => ({ id: t.id, code: t.tla, name: t.name, crestUrl: t.crest_url }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [rosterTeams],
+  );
+
+  const fetchData = async (slug: string) => {
     setLoading(true);
     try {
       const [awardsData, resultsData] = await Promise.all([
-        api.get<BoostAward[]>('/boosts/awards'),
+        api.get<BoostAward[]>(`/boosts/awards?competition=${encodeURIComponent(slug)}`),
         api.get<BoostResult[]>('/boosts/results'),
       ]);
 
@@ -102,9 +130,31 @@ export const AdminBoostResults = () => {
     }
   };
 
+  // Fetch the competition registry once; default the selector to the first game.
   useEffect(() => {
-    fetchData();
+    let cancelled = false;
+    api
+      .get<CompetitionRow[]>('/competitions')
+      .then((rows) => {
+        if (cancelled) return;
+        const sorted = [...rows].sort((a, b) => a.display_order - b.display_order);
+        setCompetitions(sorted);
+        setSelectedSlug((prev) => prev || sorted[0]?.slug || '');
+      })
+      .catch((err) => {
+        console.error('Error fetching competitions:', err);
+        toast.error('Failed to load competitions');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // (Re)load awards + results whenever the selected competition changes.
+  useEffect(() => {
+    if (selectedSlug) fetchData(selectedSlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlug]);
 
   const handleSave = async (award: BoostAward) => {
     setSaving(award.id);
@@ -149,13 +199,17 @@ export const AdminBoostResults = () => {
   const handleResetAll = async () => {
     setResetting(true);
     try {
-      await api.delete('/boosts/results');
+      // Scoped to the selected competition: the bulk DELETE /boosts/results
+      // endpoint wipes EVERY competition's results, so reset only the awards
+      // shown here by deleting each one.
+      await Promise.all(awards.map((a) => api.delete(`/boosts/results/${a.id}`).catch(() => {})));
 
-      // Clear local state
-      setResults(new Map());
-      setFormValues(new Map());
+      // Clear local state for this competition's awards only
+      const awardIds = new Set(awards.map((a) => a.id));
+      setResults((prev) => new Map([...prev].filter(([id]) => !awardIds.has(id))));
+      setFormValues((prev) => new Map([...prev].filter(([id]) => !awardIds.has(id))));
 
-      toast.success('All boost results have been reset');
+      toast.success('Boost results reset for this competition');
     } catch (err) {
       console.error('Error resetting results:', err);
       toast.error('Failed to reset results');
@@ -255,7 +309,7 @@ export const AdminBoostResults = () => {
     if (!team) return code;
     return (
       <span className="inline-flex items-center gap-1.5">
-        <Flag code={team.code} className="w-4" />
+        <Flag code={team.code} crestUrl={team.crestUrl} kind={teamKind} className="w-4" />
         <span>{team.name}</span>
       </span>
     );
@@ -276,13 +330,32 @@ export const AdminBoostResults = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Trophy className="w-5 h-5" />
-          Global Boost Awards
-        </CardTitle>
-        <CardDescription>
-          Configure points and set results for standard boost awards
-        </CardDescription>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5" />
+              Boost Awards
+            </CardTitle>
+            <CardDescription>
+              Configure points and set results, per competition
+            </CardDescription>
+          </div>
+          <div className="w-[240px] max-w-full">
+            <Select value={selectedSlug} onValueChange={setSelectedSlug}>
+              <SelectTrigger aria-label="Competition">
+                <SelectValue placeholder="Select competition…" />
+              </SelectTrigger>
+              <SelectContent>
+                {competitions.map((comp) => (
+                  <SelectItem key={comp.slug} value={comp.slug}>
+                    {comp.short_name} {comp.season}
+                    {!comp.is_active ? ' (archived)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="settings" className="space-y-4">
@@ -462,7 +535,7 @@ export const AdminBoostResults = () => {
                               .map((team) => (
                                 <SelectItem key={team.id} value={team.code}>
                                   <span className="inline-flex items-center gap-1.5">
-                                    <Flag code={team.code} className="w-4" />
+                                    <Flag code={team.code} crestUrl={team.crestUrl} kind={teamKind} className="w-4" />
                                     <span>{team.name}</span>
                                   </span>
                                 </SelectItem>
@@ -476,6 +549,7 @@ export const AdminBoostResults = () => {
                           value={formValue.playerName}
                           onChange={(name) => updateFormValue(award.id, 'playerName', name)}
                           placeholder="Select winner…"
+                          competitionSlug={selectedSlug}
                         />
                       </div>
                     )}

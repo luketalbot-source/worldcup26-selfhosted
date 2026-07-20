@@ -54,6 +54,10 @@ interface PlayerPickerProps {
   disabled?: boolean;
   /** Placeholder shown on the trigger button when no value is selected. */
   placeholder?: string;
+  /** Scope the player roster to a specific competition slug. For surfaces
+   *  without a CompetitionProvider (the admin boost tab) — otherwise the
+   *  active competition (or unscoped) is used. */
+  competitionSlug?: string;
 }
 
 export const PlayerPicker = ({
@@ -61,9 +65,10 @@ export const PlayerPicker = ({
   onChange,
   disabled,
   placeholder,
+  competitionSlug,
 }: PlayerPickerProps) => {
   const { t } = useTranslation();
-  const { players, loading } = useQualifiedPlayers();
+  const { players, loading } = useQualifiedPlayers(competitionSlug);
   const teams = useQualifiedTeams();
   const { getTeamName } = useTeamName();
   const teamKind = useCompetitionsSafe()?.profile.teamKind ?? 'country';

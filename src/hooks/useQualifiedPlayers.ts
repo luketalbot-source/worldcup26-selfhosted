@@ -58,7 +58,7 @@ export function refreshPlayers(): void {
   }
 }
 
-export function useQualifiedPlayers(): {
+export function useQualifiedPlayers(slugOverride?: string): {
   players: Player[];
   loading: boolean;
   error: string | null;
@@ -66,9 +66,10 @@ export function useQualifiedPlayers(): {
   // Scope the roster to the ACTIVE competition — club competitions' squads
   // would otherwise merge with the WC archive's (and colliding TLAs like
   // 'POR' would cross-pollinate the type-ahead). Falls back to unscoped
-  // outside a CompetitionProvider (admin surfaces).
+  // outside a CompetitionProvider (admin surfaces). slugOverride lets a
+  // provider-less surface (the admin boost tab) scope to a chosen game.
   const ctx = useCompetitionsSafe();
-  const slug = ctx?.activeCompetition?.slug ?? '';
+  const slug = slugOverride ?? ctx?.activeCompetition?.slug ?? '';
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
