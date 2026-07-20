@@ -154,6 +154,27 @@ export const KnockoutMatchCard = ({
   const homeTeamName = getTeamName(match.homeTeam.code, match.homeTeam.name);
   const awayTeamName = getTeamName(match.awayTeam.code, match.awayTeam.name);
 
+
+  // Score-row team labels. Club competitions squeeze a small crest next to
+  // the name (there's room in the w-24 column); countries keep the plain
+  // text label so the WC archive renders exactly as before.
+  const homeNameEl = (
+    <span className="flex items-center justify-end gap-1.5 w-24 min-w-0">
+      {teamKind === 'club' && match.homeTeam.crestUrl && (
+        <Flag code={match.homeTeam.code} crestUrl={match.homeTeam.crestUrl} kind="club" className="w-4 shrink-0" />
+      )}
+      <span className="text-sm font-semibold text-foreground truncate">{homeTeamName}</span>
+    </span>
+  );
+  const awayNameEl = (
+    <span className="flex items-center justify-start gap-1.5 w-24 min-w-0">
+      <span className="text-sm font-semibold text-foreground truncate">{awayTeamName}</span>
+      {teamKind === 'club' && match.awayTeam.crestUrl && (
+        <Flag code={match.awayTeam.code} crestUrl={match.awayTeam.crestUrl} kind="club" className="w-4 shrink-0" />
+      )}
+    </span>
+  );
+
   // Determine what scores to show in the selector area
   const displayHomeScore = (isLive || isFinished) ? (match.homeScore ?? 0) : homeScore;
   const displayAwayScore = (isLive || isFinished) ? (match.awayScore ?? 0) : awayScore;
@@ -265,11 +286,11 @@ export const KnockoutMatchCard = ({
           <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-2 my-3">
             <div className="bg-background/60 backdrop-blur-md rounded-xl px-5 py-4 shadow-lg">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                {homeNameEl}
                 <div className="text-2xl font-bold text-foreground w-8 text-center">{displayHomeScore}</div>
                 <div className="text-lg text-muted-foreground font-light">-</div>
                 <div className="text-2xl font-bold text-foreground w-8 text-center">{displayAwayScore}</div>
-                <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                {awayNameEl}
               </div>
               {/* AET / PSO annotation. Renders only on knockout matches
                   that needed extra time or penalties; FD's `duration`
@@ -305,18 +326,18 @@ export const KnockoutMatchCard = ({
             <div className="bg-background/60 backdrop-blur-md rounded-xl px-5 py-4 shadow-lg">
               {isMatchLocked ? (
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                  {homeNameEl}
                   <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayHomeScore}</div>
                   <div className="text-lg text-muted-foreground font-light">-</div>
                   <div className="text-2xl font-bold text-muted-foreground w-8 text-center">{displayAwayScore}</div>
-                  <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                  {awayNameEl}
                 </div>
               ) : isUnresolved ? (
                 <div className="flex flex-col items-center gap-1">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                    {homeNameEl}
                     <span className="text-base text-muted-foreground font-medium">vs</span>
-                    <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                    {awayNameEl}
                   </div>
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     {t('knockout.tbdMatchup', 'Teams to be decided')}
@@ -325,7 +346,7 @@ export const KnockoutMatchCard = ({
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground w-24 text-right truncate">{homeTeamName}</span>
+                    {homeNameEl}
                     <ScoreSelector
                       value={homeScore}
                       onChange={(v) => handleScoreChange('home', v)}
@@ -337,7 +358,7 @@ export const KnockoutMatchCard = ({
                       onChange={(v) => handleScoreChange('away', v)}
                       disabled={disabled || isMatchLocked}
                     />
-                    <span className="text-sm font-semibold text-foreground w-24 text-left truncate">{awayTeamName}</span>
+                    {awayNameEl}
                   </div>
 
                   {/* Drawn knockout → goes to penalties. Require a decisive
