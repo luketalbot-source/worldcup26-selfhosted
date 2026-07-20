@@ -529,6 +529,7 @@
     "switchGame": "Switch game",
     "formatTournament": "Group stage + knockout tournament",
     "formatLeague": "Season-long league — predict every matchday",
-    "formatHybrid": "League phase + knockout rounds"
+    "formatHybrid": "League phase + knockout rounds",
+    "completedBadge": "Completed"
   }
 }

@@ -101,7 +101,9 @@ const ExpandableLeagueCard = ({
   });
   
   const { leaderboard: globalLeaderboard, loading: globalLeaderboardLoading } = useLeaderboard(
-    isEveryone && isExpanded && !isDevMode ? { tenantId } : null
+    isEveryone && isExpanded && !isDevMode
+      ? { tenantId, competitionId: everyoneScopeComp?.id ?? null }
+      : null
   );
   
   // Select data source based on dev mode
@@ -178,10 +180,24 @@ const ExpandableLeagueCard = ({
   // Competition-scoped sub-league badge ("⚽ Bundesliga"). Copy always says
   // "scope"/"points from", never "league" — the social-league naming
   // collision is real. Overall leagues (competition_id null) show nothing.
+  //
+  // The built-in EVERYONE board is per-game: it follows the active
+  // competition (falling back to the first active, then the archive), so
+  // standings reset for each game instead of summing Bundesliga + CL + WC
+  // into one confusing number.
   const competitionCtx = useCompetitionsSafe();
+  const everyoneScopeComp = isEveryone
+    ? competitionCtx?.activeCompetition ??
+      competitionCtx?.competitions.find((c) => c.is_active) ??
+      competitionCtx?.competitions[0] ??
+      null
+    : null;
+  const hasMultipleGames = (competitionCtx?.competitions.length ?? 0) > 1;
   const scopeName = league.competition_id
     ? competitionCtx?.competitions.find((c) => c.id === league.competition_id)?.short_name ?? null
-    : null;
+    : isEveryone && hasMultipleGames
+      ? everyoneScopeComp?.short_name ?? null
+      : null;
   
   const handleCopyCode = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -867,7 +883,14 @@ export const LeaguesView = () => {
           <div className="p-4 flex gap-3">
             <Button
               className="flex-1"
-              onClick={() => setShowCreateDialog(true)}
+              onClick={() => {
+                // Default the scoring scope to the game the user is in —
+                // matches the per-game mental model; 'All competitions'
+                // stays one tap away.
+                const activeGame = competitionCtxTop?.activeCompetition;
+                setNewScope(activeGame && activeGame.is_active ? activeGame.id : null);
+                setShowCreateDialog(true);
+              }}
             >
               <Plus className="w-4 h-4 mr-2" />
               {t('leagues.create')}

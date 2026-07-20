@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Archive, ChevronRight, Swords, Table2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCompetitions, type Competition } from '@/contexts/CompetitionContext';
+import { competitionBanners } from '@/assets/competitions';
 
 // The game hub: entry page for tenants with several competitions enabled.
 // One card per ACTIVE game, with completed (archived) games in their own
@@ -30,6 +31,51 @@ const GameCard = ({
 }) => {
   const { t } = useTranslation();
   const Icon = archived ? Archive : FORMAT_META[comp.format].icon;
+  const banner = competitionBanners[comp.fd_code];
+
+  if (banner) {
+    // Banner card: illustrated art with a left-to-right dark scrim so the
+    // white text stays readable over any artwork. Archived games render
+    // desaturated with the archive badge.
+    return (
+      <motion.button
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.06 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={onEnter}
+        className="relative w-full text-left rounded-2xl border border-border/50 shadow-card overflow-hidden transition-all hover:shadow-lg h-28"
+      >
+        <img
+          src={banner}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className={`absolute inset-0 w-full h-full object-cover ${archived ? 'grayscale-[0.7] opacity-70' : ''}`}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-black/10" />
+        <div className="relative h-full flex items-center gap-4 p-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-white truncate drop-shadow">{comp.name}</h3>
+              <span className="text-xs text-white/70 shrink-0">{comp.season}</span>
+              {archived && (
+                <span className="flex items-center gap-1 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0">
+                  <Archive className="w-3 h-3" />
+                  {t('competitions.completedBadge')}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-white/80 truncate drop-shadow">
+              {archived ? t('competitions.seasonEnded') : t(FORMAT_META[comp.format].subtitleKey)}
+            </p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-white/80 shrink-0" />
+        </div>
+      </motion.button>
+    );
+  }
 
   return (
     <motion.button

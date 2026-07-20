@@ -27,10 +27,15 @@ const LEADERBOARD_TTL_MS = 15_000;
 
 export async function fetchLeaderboard(
   tenantId: string,
-  { force = false }: { force?: boolean } = {},
+  { force = false, competitionId }: { force?: boolean; competitionId?: string | null } = {},
 ): Promise<LeaderboardEntry[]> {
   const data = await cachedGet<ApiLeaderboardEntry[]>('/leaderboard', {
-    params: { tenant_id: tenantId },
+    params: {
+      tenant_id: tenantId,
+      // Per-game scoping: the "Everyone" board resets for each competition
+      // rather than summing across games. Absent = combined (legacy).
+      ...(competitionId ? { competition_id: competitionId } : {}),
+    },
     ttlMs: LEADERBOARD_TTL_MS,
     force,
   });

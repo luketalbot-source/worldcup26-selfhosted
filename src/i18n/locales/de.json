@@ -529,6 +529,7 @@
     "switchGame": "Spiel wechseln",
     "formatTournament": "Gruppenphase + K.-o.-Turnier",
     "formatLeague": "Ganze Saison — jeden Spieltag tippen",
-    "formatHybrid": "Ligaphase + K.-o.-Runden"
+    "formatHybrid": "Ligaphase + K.-o.-Runden",
+    "completedBadge": "Beendet"
   }
 }

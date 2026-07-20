@@ -3,6 +3,9 @@ import { fetchLeaderboard, type LeaderboardEntry } from '@/lib/leaderboardCache'
 
 interface UseLeaderboardOptions {
   tenantId: string | null;
+  /** Scope points to one competition (the per-game "Everyone" board).
+   *  Absent/null = combined across every competition. */
+  competitionId?: string | null;
 }
 
 export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string | null) => {
@@ -11,6 +14,9 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
   const tenantId: string | null = isOptionsObject
     ? (optionsOrTenantId as UseLeaderboardOptions).tenantId
     : (optionsOrTenantId as string | null);
+  const competitionId: string | null = isOptionsObject
+    ? (optionsOrTenantId as UseLeaderboardOptions).competitionId ?? null
+    : null;
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +25,8 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
     if (tenantId) {
       load();
     }
-  }, [tenantId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, competitionId]);
 
   const load = async (force = false) => {
     if (!tenantId) {
@@ -31,7 +38,7 @@ export const useLeaderboard = (optionsOrTenantId: UseLeaderboardOptions | string
     setLoading(true);
 
     try {
-      setLeaderboard(await fetchLeaderboard(tenantId, { force }));
+      setLeaderboard(await fetchLeaderboard(tenantId, { force, competitionId }));
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     } finally {
