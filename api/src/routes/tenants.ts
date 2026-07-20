@@ -50,6 +50,16 @@ router.post(
       VALUES (gen_random_uuid(), ${body.name}, ${uid}, NOW())
       RETURNING *
     `;
+    // New tenants start with every ACTIVE competition enabled — a tenant
+    // with zero enabled competitions renders an empty app, and "created it,
+    // now it works" is the right default. Archives stay off (the new tenant
+    // never played them); admins can still toggle everything afterwards.
+    const tenantId = (rows[0] as { id: string }).id;
+    await sql`
+      INSERT INTO public.tenant_competitions (tenant_id, competition_id)
+      SELECT ${tenantId}, id FROM public.competitions WHERE is_active
+      ON CONFLICT (tenant_id, competition_id) DO NOTHING
+    `;
     return c.json(rows[0], 201);
   }
 );

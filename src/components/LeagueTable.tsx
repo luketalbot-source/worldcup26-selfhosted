@@ -21,9 +21,14 @@ export const LeagueTable = () => {
   const { liveMatches, getMatchesByMatchday, getMatchdays } = useLiveMatches();
   const { teams } = useTeams();
 
-  // All matches (every matchday) as UI Match objects for the engine.
+  // League-phase matches only: FD stamps knockout fixtures with matchday
+  // numbers too (CL KO legs carry 1/2), so a plain matchday flatMap would
+  // count knockout results into the league table.
   const allMatches = useMemo(
-    () => getMatchdays().flatMap((day) => getMatchesByMatchday(day)),
+    () =>
+      getMatchdays()
+        .flatMap((day) => getMatchesByMatchday(day))
+        .filter((m) => m.stage === 'regular' || m.stage === 'league'),
     [getMatchdays, getMatchesByMatchday],
   );
 
@@ -33,11 +38,15 @@ export const LeagueTable = () => {
   );
 
   const zones = profile.tableZones;
+  // Every row carries the same 2px rail so the table edge reads as one
+  // continuous, designed line — zone rows color their segment, the rest
+  // stay neutral. (Zone-only borders left the bottom rows edge-less,
+  // which read as an unfinished table.)
   const zoneClass = (index: number): string => {
     if (!zones) return '';
     if (index < zones.direct) return 'border-l-2 border-l-fifa-green bg-fifa-green/5';
     if (zones.playoff && index < zones.playoff) return 'border-l-2 border-l-primary bg-primary/5';
-    return '';
+    return 'border-l-2 border-l-border';
   };
 
   if (liveMatches.length === 0) {
@@ -126,6 +135,22 @@ export const LeagueTable = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Zone legend — only for formats with qualification zones (CL). */}
+      {zones && (
+        <div className="px-4 py-3 border-t border-border/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-[3px] bg-fifa-green inline-block" />
+            {t('standings.zoneDirect', { n: zones.direct })}
+          </span>
+          {zones.playoff && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-[3px] bg-primary inline-block" />
+              {t('standings.zonePlayoff', { from: zones.direct + 1, to: zones.playoff })}
+            </span>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 };

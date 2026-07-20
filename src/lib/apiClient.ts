@@ -136,6 +136,8 @@ export const api = {
             request<T>('GET', path, { params }),
   post:   <T = unknown>(path: string, body?: unknown) =>
             request<T>('POST', path, { body }),
+  put:    <T = unknown>(path: string, body?: unknown) =>
+            request<T>('PUT', path, { body }),
   patch:  <T = unknown>(path: string, body?: unknown) =>
             request<T>('PATCH', path, { body }),
   delete: <T = unknown>(path: string) =>

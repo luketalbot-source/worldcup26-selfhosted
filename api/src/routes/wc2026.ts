@@ -13,7 +13,10 @@ router.get("/teams", async (c) => {
   const payload = await buildTeamsPayload("wc-2026");
   if (!payload) return c.json({ error: "Unknown competition" }, 404);
   c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
-  return c.json(payload);
+  // Byte-identical to the pre-multi-competition response: the alias strips
+  // the `competition` field the generic endpoint adds.
+  const { competition: _competition, ...legacyShape } = payload;
+  return c.json(legacyShape);
 });
 
 export default router;

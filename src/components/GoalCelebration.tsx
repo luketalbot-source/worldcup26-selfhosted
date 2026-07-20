@@ -15,15 +15,18 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { useTeams } from '@/hooks/useTeams';
 import { Flag } from '@/components/Flag';
 import { getFlagIconCode } from '@/lib/teamFlagCode';
+import { getFormatProfile } from '@/lib/competitionFormats';
 
 const VISIBLE_MS = 4000; // total time the overlay stays on screen
 
 export const GoalCelebration = () => {
   const { goalQueue, dismissGoal } = useLiveMatchesContext();
   const { getTeamByCode } = useTeams();
+  const competitionCtx = useCompetitionsSafe();
 
   // Animate the queue head. When it's been on screen for VISIBLE_MS we
   // dismiss it from the queue, which causes the next (if any) to slide
@@ -41,12 +44,21 @@ export const GoalCelebration = () => {
   if (!active) return null;
 
   const scorer = active.scoredBy === 'home' ? active.homeTeam : active.awayTeam;
-  // Resolve the team metadata only as a name-fallback; the flag itself
-  // comes from <Flag code=...> below so it renders identically across
-  // platforms (no Windows emoji-letter fallback).
-  const scoringTeamMeta = getTeamByCode(scorer.code);
-  void scoringTeamMeta; // (still referenced for future score-board variants)
-  const hasFlag = !!getFlagIconCode(scorer.code);
+  // Country vs club rendering follows the GOAL'S competition (it may not be
+  // the active one — the SSE stream spans every enabled competition). Clubs
+  // never fall back to a country flag: a full-screen Portugal flag for an
+  // FC Porto goal ('POR' TLA collision) would be the app's most prominent
+  // wrong visual. Crest comes from the active roster cache when available;
+  // otherwise the ⚽ fallback celebrates just as loudly.
+  const goalComp = active.competitionId
+    ? competitionCtx?.competitions.find((c) => c.id === active.competitionId) ?? null
+    : null;
+  const teamKind = goalComp
+    ? getFormatProfile(goalComp.format).teamKind
+    : competitionCtx?.profile.teamKind ?? 'country';
+  const crestUrl = getTeamByCode(scorer.code)?.crestUrl ?? null;
+  const hasFlag =
+    teamKind === 'club' ? !!crestUrl : !!getFlagIconCode(scorer.code);
 
   return (
     <AnimatePresence>
@@ -102,7 +114,7 @@ export const GoalCelebration = () => {
             className="flex items-center justify-center"
           >
             {hasFlag ? (
-              <Flag code={scorer.code} className="w-32 md:w-44 shadow-2xl" />
+              <Flag code={scorer.code} crestUrl={crestUrl} kind={teamKind} className="w-32 md:w-44 shadow-2xl" />
             ) : (
               // Unknown team code: keep the ⚽ fallback rather than a
               // grey rectangle; goals from synthetic / test data still

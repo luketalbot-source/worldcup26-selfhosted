@@ -27,6 +27,7 @@ import { useQualifiedPlayers, type Player } from '@/hooks/useQualifiedPlayers';
 import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { useTeamName } from '@/hooks/useTeamName';
 import { Flag } from '@/components/Flag';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { translatePlayerPosition } from '@/lib/playerPositions';
 
 // Mirror the normaliseForSearch on the backend — kept here so the
@@ -65,6 +66,7 @@ export const PlayerPicker = ({
   const { players, loading } = useQualifiedPlayers();
   const teams = useQualifiedTeams();
   const { getTeamName } = useTeamName();
+  const teamKind = useCompetitionsSafe()?.profile.teamKind ?? 'country';
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -188,7 +190,7 @@ export const PlayerPicker = ({
       const team = teams.find((tm) => tm.code === selected.team_code);
       return (
         <span className="flex items-center gap-2 truncate">
-          {team && <Flag code={team.code} className="w-4" />}
+          {team && <Flag code={team.code} crestUrl={team.crestUrl} kind={teamKind} className="w-4" />}
           <span className="truncate font-medium">{selected.full_name}</span>
           {selected.position && (
             <span className="text-xs text-muted-foreground">
@@ -287,7 +289,12 @@ export const PlayerPicker = ({
                       <ChevronLeft className="w-4 h-4" />
                     </Button>
                     <span className="inline-flex items-center gap-1.5">
-                      <Flag code={drillTeam} className="w-4" />
+                      <Flag
+                        code={drillTeam}
+                        crestUrl={teams.find((tm) => tm.code === drillTeam)?.crestUrl}
+                        kind={teamKind}
+                        className="w-4"
+                      />
                       {getTeamName(
                         drillTeam,
                         teams.find((tm) => tm.code === drillTeam)?.name,
@@ -377,6 +384,7 @@ interface CountryGridProps {
 
 const CountryGrid = ({ teams, onPick }: CountryGridProps) => {
   const { getTeamName } = useTeamName();
+  const teamKind = useCompetitionsSafe()?.profile.teamKind ?? 'country';
   return (
     <div className="grid grid-cols-2 gap-2 p-3">
       {teams.map((tm) => (
@@ -386,7 +394,7 @@ const CountryGrid = ({ teams, onPick }: CountryGridProps) => {
           onClick={() => onPick(tm.code)}
           className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border hover:bg-muted text-left transition-colors"
         >
-          <Flag code={tm.code} className="w-5 shrink-0" />
+          <Flag code={tm.code} crestUrl={tm.crestUrl} kind={teamKind} className="w-5 shrink-0" />
           <span className="text-sm truncate">{getTeamName(tm.code, tm.name)}</span>
         </button>
       ))}
@@ -403,6 +411,7 @@ interface PlayerListProps {
 const PlayerList = ({ items, onPick, teams }: PlayerListProps) => {
   const { t } = useTranslation();
   const { getTeamName } = useTeamName();
+  const teamKind = useCompetitionsSafe()?.profile.teamKind ?? 'country';
   return (
     <div className="divide-y divide-border">
       {items.map((p) => {
@@ -420,7 +429,7 @@ const PlayerList = ({ items, onPick, teams }: PlayerListProps) => {
             onClick={() => onPick(p)}
             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted text-left transition-colors"
           >
-            <Flag code={p.team_code} className="w-5 shrink-0" />
+            <Flag code={p.team_code} crestUrl={team?.crestUrl} kind={teamKind} className="w-5 shrink-0" />
             <span className="text-xs text-muted-foreground w-6 tabular-nums shrink-0">
               {p.shirt_number ? `#${p.shirt_number}` : ''}
             </span>

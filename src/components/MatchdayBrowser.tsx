@@ -80,8 +80,10 @@ export const MatchdayBrowser = () => {
 
   return (
     <div className="space-y-4">
-      {/* Pager row — sticky under the view selector */}
-      <div className="sticky top-0 bg-background z-40 pb-2 -mx-4 px-4 pt-2">
+      {/* Pager row — sticky BELOW the sub-view selector (which is sticky
+          top-0 z-50 with an opaque background; same offset would occlude
+          this row entirely once the page scrolls). */}
+      <div className="sticky top-14 bg-background z-40 pb-2 -mx-4 px-4 pt-2">
         <div className="max-w-[700px] mx-auto flex items-center gap-2">
           <motion.button
             whileTap={{ scale: 0.9 }}

@@ -85,6 +85,10 @@ export interface GoalEvent {
   // re-mounting their animation even when the same match scores twice.
   id: number;
   matchId: string;
+  // Which competition the goal belongs to — the celebration overlay needs
+  // it to pick country-flag vs club-crest rendering (the goal may come
+  // from a non-active bucket). Null on legacy events.
+  competitionId: string | null;
   scoredBy: 'home' | 'away';
   homeTeam: { name: string; code: string };
   awayTeam: { name: string; code: string };
@@ -184,6 +188,15 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
   const activeBucketKey = activeComp?.id ?? UNSCOPED;
   const matches = buckets[activeBucketKey] ?? [];
 
+  // Enabled-competition ids for SSE filtering, as a ref so the (mount-once)
+  // stream handler always sees the current set. null = no provider or
+  // competitions still resolving → don't filter (legacy behavior).
+  const enabledCompIdsRef = useRef<Set<string> | null>(null);
+  enabledCompIdsRef.current =
+    competitionCtx && !competitionCtx.loading
+      ? new Set(competitionCtx.competitions.map((comp) => comp.id))
+      : null;
+
   // Per-match score snapshot updated SYNCHRONOUSLY inside the SSE handler,
   // independent of React state. Two reasons:
   //   1) React-state-derived refs (e.g. `matchesRef.current = matches` in
@@ -253,8 +266,12 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
       void fetchLiveMatches();
     } else if (competitionCtx === null && !fetchedCompsRef.current.has(UNSCOPED)) {
       void fetchLiveMatches();
+    } else if (competitionCtx !== null && !competitionCtx.loading && !activeComp) {
+      // Tenant with ZERO enabled competitions: nothing to fetch — resolve
+      // loading so views render their empty states instead of hanging.
+      setLoading(false);
     }
-  }, [activeComp, competitionCtx, fetchLiveMatches]);
+  }, [activeComp, competitionCtx, competitionCtx?.loading, fetchLiveMatches]);
 
   const canSync = useCallback(() => {
     if (!lastSync) return true;
@@ -366,6 +383,16 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
       try {
         lastSseEventAtRef.current = Date.now();
         const incoming = JSON.parse((ev as MessageEvent).data) as LiveMatch;
+
+        // The SSE stream is GLOBAL (every competition's matches). Drop
+        // events for competitions this tenant hasn't enabled — otherwise
+        // archive-only tenants get goal celebrations and LIVE badges for
+        // competitions they can't even see. Events without competition_id
+        // (legacy API mid-deploy) pass through.
+        const enabled = enabledCompIdsRef.current;
+        if (enabled && incoming.competition_id && !enabled.has(incoming.competition_id)) {
+          return;
+        }
         const prev = prevScoresRef.current.get(incoming.match_id);
 
         // Goal detection. Two guard rails:
@@ -390,6 +417,7 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
             newGoals.push({
               id: ++goalSeqRef.current,
               matchId: incoming.match_id,
+              competitionId: incoming.competition_id ?? null,
               scoredBy: 'home',
               homeTeam: { name: incoming.home_team_name, code: incoming.home_team_code },
               awayTeam: { name: incoming.away_team_name, code: incoming.away_team_code },
@@ -401,6 +429,7 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
             newGoals.push({
               id: ++goalSeqRef.current,
               matchId: incoming.match_id,
+              competitionId: incoming.competition_id ?? null,
               scoredBy: 'away',
               homeTeam: { name: incoming.home_team_name, code: incoming.home_team_code },
               awayTeam: { name: incoming.away_team_name, code: incoming.away_team_code },

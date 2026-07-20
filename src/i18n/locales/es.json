@@ -147,7 +147,9 @@
     "lost": "P",
     "goalDifference": "DG",
     "points": "Pts",
-    "group": "Grupo"
+    "group": "Grupo",
+    "zoneDirect": "Top {{n}}: directo a octavos de final",
+    "zonePlayoff": "{{from}}–{{to}}: ronda de playoff"
   },
   "leaderboard": {
     "title": "Clasificación",

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/apiClient';
 import { boostResultIncludes } from '@/lib/boostMatch';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
@@ -33,11 +34,13 @@ export interface BoostResult {
 export const useBoostAwards = () => {
   const { user } = useAuth();
   const { tenantId } = useTenant();
-  // Global deadline lives on the LiveMatches context — the moment the first
-  // knockout match kicks off, all boost predictions lock simultaneously.
-  // Per-award lock_date columns are now ignored (the column stays in the DB
-  // for back-compat with already-saved configs but no longer drives lock).
+  // Per-competition deadline lives on the LiveMatches context (mirrors the
+  // server's boostDeadline.ts). Awards are fetched SCOPED to the active
+  // competition, so applying that one deadline to every listed award is
+  // correct — every award in the list belongs to the active competition.
   const { boostsDeadline } = useLiveMatchesContext();
+  const competitionCtx = useCompetitionsSafe();
+  const activeSlug = competitionCtx?.activeCompetition?.slug ?? null;
   const [awards, setAwards] = useState<BoostAward[]>([]);
   const [predictions, setPredictions] = useState<BoostPrediction[]>([]);
   const [results, setResults] = useState<BoostResult[]>([]);
@@ -46,8 +49,11 @@ export const useBoostAwards = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const awardsPath = activeSlug
+        ? `/boosts/awards?competition=${encodeURIComponent(activeSlug)}`
+        : '/boosts/awards';
       const [awardsData, resultsData] = await Promise.all([
-        api.get<BoostAward[]>('/boosts/awards'),
+        api.get<BoostAward[]>(awardsPath),
         api.get<BoostResult[]>('/boosts/results'),
       ]);
       setAwards(awardsData || []);
@@ -68,7 +74,8 @@ export const useBoostAwards = () => {
 
   useEffect(() => {
     fetchData();
-  }, [user, tenantId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, tenantId, activeSlug]);
 
   const savePrediction = async (awardId: string, teamCode: string | null, playerName: string | null) => {
     if (!user || !tenantId) return false;

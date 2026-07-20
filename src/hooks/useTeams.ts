@@ -171,12 +171,22 @@ export const useTeams = (competitionSlug?: string) => {
   }, [slug]);
 
   // Retry every 3s while the roster is empty (backend is probably mid-sync).
+  // Cancellation-guarded: a response landing after the user switched
+  // competitions must not install the OLD roster under the new slug's view.
   useEffect(() => {
     if (data && data.teams.length > 0) return;
+    let cancelled = false;
     const id = setInterval(() => {
-      ensureLoad(slug, true).then(setData).catch(() => { /* ignore */ });
+      ensureLoad(slug, true)
+        .then((d) => {
+          if (!cancelled) setData(d);
+        })
+        .catch(() => { /* ignore */ });
     }, 3000);
-    return () => clearInterval(id);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [data, slug]);
 
   const getTeamByCode = (code: string): Team | undefined =>

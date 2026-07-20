@@ -150,7 +150,9 @@
     "group": "Gruppe",
     "tab": "Tabelle",
     "form": "Form",
-    "noFixtures": "Der Spielplan wurde noch nicht veröffentlicht."
+    "noFixtures": "Der Spielplan wurde noch nicht veröffentlicht.",
+    "zoneDirect": "Top {{n}}: direkt ins Achtelfinale",
+    "zonePlayoff": "{{from}}–{{to}}: K.O.-Playoff-Runde"
   },
   "leaderboard": {
     "title": "Rangliste",

@@ -22,6 +22,7 @@ import { api, ApiError } from '@/lib/apiClient';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { Flag } from './Flag';
+import { useTeams } from '@/hooks/useTeams';
 
 interface TopScorer {
   player_name: string;
@@ -132,6 +133,15 @@ export const StatsView = () => {
   const { matches, goalQueue } = useLiveMatchesContext();
   const competitionCtx = useCompetitionsSafe();
   const activeSlug = competitionCtx?.activeCompetition?.slug ?? null;
+  // Club competitions render crests (never country flags — TLA collisions
+  // like Porto/Portugal); crest URLs come from the active roster cache.
+  const teamKind = competitionCtx?.profile.teamKind ?? 'country';
+  const { getTeamByCode } = useTeams();
+  const teamFlagProps = (code: string) => ({
+    code,
+    crestUrl: getTeamByCode(code)?.crestUrl ?? null,
+    kind: teamKind,
+  });
   const [stats, setStats] = useState<TournamentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -358,7 +368,7 @@ export const StatsView = () => {
                 >
                   {idx + 1}
                 </div>
-                <Flag code={scorer.team_code} className="w-5 shrink-0" label={scorer.team_name} />
+                <Flag {...teamFlagProps(scorer.team_code)} className="w-5 shrink-0" label={scorer.team_name} />
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate text-foreground">
                     {scorer.player_name}
@@ -396,8 +406,7 @@ export const StatsView = () => {
           {stats && stats.team_goals[0] && (
             <>
               <div className="flex items-center gap-2">
-                <Flag
-                  code={stats.team_goals[0].team_code}
+                <Flag {...teamFlagProps(stats.team_goals[0].team_code)}
                   className="w-5 shrink-0"
                   label={stats.team_goals[0].team_name}
                 />
@@ -419,8 +428,7 @@ export const StatsView = () => {
           {stats && stats.clean_sheets[0] && (
             <>
               <div className="flex items-center gap-2">
-                <Flag
-                  code={stats.clean_sheets[0].team_code}
+                <Flag {...teamFlagProps(stats.clean_sheets[0].team_code)}
                   className="w-5 shrink-0"
                   label={stats.clean_sheets[0].team_name}
                 />
@@ -447,8 +455,7 @@ export const StatsView = () => {
           {stats?.biggest_win && (
             <>
               <div className="flex items-center gap-2 text-sm">
-                <Flag
-                  code={stats.biggest_win.home_team_code}
+                <Flag {...teamFlagProps(stats.biggest_win.home_team_code)}
                   className="w-5 shrink-0"
                   label={stats.biggest_win.home_team_name}
                 />
@@ -459,8 +466,7 @@ export const StatsView = () => {
                 <span className="font-extrabold tabular-nums text-foreground">
                   {stats.biggest_win.away_score}
                 </span>
-                <Flag
-                  code={stats.biggest_win.away_team_code}
+                <Flag {...teamFlagProps(stats.biggest_win.away_team_code)}
                   className="w-5 shrink-0"
                   label={stats.biggest_win.away_team_name}
                 />
@@ -486,8 +492,7 @@ export const StatsView = () => {
                 {stats.fastest_goal.player_name}
               </div>
               <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
-                <Flag
-                  code={stats.fastest_goal.team_code}
+                <Flag {...teamFlagProps(stats.fastest_goal.team_code)}
                   className="w-3.5 shrink-0"
                   label={stats.fastest_goal.team_name}
                 />
@@ -558,8 +563,7 @@ export const StatsView = () => {
               <span className="text-muted-foreground mr-auto">
                 {t('stats.worstDiscipline')}
               </span>
-              <Flag
-                code={stats.worst_discipline.team_code}
+              <Flag {...teamFlagProps(stats.worst_discipline.team_code)}
                 className="w-4 shrink-0"
                 label={stats.worst_discipline.team_name}
               />

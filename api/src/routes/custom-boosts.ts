@@ -6,7 +6,7 @@ import { requireAuth, requireAdmin, type AuthEnv } from "../auth/middleware";
 import { getBoostDeadlineMs, BOOSTS_LOCKED_ERROR } from "../lib/boostDeadline";
 import { isBoostLocked } from "../lib/predictionLock";
 import { normalizeWinners } from "../lib/resultsExport";
-import { WC_COMPETITION_ID } from "../lib/competitions";
+import { WC_COMPETITION_ID, getActiveCompetitions } from "../lib/competitions";
 
 const router = new Hono<AuthEnv>();
 
@@ -26,16 +26,21 @@ const createBoostSchema = z.object({
   prediction_type: z.string(),
   image_url: z.string().url().optional(),
   lock_date: z.string().datetime().optional(),
+  // Optional competition scope: sets which competition's deadline governs
+  // this boost AND which competition-scoped leaderboards count it. NULL =
+  // unscoped (counts in overall boards; locks at the earliest active-
+  // competition deadline — see the predictions lock below).
+  competition_id: z.string().uuid().nullable().optional(),
 });
 
 router.post("/", requireAdmin, zValidator("json", createBoostSchema), async (c) => {
   const body = c.req.valid("json");
   const rows = await sql`
-    INSERT INTO tenant_custom_boosts (id, tenant_id, title, description, points_value, prediction_type, image_url, lock_date, created_at, updated_at)
+    INSERT INTO tenant_custom_boosts (id, tenant_id, title, description, points_value, prediction_type, image_url, lock_date, competition_id, created_at, updated_at)
     VALUES (
       gen_random_uuid(), ${body.tenant_id}, ${body.title}, ${body.description ?? null},
       ${body.points_value}, ${body.prediction_type}, ${body.image_url ?? null},
-      ${body.lock_date ?? null}::timestamptz, NOW(), NOW()
+      ${body.lock_date ?? null}::timestamptz, ${body.competition_id ?? null}, NOW(), NOW()
     )
     RETURNING *
   `;
@@ -110,15 +115,30 @@ router.post(
     const body = c.req.valid("json");
 
     // Server-side lock, matching the UI. A custom boost may be scoped to a
-    // competition (its deadline applies) or tenant-wide (competition_id
-    // NULL → falls back to the WC2026 archive's pinned deadline so legacy
-    // custom boosts stay locked exactly as before).
+    // competition (its deadline applies) or unscoped (competition_id NULL).
+    // Unscoped boosts lock at the EARLIEST deadline among the currently
+    // ACTIVE competitions — a boost spanning several competitions must lock
+    // when the first of them starts. With no active competitions (archive-
+    // only era) they fall back to the WC pinned deadline, which keeps every
+    // legacy custom boost locked exactly as before.
     const boost = await sql<{ competition_id: string | null }[]>`
       SELECT competition_id FROM tenant_custom_boosts WHERE id = ${body.custom_boost_id}
     `;
     if (boost.length === 0) return c.json({ error: "Unknown custom boost" }, 404);
-    const deadlineCompId = boost[0].competition_id ?? WC_COMPETITION_ID;
-    if (isBoostLocked(await getBoostDeadlineMs(deadlineCompId), Date.now())) {
+    let deadlineMs: number | null;
+    if (boost[0].competition_id) {
+      deadlineMs = await getBoostDeadlineMs(boost[0].competition_id);
+    } else {
+      const active = await getActiveCompetitions();
+      if (active.length === 0) {
+        deadlineMs = await getBoostDeadlineMs(WC_COMPETITION_ID);
+      } else {
+        const all = await Promise.all(active.map((comp) => getBoostDeadlineMs(comp.id)));
+        const known = all.filter((v): v is number => v != null);
+        deadlineMs = known.length > 0 ? Math.min(...known) : null;
+      }
+    }
+    if (isBoostLocked(deadlineMs, Date.now())) {
       return c.json({ error: BOOSTS_LOCKED_ERROR }, 403);
     }
 

@@ -92,7 +92,9 @@
     "group": "Group",
     "tab": "Table",
     "form": "Form",
-    "noFixtures": "Fixtures haven't been published yet."
+    "noFixtures": "Fixtures haven't been published yet.",
+    "zoneDirect": "Top {{n}}: straight to the Round of 16",
+    "zonePlayoff": "{{from}}–{{to}}: knockout playoff round"
   },
   "matchday": {
     "tab": "Matchday",

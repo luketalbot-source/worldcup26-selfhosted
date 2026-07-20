@@ -5,7 +5,7 @@ import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 import { emitMatchEvent, type MatchGoal } from "../lib/matchEvents";
 import { fetchMatchWithGoals, runSync, syncState, resyncPlayedMatchEvents } from "../lib/matchSync";
-import { getActiveCompetitions, getCompetitionBySlug, invalidateCompetitionsCache } from "../lib/competitions";
+import { getActiveCompetitions, getCompetitionBySlug, invalidateCompetitionsCache, WC_COMPETITION_ID } from "../lib/competitions";
 import { invalidateLeaderboardCache } from "./leaderboard";
 
 const router = new Hono<AuthEnv>();
@@ -21,10 +21,12 @@ router.delete("/users/:userId", requireAdmin, async (c) => {
 router.post("/test-insert", requireAdmin, async (c) => {
   console.error("[test-insert] starting");
   try {
+    // Target-less ON CONFLICT works under both unique-constraint regimes
+    // (global tla now; composite (competition_id, tla) after Phase C).
     await sql`
-      INSERT INTO public.teams (tla, name, fd_team_id)
-      VALUES ('ZZT', 'Zz Test', -1)
-      ON CONFLICT (tla) DO UPDATE SET updated_at = NOW()
+      INSERT INTO public.teams (tla, name, fd_team_id, competition_id)
+      VALUES ('ZZT', 'Zz Test', -1, ${WC_COMPETITION_ID})
+      ON CONFLICT DO NOTHING
     `;
     const rows = (await sql`SELECT COUNT(*)::int AS n FROM public.teams`) as unknown as { n: number }[];
     console.error("[test-insert] done, count =", rows[0]?.n);
@@ -45,9 +47,9 @@ router.post("/test-bg", requireAdmin, async (c) => {
     console.error("[test-bg] starting background work");
     try {
       await sql`
-        INSERT INTO public.teams (tla, name, fd_team_id)
-        VALUES ('ZZB', 'Zz Bg Test', -2)
-        ON CONFLICT (tla) DO UPDATE SET updated_at = NOW()
+        INSERT INTO public.teams (tla, name, fd_team_id, competition_id)
+        VALUES ('ZZB', 'Zz Bg Test', -2, ${WC_COMPETITION_ID})
+        ON CONFLICT DO NOTHING
       `;
       const rows = (await sql`SELECT COUNT(*)::int AS n FROM public.teams`) as unknown as { n: number }[];
       bgTestState.finished = new Date().toISOString();
@@ -374,10 +376,11 @@ router.post("/seed-demo-matches", requireAdmin, async (c) => {
   for (const m of demo) {
     await sql`
       INSERT INTO public.live_matches (
-        match_id, home_team_name, home_team_code, away_team_name, away_team_code,
+        match_id, competition_id, home_team_name, home_team_code, away_team_name, away_team_code,
         match_date, venue, stage, group_name, status, last_updated
       ) VALUES (
         ${`DEMO-${m.g}-${m.hc}-${m.ac}`},
+        ${WC_COMPETITION_ID},
         ${m.home}, ${m.hc}, ${m.away}, ${m.ac},
         ${m.d}, ${m.v}, 'group', ${m.g}, 'SCHEDULED', NOW()
       )

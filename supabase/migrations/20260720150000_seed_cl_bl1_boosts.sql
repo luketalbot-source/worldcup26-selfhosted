@@ -1,7 +1,11 @@
 -- Multi-competition platform, Phase D step 1: CL + BL1 boost award seeds.
 --
--- ⚠️ Apply as part of GO-LIVE (after Phase C), not before: awards become
--- visible in the boost tab the moment a tenant has the competition enabled.
+-- ⚠️ Apply as part of GO-LIVE (after Phase C), not before. Visibility:
+-- the boost tab fetches awards SCOPED to the tenant's active competition
+-- (GET /api/boosts/awards?competition=<slug>), so these rows only appear
+-- to tenants that have CL/BL1 enabled AND selected. The unscoped legacy
+-- GET (no param) returns every row — deployed frontends all pass the
+-- param, so that path only serves back-compat/API consumers.
 -- Competition activation (is_active=true) and per-tenant enablement are
 -- deliberate admin actions, NOT part of this migration.
 --

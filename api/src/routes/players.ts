@@ -29,13 +29,23 @@ interface PlayerRow {
 }
 
 // Public read — every signed-in user needs this to render the picker.
-// Returns the full roster; the frontend filters/sorts client-side
-// (the list is ~1300 rows, well under the threshold where you'd
-// paginate or push search to the server).
+// Returns the roster; the frontend filters/sorts client-side (the list is
+// ~1300 rows per competition, well under pagination territory).
+// ?competition=<slug> scopes to one competition — REQUIRED once several
+// competitions have squads, or rosters with colliding TLAs merge (club
+// 'POR' + country 'POR'). No param = all rows (legacy back-compat).
 router.get("/", requireAuth, async (c) => {
+  const slug = c.req.query("competition");
+  let competitionId: string | null = null;
+  if (slug) {
+    const comp = await getCompetitionBySlug(slug);
+    if (!comp) return c.json({ error: `Unknown competition '${slug}'` }, 404);
+    competitionId = comp.id;
+  }
   const rows = await sql<PlayerRow[]>`
     SELECT id, team_code, full_name, position, shirt_number, date_of_birth
     FROM public.live_players
+    WHERE (${competitionId}::uuid IS NULL OR competition_id = ${competitionId})
     ORDER BY team_code ASC, full_name ASC
   `;
   return c.json(rows);
@@ -142,15 +152,19 @@ router.post(
 
 // Admin: wipe a team's roster (use before a fresh-import workflow that
 // doesn't pass `replace: true` — kept separate so the admin can clear
-// without re-uploading immediately).
+// without re-uploading immediately). Competition-scoped like its import/
+// sync siblings — an unscoped delete by TLA would also wipe colliding
+// rosters in OTHER competitions (e.g. the frozen WC archive's 'POR').
 router.delete("/admin/by-team/:teamCode", requireAdmin, async (c) => {
   const teamCode = c.req.param("teamCode").toUpperCase();
+  const comp = await getCompetitionBySlug(c.req.query("competition") ?? "wc-2026");
+  if (!comp) return c.json({ error: "Unknown competition" }, 404);
   const result = await sql<{ id: string }[]>`
     DELETE FROM public.live_players
-    WHERE team_code = ${teamCode}
+    WHERE team_code = ${teamCode} AND competition_id = ${comp.id}
     RETURNING id
   `;
-  return c.json({ team_code: teamCode, deleted: result.length });
+  return c.json({ team_code: teamCode, competition: comp.slug, deleted: result.length });
 });
 
 // FD's verbose position labels compress to standard 2-letter codes

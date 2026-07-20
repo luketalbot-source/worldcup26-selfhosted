@@ -96,11 +96,14 @@ export function createFdClient(deps: FdClientDeps = {}): FdClient {
     if (res.status !== 429) return res;
 
     // 429: park EVERY caller for FD's hinted duration, then retry once.
+    // The retry goes back through acquire() so it (a) re-checks the
+    // cooldown in a loop — another in-flight caller's 429 may have
+    // extended it while we slept — and (b) respects the sliding window,
+    // so several parked retries can't all burst at cooldown expiry.
     const hint = parseRetryAfterMs(await res.text().catch(() => ""), res.headers.get("retry-after"));
     cooldownUntil = Math.max(cooldownUntil, now() + hint);
     console.warn(`[fd-client] 429 from FD — cooling down ${Math.round(hint / 1000)}s`);
-    await sleep(Math.max(0, cooldownUntil - now()));
-    sent.push(now());
+    await acquire();
     res = await fetchImpl(`${FOOTBALL_API_BASE}${path}`, {
       headers: { "X-Auth-Token": apiKey },
     });
