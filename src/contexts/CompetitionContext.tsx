@@ -38,6 +38,26 @@ const CompetitionContext = createContext<CompetitionContextValue | undefined>(un
 
 const storageKey = (tenantUid: string) => `competition.active.${tenantUid}`;
 
+// Deploy-skew / legacy-API fallback: if GET /api/competitions fails (old
+// API still live during a rolling deploy, or a transient error), behave
+// exactly like the single-competition era by synthesizing the WC archive
+// row. Matches the Phase A seed (fixed uuid + slug) so all downstream
+// fetches resolve. NOT used for a legitimate empty list — a tenant with
+// zero enabled competitions genuinely sees nothing.
+const WC_FALLBACK: Competition = {
+  id: 'a0000000-0000-4000-8000-000000000001',
+  slug: 'wc-2026',
+  fd_code: 'WC',
+  fd_season: 2026,
+  season: '2026',
+  name: 'FIFA World Cup 2026',
+  short_name: 'World Cup 2026',
+  format: 'tournament',
+  boost_lock_at: null,
+  is_active: false,
+  display_order: 1,
+};
+
 export const CompetitionProvider = ({ children }: { children: ReactNode }) => {
   const { tenant } = useTenant();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
@@ -59,7 +79,11 @@ export const CompetitionProvider = ({ children }: { children: ReactNode }) => {
         const firstActive = rows.find((r) => r.is_active);
         setActiveId((rememberedOk ?? firstActive ?? rows[0])?.id ?? null);
       } catch (err) {
-        console.error('[competitions] load failed:', err);
+        console.error('[competitions] load failed — falling back to WC archive:', err);
+        if (!cancelled) {
+          setCompetitions([WC_FALLBACK]);
+          setActiveId(WC_FALLBACK.id);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

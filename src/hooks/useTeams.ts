@@ -101,7 +101,19 @@ const cacheBySlug = new Map<string, TeamsCache>();
 const inflightBySlug = new Map<string, Promise<TeamsCache>>();
 
 async function load(slug: string): Promise<TeamsCache> {
-  const resp = await api.get<ApiTeamsResponse>(`/competitions/${encodeURIComponent(slug)}/teams`);
+  let resp: ApiTeamsResponse;
+  try {
+    resp = await api.get<ApiTeamsResponse>(`/competitions/${encodeURIComponent(slug)}/teams`);
+  } catch (err) {
+    // Deploy-skew fallback: an old API (no competitions route yet) still
+    // serves the WC roster on the legacy path. Only meaningful for the
+    // archive slug — other competitions don't exist on an old API anyway.
+    if (slug === DEFAULT_SLUG) {
+      resp = await api.get<ApiTeamsResponse>('/wc2026/teams');
+    } else {
+      throw err;
+    }
+  }
   const teams = (resp?.teams ?? []).map(toAppTeam);
   const groups: Record<string, Team[]> = {};
   for (const t of teams) {

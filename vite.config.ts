@@ -33,6 +33,19 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // Dev-only: proxy /api to a real backend (e.g. prod, read-only QA)
+    // without CORS friction. Enabled by DEV_API_PROXY=<https://host>;
+    // absent in CI/prod builds, so this never affects deployments.
+    ...(process.env.DEV_API_PROXY
+      ? {
+          proxy: {
+            "/api": {
+              target: process.env.DEV_API_PROXY,
+              changeOrigin: true,
+            },
+          },
+        }
+      : {}),
   },
   define: {
     __BUILD_ID__: JSON.stringify(buildId()),

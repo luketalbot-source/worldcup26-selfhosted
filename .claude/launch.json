@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-against-prod-api",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["VITE_API_URL=https://wc2026.rnd.team.getflip.gg/api", "npm", "run", "dev"],
+      "port": 8080
+    }
+  ]
+}
