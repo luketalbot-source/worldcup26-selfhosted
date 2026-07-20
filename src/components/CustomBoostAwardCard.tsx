@@ -17,6 +17,7 @@ import { useQualifiedTeams } from '@/hooks/useQualifiedTeams';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { Flag } from '@/components/Flag';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { parseBoostResult, boostResultIncludes } from '@/lib/boostMatch';
 
 
@@ -68,12 +69,13 @@ export const CustomBoostAwardCard = ({
     setSaving(false);
   };
 
+  const teamKind = useCompetitionsSafe()?.profile.teamKind ?? 'country';
   const getTeamDisplay = (code: string) => {
     const team = uniqueTeams.find((t) => t.code === code);
     if (!team) return code;
     return (
       <span className="inline-flex items-center gap-1.5">
-        <Flag code={team.code} className="w-4" />
+        <Flag code={team.code} crestUrl={team.crestUrl} kind={teamKind} className="w-4" />
         <span>{getTeamName(team.code, team.name)}</span>
       </span>
     );
@@ -187,7 +189,7 @@ export const CustomBoostAwardCard = ({
                     {uniqueTeams.map((team) => (
                       <SelectItem key={team.id} value={team.code}>
                         <span className="inline-flex items-center gap-1.5">
-                          <Flag code={team.code} className="w-4" />
+                          <Flag code={team.code} crestUrl={team.crestUrl} kind={teamKind} className="w-4" />
                           <span>{getTeamName(team.code, team.name)}</span>
                         </span>
                       </SelectItem>

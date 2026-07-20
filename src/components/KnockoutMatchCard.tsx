@@ -13,6 +13,7 @@ import { ExactPredictionsReveal } from './ExactPredictionsReveal';
 import { MatchEvents } from './MatchEvents';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { Flag, CardFlagBackground } from '@/components/Flag';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { useTeamName } from '@/hooks/useTeamName';
 
 interface KnockoutMatchCardProps {
@@ -141,8 +142,13 @@ export const KnockoutMatchCard = ({
   // and its lookup table missed FD's renamed TLAs (URY/CUW). Knockout
   // cards show TBD placeholders until the bracket fills, so the
   // no-flag fallback branch matters more here.
-  const hasHomeFlag = !!getFlagIconCode(match.homeTeam.code);
-  const hasAwayFlag = !!getFlagIconCode(match.awayTeam.code);
+  // Clubs (CL knockout) render crests, never country flags — Porto's
+  // TLA 'POR' is Portugal's code. Kind comes from the format profile.
+  const teamKind = useCompetitionsSafe()?.profile.teamKind ?? 'country';
+  const hasHomeFlag =
+    teamKind === 'club' ? !!match.homeTeam.crestUrl : !!getFlagIconCode(match.homeTeam.code);
+  const hasAwayFlag =
+    teamKind === 'club' ? !!match.awayTeam.crestUrl : !!getFlagIconCode(match.awayTeam.code);
 
   // Get translated team names
   const homeTeamName = getTeamName(match.homeTeam.code, match.homeTeam.name);
@@ -180,13 +186,13 @@ export const KnockoutMatchCard = ({
         <div className="relative w-1/2 h-full overflow-hidden">
           {hasHomeFlag ? (
             <>
-              <CardFlagBackground code={match.homeTeam.code} label={match.homeTeam.name} />
+              <CardFlagBackground code={match.homeTeam.code} label={match.homeTeam.name} crestUrl={match.homeTeam.crestUrl} kind={teamKind} />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-r from-muted to-white flex items-center justify-center">
-              <Flag code={match.homeTeam.code} className="w-12 opacity-30" />
+              <Flag code={match.homeTeam.code} crestUrl={match.homeTeam.crestUrl} kind={teamKind} className="w-12 opacity-30" />
             </div>
           )}
         </div>
@@ -195,13 +201,13 @@ export const KnockoutMatchCard = ({
         <div className="relative w-1/2 h-full overflow-hidden">
           {hasAwayFlag ? (
             <>
-              <CardFlagBackground code={match.awayTeam.code} label={match.awayTeam.name} />
+              <CardFlagBackground code={match.awayTeam.code} label={match.awayTeam.name} crestUrl={match.awayTeam.crestUrl} kind={teamKind} />
               <div className="absolute inset-0 bg-gradient-to-l from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-l from-muted to-white flex items-center justify-center">
-              <Flag code={match.awayTeam.code} className="w-12 opacity-30" />
+              <Flag code={match.awayTeam.code} crestUrl={match.awayTeam.crestUrl} kind={teamKind} className="w-12 opacity-30" />
             </div>
           )}
         </div>

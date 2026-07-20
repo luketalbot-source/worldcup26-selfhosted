@@ -13,6 +13,7 @@ import { ExactPredictionsReveal } from './ExactPredictionsReveal';
 import { calculatePredictionPoints } from '@/lib/scoringCalculator';
 import { useTeamName } from '@/hooks/useTeamName';
 import { Flag, CardFlagBackground } from '@/components/Flag';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 
 interface MatchCardProps {
   match: Match;
@@ -90,8 +91,14 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
   // proxies, and the CDN lookup table missed FD's renamed TLAs
   // (URY/CUW) entirely — cards rendered flagless. getFlagIconCode is
   // the single source of truth for "do we have a flag for this code".
-  const hasHomeFlag = !!getFlagIconCode(match.homeTeam.code);
-  const hasAwayFlag = !!getFlagIconCode(match.awayTeam.code);
+  // Clubs render crests (never country flags — Porto's TLA 'POR' is
+  // Portugal's code); countries keep the bundled flag SVG path. The kind
+  // comes from the active competition's format profile.
+  const teamKind = useCompetitionsSafe()?.profile.teamKind ?? 'country';
+  const hasHomeFlag =
+    teamKind === 'club' ? !!match.homeTeam.crestUrl : !!getFlagIconCode(match.homeTeam.code);
+  const hasAwayFlag =
+    teamKind === 'club' ? !!match.awayTeam.crestUrl : !!getFlagIconCode(match.awayTeam.code);
 
   // Get translated team names
   const homeTeamName = getTeamName(match.homeTeam.code, match.homeTeam.name);
@@ -119,13 +126,13 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
         <div className="relative w-1/2 h-full overflow-hidden">
           {hasHomeFlag ? (
             <>
-              <CardFlagBackground code={match.homeTeam.code} label={match.homeTeam.name} />
+              <CardFlagBackground code={match.homeTeam.code} label={match.homeTeam.name} crestUrl={match.homeTeam.crestUrl} kind={teamKind} />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-r from-muted to-white flex items-center justify-center">
-              <Flag code={match.homeTeam.code} className="w-12 opacity-30" />
+              <Flag code={match.homeTeam.code} crestUrl={match.homeTeam.crestUrl} kind={teamKind} className="w-12 opacity-30" />
             </div>
           )}
         </div>
@@ -134,13 +141,13 @@ export const MatchCard = ({ match, prediction, onPredict, disabled = false, show
         <div className="relative w-1/2 h-full overflow-hidden">
           {hasAwayFlag ? (
             <>
-              <CardFlagBackground code={match.awayTeam.code} label={match.awayTeam.name} />
+              <CardFlagBackground code={match.awayTeam.code} label={match.awayTeam.name} crestUrl={match.awayTeam.crestUrl} kind={teamKind} />
               <div className="absolute inset-0 bg-gradient-to-l from-transparent from-40% to-white to-100%" />
               <div className="absolute inset-0 bg-black/20" />
             </>
           ) : (
             <div className="absolute inset-0 bg-gradient-to-l from-muted to-white flex items-center justify-center">
-              <Flag code={match.awayTeam.code} className="w-12 opacity-30" />
+              <Flag code={match.awayTeam.code} crestUrl={match.awayTeam.crestUrl} kind={teamKind} className="w-12 opacity-30" />
             </div>
           )}
         </div>
