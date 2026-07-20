@@ -87,7 +87,37 @@ const ExpandableLeagueCard = ({
   const { user } = useAuth();
   const { tenantId, tenant } = useTenant();
   const { leaveLeague, removeMember, deleteLeague, updateLeague, refetch } = useLeagues(tenantId);
-  
+
+  // Competition-scoped sub-league badge ("⚽ Bundesliga 2026/27"). Copy
+  // always says "scope"/"points from", never "league" — the social-league
+  // naming collision is real. Overall leagues (competition_id null) show
+  // nothing. The built-in EVERYONE board is per-game: it follows the active
+  // competition (falling back to the first active, then the archive), so
+  // standings reset for each game instead of summing every competition into
+  // one confusing number.
+  //
+  // NOTE: this MUST be computed before the leaderboard hooks below —
+  // useLeaderboard reads everyoneScopeComp?.id. Declaring it later put it in
+  // the temporal dead zone, so expanding Everyone threw a ReferenceError and
+  // blanked the app.
+  const competitionCtx = useCompetitionsSafe();
+  const enabledComps = (competitionCtx?.competitions ?? []).filter(isEnabled);
+  const everyoneScopeComp = isEveryone
+    ? competitionCtx?.activeCompetition ??
+      enabledComps.find((c) => c.is_active) ??
+      enabledComps[0] ??
+      null
+    : null;
+  const hasMultipleGames = enabledComps.length > 1;
+  const scopedComp = league.competition_id
+    ? competitionCtx?.competitions.find((c) => c.id === league.competition_id) ?? null
+    : null;
+  const scopeName = scopedComp
+    ? competitionLabel(scopedComp)
+    : isEveryone && hasMultipleGames && everyoneScopeComp
+      ? competitionLabel(everyoneScopeComp)
+      : null;
+
   const { leaderboard: leagueLeaderboard, loading: leaderboardLoading, refetch: refetchLeaderboard } = useLeagueLeaderboard(
     isEveryone ? null : (isExpanded ? league.id : null),
     league.creator_id || null,
@@ -177,34 +207,6 @@ const ExpandableLeagueCard = ({
 
   const isCreator = user?.id === league.creator_id;
 
-  // Competition-scoped sub-league badge ("⚽ Bundesliga"). Copy always says
-  // "scope"/"points from", never "league" — the social-league naming
-  // collision is real. Overall leagues (competition_id null) show nothing.
-  //
-  // The built-in EVERYONE board is per-game: it follows the active
-  // competition (falling back to the first active, then the archive), so
-  // standings reset for each game instead of summing Bundesliga + CL + WC
-  // into one confusing number.
-  const competitionCtx = useCompetitionsSafe();
-  const enabledComps = (competitionCtx?.competitions ?? []).filter(isEnabled);
-  const everyoneScopeComp = isEveryone
-    ? competitionCtx?.activeCompetition ??
-      enabledComps.find((c) => c.is_active) ??
-      enabledComps[0] ??
-      null
-    : null;
-  const hasMultipleGames = enabledComps.length > 1;
-  // Badges are season-qualified ("Bundesliga 2026/27") — as seasons
-  // accumulate, this year's and last year's leagues stay distinguishable.
-  const scopedComp = league.competition_id
-    ? competitionCtx?.competitions.find((c) => c.id === league.competition_id) ?? null
-    : null;
-  const scopeName = scopedComp
-    ? competitionLabel(scopedComp)
-    : isEveryone && hasMultipleGames && everyoneScopeComp
-      ? competitionLabel(everyoneScopeComp)
-      : null;
-  
   const handleCopyCode = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const code = league.join_code;
