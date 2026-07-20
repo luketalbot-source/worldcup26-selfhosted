@@ -29,6 +29,8 @@ interface CompetitionContextValue {
   competitions: Competition[];
   activeCompetition: Competition | null;
   setActiveCompetition: (id: string) => void;
+  /** Return to the game hub (multi-competition tenants only). */
+  clearActiveCompetition: () => void;
   /** Format profile for the active competition (tournament profile fallback). */
   profile: FormatProfile;
   loading: boolean;
@@ -72,12 +74,17 @@ export const CompetitionProvider = ({ children }: { children: ReactNode }) => {
         const rows = await api.get<Competition[]>(`/competitions?tenant_id=${tenant.id}`);
         if (cancelled) return;
         setCompetitions(rows);
-        // Restore last-viewed if it's still enabled; else first ACTIVE
-        // competition; else first (archive-only tenants see the archive).
-        const remembered = localStorage.getItem(storageKey(tenant.uid));
-        const rememberedOk = rows.find((r) => r.id === remembered);
-        const firstActive = rows.find((r) => r.is_active);
-        setActiveId((rememberedOk ?? firstActive ?? rows[0])?.id ?? null);
+        if (rows.length > 1) {
+          // Multiple games: greet the user with the game hub (active id
+          // stays null) — they pick a card. The last-viewed game is still
+          // remembered for highlighting, but entry always goes through
+          // the hub so "what can I play?" is one glance away.
+          setActiveId(null);
+        } else {
+          // Exactly one (or zero) games: skip the hub entirely — the app
+          // looks and behaves like the single-competition era.
+          setActiveId(rows[0]?.id ?? null);
+        }
       } catch (err) {
         console.error('[competitions] load failed — falling back to WC archive:', err);
         if (!cancelled) {
@@ -99,12 +106,15 @@ export const CompetitionProvider = ({ children }: { children: ReactNode }) => {
     if (tenant?.uid) localStorage.setItem(storageKey(tenant.uid), id);
   };
 
+  const clearActiveCompetition = () => setActiveId(null);
+
   const value = useMemo<CompetitionContextValue>(() => {
     const active = competitions.find((c) => c.id === activeId) ?? null;
     return {
       competitions,
       activeCompetition: active,
       setActiveCompetition,
+      clearActiveCompetition,
       profile: getFormatProfile(active?.format ?? 'tournament'),
       loading,
     };

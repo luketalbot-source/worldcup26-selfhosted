@@ -519,5 +519,16 @@
     "next": "Nächster Spieltag",
     "predictedCount": "{{predicted}}/{{total}} getippt",
     "noFixtures": "Der Spielplan wurde noch nicht veröffentlicht."
+  },
+  "competitions": {
+    "hubTitle": "Tippspiele",
+    "hubSubtitle": "Wähle ein Spiel und tippe los",
+    "availableGames": "Verfügbare Spiele",
+    "completedGames": "Abgeschlossene Spiele",
+    "seasonEnded": "Saison beendet — Endstand",
+    "switchGame": "Spiel wechseln",
+    "formatTournament": "Gruppenphase + K.-o.-Turnier",
+    "formatLeague": "Ganze Saison — jeden Spieltag tippen",
+    "formatHybrid": "Ligaphase + K.-o.-Runden"
   }
 }

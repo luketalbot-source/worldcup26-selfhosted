@@ -519,5 +519,16 @@
     "groupPenWinner": "Shootout winner",
     "groupPenScore": "Shootout score",
     "groupEmpty": "Nobody yet"
+  },
+  "competitions": {
+    "hubTitle": "Prediction Games",
+    "hubSubtitle": "Pick a game and start predicting",
+    "availableGames": "Available games",
+    "completedGames": "Completed games",
+    "seasonEnded": "Season ended — final standings",
+    "switchGame": "Switch game",
+    "formatTournament": "Group stage + knockout tournament",
+    "formatLeague": "Season-long league — predict every matchday",
+    "formatHybrid": "League phase + knockout rounds"
   }
 }

@@ -10,8 +10,9 @@ import { GoalCelebration } from '@/components/GoalCelebration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
-import { CompetitionProvider } from '@/contexts/CompetitionContext';
-import { CompetitionSwitcher } from '@/components/CompetitionSwitcher';
+import { CompetitionProvider, useCompetitions } from '@/contexts/CompetitionContext';
+import { CompetitionHub } from '@/components/CompetitionHub';
+import { CompetitionSwitchChip } from '@/components/CompetitionSwitchChip';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { api } from '@/lib/apiClient';
 import { Loader2 } from 'lucide-react';
@@ -132,10 +133,6 @@ const TenantApp = () => {
     }
   };
 
-  // The competition switcher only renders on competition-scoped tabs —
-  // Leagues and Profile aggregate across competitions and stay unscoped.
-  const competitionScopedTabs = ['matches', 'boost', 'stats'];
-
   return (
     // CompetitionProvider resolves which competitions this tenant has
     // enabled (feature flags) + which one is active; LiveMatchesProvider
@@ -144,20 +141,50 @@ const TenantApp = () => {
     // connection and a single source of match-state truth.
     <CompetitionProvider>
       <LiveMatchesProvider>
-        <div className="min-h-screen bg-background pb-24">
-          <main className="container py-4 space-y-4">
-            {competitionScopedTabs.includes(activeTab) && <CompetitionSwitcher />}
-            {renderContent()}
-          </main>
-
-          <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-          {/* Global goal celebration overlay — pointer-events: none so it
-              never blocks interaction. Renders only while a goal is active. */}
-          <GoalCelebration />
-        </div>
+        <TenantShell activeTab={activeTab} onTabChange={setActiveTab} renderContent={renderContent} />
       </LiveMatchesProvider>
     </CompetitionProvider>
+  );
+};
+
+// Inner shell so it can read the competition context (it renders INSIDE
+// CompetitionProvider). Multi-game tenants land on the game hub until a
+// game is picked; the switch chip in competition-scoped tabs returns there.
+const TenantShell = ({
+  activeTab,
+  onTabChange,
+  renderContent,
+}: {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  renderContent: () => JSX.Element;
+}) => {
+  const { competitions, activeCompetition, loading } = useCompetitions();
+
+  // The hub + switch chip only apply to competition-scoped tabs — Leagues
+  // and Profile aggregate across competitions and stay unscoped.
+  const competitionScoped = ['matches', 'boost', 'stats'].includes(activeTab);
+  const showHub = competitionScoped && !loading && competitions.length > 1 && !activeCompetition;
+
+  return (
+    <div className="min-h-screen bg-background pb-24">
+      <main className="container py-4 space-y-4">
+        {showHub ? (
+          <CompetitionHub />
+        ) : (
+          <>
+            {competitionScoped && <CompetitionSwitchChip />}
+            {renderContent()}
+          </>
+        )}
+      </main>
+
+      <Navigation activeTab={activeTab} onTabChange={onTabChange} />
+
+      {/* Global goal celebration overlay — pointer-events: none so it
+          never blocks interaction. Renders only while a goal is active. */}
+      <GoalCelebration />
+    </div>
   );
 };
 
