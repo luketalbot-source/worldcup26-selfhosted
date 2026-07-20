@@ -4,12 +4,19 @@ import { useTranslation } from 'react-i18next';
 import { useCompetitions } from '@/contexts/CompetitionContext';
 
 // Slim "which game am I in?" bar for multi-competition tenants: shows the
-// active game and switches back to the game hub on tap. Replaces the old
+// active game and returns to the game hub on tap. Replaces the old
 // full-width pill switcher (which didn't scale past three competitions).
 // Hidden entirely for single-competition tenants.
-export const CompetitionSwitchChip = () => {
+//
+// Width is capped to match the page content (max-w-[700px], centered) so it
+// lines up with the tab bar and cards below it instead of spanning the whole
+// container. onSwitchGame is REQUIRED (not just clearActiveCompetition): the
+// shell resets the tab AND clears the competition so "Switch game" reaches the
+// hub even from a non-competition-scoped tab like Leagues. A bare clear would
+// leave a non-scoped tab with no active competition and no hub — a dead-end.
+export const CompetitionSwitchChip = ({ onSwitchGame }: { onSwitchGame: () => void }) => {
   const { t } = useTranslation();
-  const { competitions, activeCompetition, clearActiveCompetition } = useCompetitions();
+  const { competitions, activeCompetition } = useCompetitions();
 
   if (competitions.length <= 1 || !activeCompetition) return null;
 
@@ -18,8 +25,8 @@ export const CompetitionSwitchChip = () => {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       whileTap={{ scale: 0.97 }}
-      onClick={clearActiveCompetition}
-      className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-card border border-border/50 shadow-card hover:bg-muted transition-colors"
+      onClick={onSwitchGame}
+      className="w-full max-w-[700px] mx-auto flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-card border border-border/50 shadow-card hover:bg-muted transition-colors"
     >
       <LayoutGrid className="w-4 h-4 text-muted-foreground shrink-0" />
       <span className="flex-1 min-w-0 text-left">

@@ -159,10 +159,11 @@ const TenantShell = ({
   onTabChange: (tab: string) => void;
   renderContent: () => JSX.Element;
 }) => {
-  const { competitions, activeCompetition, loading } = useCompetitions();
+  const { competitions, activeCompetition, loading, clearActiveCompetition } = useCompetitions();
 
-  // The hub + switch chip only apply to competition-scoped tabs — Leagues
-  // and Profile aggregate across competitions and stay unscoped.
+  // The hub only shows on competition-scoped tabs — Leagues and Profile
+  // aggregate across competitions. The switch chip, though, shows on EVERY
+  // tab so the "back to game selector" affordance is always reachable.
   const competitionScoped = ['matches', 'boost', 'stats'].includes(activeTab);
   const showHub = competitionScoped && !loading && competitions.length > 1 && !activeCompetition;
   // Hide the bottom nav on the hub ONLY when the hub is escapable — i.e. it
@@ -182,7 +183,17 @@ const TenantShell = ({
           <CompetitionHub />
         ) : (
           <>
-            {competitionScoped && <CompetitionSwitchChip />}
+            {/* Switch chip on every tab. "Switch game" resets to the matches
+                tab AND clears the active competition, so the hub shows even
+                when tapped from Leagues/Profile (which the hub itself skips).
+                Landing on matches after picking the next game is the natural
+                default. Self-hides for single-competition tenants. */}
+            <CompetitionSwitchChip
+              onSwitchGame={() => {
+                onTabChange('matches');
+                clearActiveCompetition();
+              }}
+            />
             {renderContent()}
           </>
         )}
