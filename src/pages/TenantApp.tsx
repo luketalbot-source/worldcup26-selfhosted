@@ -10,7 +10,7 @@ import { GoalCelebration } from '@/components/GoalCelebration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
-import { CompetitionProvider, useCompetitions } from '@/contexts/CompetitionContext';
+import { CompetitionProvider, useCompetitions, isEnabled } from '@/contexts/CompetitionContext';
 import { CompetitionHub } from '@/components/CompetitionHub';
 import { CompetitionSwitchChip } from '@/components/CompetitionSwitchChip';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
@@ -165,9 +165,18 @@ const TenantShell = ({
   // and Profile aggregate across competitions and stay unscoped.
   const competitionScoped = ['matches', 'boost', 'stats'].includes(activeTab);
   const showHub = competitionScoped && !loading && competitions.length > 1 && !activeCompetition;
+  // Hide the bottom nav on the hub ONLY when the hub is escapable — i.e. it
+  // offers at least one enterable (enabled) game. If a tenant has >1
+  // competition but NONE enabled (every card is a non-clickable "coming
+  // soon" teaser), a hidden nav would strand them: no game to enter, and the
+  // nav is the only tab switcher, so no route to Leagues/Profile either — a
+  // hard dead-end on a blank hub. In that degenerate case keep the nav.
+  const hubEscapable = competitions.some(isEnabled);
+  const hideNav = showHub && hubEscapable;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    // No bottom padding when the nav is hidden — there's nothing to clear.
+    <div className={`min-h-screen bg-background ${hideNav ? '' : 'pb-24'}`}>
       <main className="container py-4 space-y-4">
         {showHub ? (
           <CompetitionHub />
@@ -179,7 +188,11 @@ const TenantShell = ({
         )}
       </main>
 
-      <Navigation activeTab={activeTab} onTabChange={onTabChange} />
+      {/* The game hub is a full-screen entry gate: hide the bottom nav there
+          so the only way forward is picking a game. Once a game is active —
+          and always for single-competition tenants, which never see the hub —
+          the nav returns. Kept visible on an inescapable (all-teaser) hub. */}
+      {!hideNav && <Navigation activeTab={activeTab} onTabChange={onTabChange} />}
 
       {/* Global goal celebration overlay — pointer-events: none so it
           never blocks interaction. Renders only while a goal is active. */}
