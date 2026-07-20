@@ -16,6 +16,7 @@ import { useGroupFixtures } from '@/hooks/useGroupFixtures';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { calculateGroupStandings } from '@/lib/standingsCalculator';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { Match } from '@/types/match';
 import { LogIn, Trophy } from 'lucide-react';
 import emptyStateTodayDark from '@/assets/empty-state-today-dark.jpg';
@@ -49,12 +50,23 @@ export const TournamentMatchesView = () => {
     t
   } = useTranslation();
   const { tenantId } = useTenant();
-  // Default to the Today tab — during the tournament it's the most
-  // relevant landing view (today's fixtures + live scores). Pre-tournament
-  // it shows its own empty state, which is fine.
-  const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>('today');
+  const ctx = useCompetitionsSafe();
+  // A completed tournament (the WC archive) has no upcoming fixtures, so the
+  // Today tab would only ever show its empty state. Land on the Knockout
+  // bracket's Final instead — the result is what people come back for. A
+  // tournament still in progress (is_active) keeps the Today default (live
+  // fixtures + scores); the pre-multi-competition fallback (no active
+  // competition) also stays on Today, exactly as the single-comp era did.
+  // These are mount-time initial values only, so the user can still switch
+  // tabs freely after landing.
+  const isArchivedTournament = ctx?.activeCompetition?.is_active === false;
+  const [activeStage, setActiveStage] = useState<'today' | 'groups' | 'knockout'>(
+    isArchivedTournament ? 'knockout' : 'today'
+  );
   const [activeGroup, setActiveGroup] = useState('A');
-  const [activeKnockoutStage, setActiveKnockoutStage] = useState<KnockoutStage>('round32');
+  const [activeKnockoutStage, setActiveKnockoutStage] = useState<KnockoutStage>(
+    isArchivedTournament ? 'finals' : 'round32'
+  );
   const [activeDayFilter, setActiveDayFilter] = useState<MatchDayFilter>('today');
   const {
     addPrediction,
