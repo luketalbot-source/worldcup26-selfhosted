@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/apiClient';
 import type { Team } from '@/types/match';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 
-// API shape — `GET /api/wc2026/teams`. Populated by the admin sync-matches
-// job from football-data.org.
+// API shape — `GET /api/competitions/:slug/teams` (the old /wc2026/teams is
+// an alias for slug wc-2026). Populated by the sync job from
+// football-data.org, one roster per competition.
 interface ApiTeam {
   id: string;
   tla: string;
@@ -17,6 +19,10 @@ interface ApiTeamsResponse {
   groups: Record<string, ApiTeam[]>;
   count: number;
 }
+
+// Fallback slug for surfaces without a CompetitionProvider (admin) and for
+// the archive era — matches the seeded wc-2026 competitions row.
+const DEFAULT_SLUG = 'wc-2026';
 
 // Lightweight emoji flag from TLA. Country TLAs like "MEX" → "🇲🇽" via the
 // Regional Indicator Symbol trick (2 unicode chars per ISO-2 letter). FIFA
@@ -77,11 +83,13 @@ function toAppTeam(t: ApiTeam): Team {
     code: t.tla,
     flag: tlaToFlag(t.tla),
     group: t.group_name ?? '',
+    crestUrl: t.crest_url,
+    shortName: t.short_name,
   };
 }
 
 // -----------------------------------------------------------------------------
-// Module-scope state + de-duped loader.
+// Module-scope state + de-duped loader, keyed PER COMPETITION.
 // Multiple hook mounts (GroupTabs, GroupStandings, MatchCard) all want the
 // same roster — sharing the in-flight promise avoids redundant fetches
 // during a single render cycle.
@@ -89,11 +97,11 @@ function toAppTeam(t: ApiTeam): Team {
 
 type TeamsCache = { teams: Team[]; groups: Record<string, Team[]> };
 
-let cache: TeamsCache | null = null;
-let inflight: Promise<TeamsCache> | null = null;
+const cacheBySlug = new Map<string, TeamsCache>();
+const inflightBySlug = new Map<string, Promise<TeamsCache>>();
 
-async function load(): Promise<TeamsCache> {
-  const resp = await api.get<ApiTeamsResponse>('/wc2026/teams');
+async function load(slug: string): Promise<TeamsCache> {
+  const resp = await api.get<ApiTeamsResponse>(`/competitions/${encodeURIComponent(slug)}/teams`);
   const teams = (resp?.teams ?? []).map(toAppTeam);
   const groups: Record<string, Team[]> = {};
   for (const t of teams) {
@@ -103,55 +111,61 @@ async function load(): Promise<TeamsCache> {
   return { teams, groups };
 }
 
-async function ensureLoad(force = false): Promise<TeamsCache> {
+async function ensureLoad(slug: string, force = false): Promise<TeamsCache> {
   if (force) {
-    cache = null;
-    inflight = null;
+    cacheBySlug.delete(slug);
+    inflightBySlug.delete(slug);
   }
-  if (cache) return cache;
+  const cached = cacheBySlug.get(slug);
+  if (cached) return cached;
+  let inflight = inflightBySlug.get(slug);
   if (!inflight) {
-    inflight = load()
+    inflight = load(slug)
       .then((result) => {
-        cache = result;
+        cacheBySlug.set(slug, result);
         return result;
       })
       .finally(() => {
-        inflight = null;
+        inflightBySlug.delete(slug);
       });
+    inflightBySlug.set(slug, inflight);
   }
   return inflight;
 }
 
 /**
- * FIFA World Cup 2026 team roster. Populated by the backend's sync-matches
- * job; auto-fetched on mount with a 3s poll while the list is empty so the
- * page self-populates when the backend's own auto-sync finishes in the
- * background.
+ * Team roster for the ACTIVE competition (or an explicit slug). Populated
+ * by the backend's sync job; auto-fetched on mount with a 3s poll while the
+ * list is empty so the page self-populates when the backend's own auto-sync
+ * finishes in the background.
  */
-export const useTeams = () => {
-  const [data, setData] = useState<TeamsCache | null>(cache);
+export const useTeams = (competitionSlug?: string) => {
+  const ctx = useCompetitionsSafe();
+  const slug = competitionSlug ?? ctx?.activeCompetition?.slug ?? DEFAULT_SLUG;
+  const [data, setData] = useState<TeamsCache | null>(cacheBySlug.get(slug) ?? null);
 
   useEffect(() => {
     let cancelled = false;
 
-    // First load (or reuse cache if already warm).
-    ensureLoad().then((d) => {
+    // Reset to whatever's cached for the (possibly new) slug, then load.
+    setData(cacheBySlug.get(slug) ?? null);
+    ensureLoad(slug).then((d) => {
       if (!cancelled) setData(d);
     }).catch(() => {
       // keep data as-is; polling below will retry
     });
 
     return () => { cancelled = true; };
-  }, []);
+  }, [slug]);
 
   // Retry every 3s while the roster is empty (backend is probably mid-sync).
   useEffect(() => {
     if (data && data.teams.length > 0) return;
     const id = setInterval(() => {
-      ensureLoad(true).then(setData).catch(() => { /* ignore */ });
+      ensureLoad(slug, true).then(setData).catch(() => { /* ignore */ });
     }, 3000);
     return () => clearInterval(id);
-  }, [data]);
+  }, [data, slug]);
 
   const getTeamByCode = (code: string): Team | undefined =>
     data?.teams.find((t) => t.code === code.toUpperCase());

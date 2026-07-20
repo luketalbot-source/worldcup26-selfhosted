@@ -12,6 +12,10 @@ export interface League {
   creator_id: string;
   created_at: string;
   member_count?: number;
+  // Scoring scope: null = overall (points from every competition
+  // combined); a competition id = only that competition's points count.
+  // The leaderboard endpoint applies the scope automatically.
+  competition_id?: string | null;
 }
 
 export interface LeagueMember {
@@ -60,7 +64,11 @@ export const useLeagues = (tenantId?: string | null) => {
     fetchLeagues();
   }, [user, tenantId]);
 
-  const createLeague = async (name: string, avatarEmoji: string): Promise<League | null> => {
+  const createLeague = async (
+    name: string,
+    avatarEmoji: string,
+    competitionId?: string | null,
+  ): Promise<League | null> => {
     if (!user) return null;
 
     try {
@@ -75,6 +83,7 @@ export const useLeagues = (tenantId?: string | null) => {
         avatar_emoji: avatarEmoji,
         join_code: joinCode,
         ...(tenantId ? { tenant_id: tenantId } : {}),
+        ...(competitionId ? { competition_id: competitionId } : {}),
       });
 
       toast.success(t('leagues.created'));

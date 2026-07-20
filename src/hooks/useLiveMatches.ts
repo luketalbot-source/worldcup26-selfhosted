@@ -71,7 +71,9 @@ export const useLiveMatches = () => {
   // the static file's dates are all set to the actual tournament window
   // (June 2026), so it'd never include "today" outside the WC itself, and
   // would never reflect a freshly synced live match.
-  const getTodayMatches = useCallback((filter: MatchDayFilter = 'today'): Match[] => {
+  // Canonical LiveMatch row → UI Match mapping, shared by the Today tab,
+  // the Matchday browser and the (CL) knockout list.
+  const rowToMatch = useCallback((row: LiveMatch): Match => {
     const fallbackTeam = (code: string, name: string, group: string | null): Team => ({
       id: code.toLowerCase(),
       name,
@@ -82,65 +84,115 @@ export const useLiveMatches = () => {
       group: group ?? '',
     });
 
+    const status: Match['status'] =
+      row.status === 'IN_PLAY' || row.status === 'PAUSED' || row.status === 'LIVE'
+        ? 'live'
+        : row.status === 'FINISHED' ||
+          row.status === 'FT' ||
+          row.status === 'AET' ||
+          row.status === 'PEN'
+          ? 'finished'
+          : 'upcoming';
+
+    const stageMap: Record<string, Match['stage']> = {
+      group: 'group',
+      regular: 'regular',
+      league: 'league',
+      playoff: 'playoff',
+      round32: 'round32',
+      round16: 'round16',
+      quarter: 'quarter',
+      semi: 'semi',
+      third: 'third',
+      final: 'final',
+    };
+
+    return {
+      id: row.match_id,
+      homeTeam:
+        getTeamByCode(row.home_team_code) ??
+        fallbackTeam(row.home_team_code, row.home_team_name, row.group_name),
+      awayTeam:
+        getTeamByCode(row.away_team_code) ??
+        fallbackTeam(row.away_team_code, row.away_team_name, row.group_name),
+      date: row.match_date,
+      time: '',
+      dateIso: row.match_date,
+      venue: row.venue ?? '',
+      city: row.city ?? '',
+      stage: stageMap[row.stage] ?? 'group',
+      group: row.group_name ?? undefined,
+      matchday: row.matchday ?? undefined,
+      homeScore: row.home_score ?? undefined,
+      awayScore: row.away_score ?? undefined,
+      penaltyHomeScore: row.penalty_home_score ?? undefined,
+      penaltyAwayScore: row.penalty_away_score ?? undefined,
+      duration: row.duration ?? undefined,
+      status,
+      goals: row.goals ?? [],
+      bookings: row.bookings ?? [],
+    };
+  }, [getTeamByCode]);
+
+  const getTodayMatches = useCallback((filter: MatchDayFilter = 'today'): Match[] => {
     const inWindow = DAY_FILTER_MATCHES[filter];
     return liveMatches
       .filter((row) => {
         const offset = venueDayOffset(row.match_date, row.venue);
         return offset !== null && inWindow(offset);
       })
-      .map((row) => {
-        const status: Match['status'] =
-          row.status === 'IN_PLAY' || row.status === 'PAUSED' || row.status === 'LIVE'
-            ? 'live'
-            : row.status === 'FINISHED' ||
-              row.status === 'FT' ||
-              row.status === 'AET' ||
-              row.status === 'PEN'
-              ? 'finished'
-              : 'upcoming';
-
-        const stageMap: Record<string, Match['stage']> = {
-          group: 'group',
-          round32: 'round32',
-          round16: 'round16',
-          quarter: 'quarter',
-          semi: 'semi',
-          third: 'third',
-          final: 'final',
-        };
-
-        return {
-          id: row.match_id,
-          homeTeam:
-            getTeamByCode(row.home_team_code) ??
-            fallbackTeam(row.home_team_code, row.home_team_name, row.group_name),
-          awayTeam:
-            getTeamByCode(row.away_team_code) ??
-            fallbackTeam(row.away_team_code, row.away_team_name, row.group_name),
-          date: row.match_date,
-          time: '',
-          dateIso: row.match_date,
-          venue: row.venue ?? '',
-          city: row.city ?? '',
-          stage: stageMap[row.stage] ?? 'group',
-          group: row.group_name ?? undefined,
-          homeScore: row.home_score ?? undefined,
-          awayScore: row.away_score ?? undefined,
-          penaltyHomeScore: row.penalty_home_score ?? undefined,
-          penaltyAwayScore: row.penalty_away_score ?? undefined,
-          duration: row.duration ?? undefined,
-          status,
-          goals: row.goals ?? [],
-          bookings: row.bookings ?? [],
-        };
-      })
+      .map(rowToMatch)
       .sort((a, b) => {
         const diff = new Date(a.dateIso!).getTime() - new Date(b.dateIso!).getTime();
         // Past reads newest-first (you're looking for last night's
         // results); every forward-looking window reads oldest-first.
         return filter === 'past' ? -diff : diff;
       });
-  }, [liveMatches, getTeamByCode]);
+  }, [liveMatches, rowToMatch]);
+
+  // Distinct matchdays for the active competition (club formats), sorted.
+  const getMatchdays = useCallback((): number[] => {
+    const days = new Set<number>();
+    for (const row of liveMatches) {
+      if (row.matchday != null) days.add(row.matchday);
+    }
+    return [...days].sort((a, b) => a - b);
+  }, [liveMatches]);
+
+  // "Current" matchday = the lowest one that still has a non-finished
+  // match; after the season ends, the last matchday.
+  const getCurrentMatchday = useCallback((): number | null => {
+    const days = getMatchdays();
+    if (days.length === 0) return null;
+    for (const day of days) {
+      const unfinished = liveMatches.some(
+        (row) =>
+          row.matchday === day &&
+          !['FINISHED', 'AWARDED', 'CANCELLED'].includes(row.status),
+      );
+      if (unfinished) return day;
+    }
+    return days[days.length - 1]!;
+  }, [liveMatches, getMatchdays]);
+
+  const getMatchesByMatchday = useCallback(
+    (matchday: number): Match[] =>
+      liveMatches
+        .filter((row) => row.matchday === matchday)
+        .map(rowToMatch)
+        .sort((a, b) => new Date(a.dateIso!).getTime() - new Date(b.dateIso!).getTime()),
+    [liveMatches, rowToMatch],
+  );
+
+  // Knockout-phase matches as a flat stage-grouped-ready list (CL playoff
+  // round onwards). NOT the WC bracket engine — pairings come from the API.
+  const getKnockoutListMatches = useCallback((): Match[] => {
+    const nonKnockout = new Set(['group', 'regular', 'league']);
+    return liveMatches
+      .filter((row) => !nonKnockout.has(row.stage))
+      .map(rowToMatch)
+      .sort((a, b) => new Date(a.dateIso!).getTime() - new Date(b.dateIso!).getTime());
+  }, [liveMatches, rowToMatch]);
 
   const getGroupMatches = useCallback(
     (group: string): Match[] => {
@@ -204,6 +256,10 @@ export const useLiveMatches = () => {
     getGroupMatches,
     getKnockoutMatches,
     getTodayMatches,
+    getMatchdays,
+    getCurrentMatchday,
+    getMatchesByMatchday,
+    getKnockoutListMatches,
     refetch: ctx.refetch,
   };
 };

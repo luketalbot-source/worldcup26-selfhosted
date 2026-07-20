@@ -110,6 +110,21 @@ interface FlagProps {
    * equivalent: preserveAspectRatio="xMidYMid slice".)
    */
   cover?: boolean;
+  /**
+   * Club crest URL (from teams.crest_url). When set, renders an <img>
+   * instead of a country SVG. Club competitions pass this through
+   * teamVisualProps().
+   */
+  crestUrl?: string | null;
+  /**
+   * 'country' (default) = bundled flag SVG with grey-flag fallback.
+   * 'club' = crest image with an INITIALS-BADGE fallback — clubs must
+   * NEVER fall back to a country flag: FD's TLA for FC Porto is 'POR',
+   * which is Portugal's code, and a wrong national flag on a club card
+   * is worse than no image. The kind comes from the competition's format
+   * profile (teamKind), not from guessing by code.
+   */
+  kind?: 'country' | 'club';
 }
 
 /**
@@ -121,7 +136,42 @@ interface FlagProps {
  * flagcdn.com <img> approach they can never fail to load — relevant for
  * frontline tenants whose corporate proxies block third-party CDNs.
  */
-export const Flag = ({ code, className = 'w-5', label, cover = false }: FlagProps) => {
+export const Flag = ({ code, className = 'w-5', label, cover = false, crestUrl, kind = 'country' }: FlagProps) => {
+  const [crestFailed, setCrestFailed] = useState(false);
+
+  // Club branch: crest image → initials badge. Never a country flag.
+  if (kind === 'club') {
+    if (crestUrl && !crestFailed) {
+      return (
+        <img
+          src={crestUrl}
+          alt=""
+          role="img"
+          aria-label={label ?? code ?? 'crest'}
+          loading="lazy"
+          decoding="async"
+          onError={() => setCrestFailed(true)}
+          // Crests are ~square; object-contain letterboxes non-square art
+          // inside the box instead of stretching it.
+          className={`inline-block ${cover ? 'object-cover' : 'object-contain'} ${className}`}
+          style={cover ? undefined : { aspectRatio: '1 / 1' }}
+        />
+      );
+    }
+    // Initials badge — always works, even behind crest-blocking corporate
+    // proxies (the exact failure mode that killed flagcdn.com here).
+    return (
+      <span
+        role="img"
+        aria-label={label ?? code ?? 'crest'}
+        className={`inline-flex items-center justify-center rounded-full bg-muted font-bold text-muted-foreground select-none ${className}`}
+        style={{ aspectRatio: '1 / 1', fontSize: '0.55em' }}
+      >
+        {(code ?? '?').slice(0, 3).toUpperCase()}
+      </span>
+    );
+  }
+
   const iconCode = getFlagIconCode(code);
   const Component = iconCode ? FLAG_COMPONENTS[iconCode] : null;
 
@@ -171,12 +221,37 @@ export const Flag = ({ code, className = 'w-5', label, cover = false }: FlagProp
 export const CardFlagBackground = ({
   code,
   label,
+  crestUrl,
+  kind = 'country',
 }: {
   code: string | null | undefined;
   label?: string;
+  crestUrl?: string | null;
+  kind?: 'country' | 'club';
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const url = code ? getLocalFlagUrl(code) : null;
+
+  // Club watermark: a full-bleed `cover` crest looks broken (transparent
+  // PNGs stretched across half a card), so clubs get a large centered
+  // crest at low opacity instead — cheap to composite on low-end frontline
+  // devices (no blur), and nothing renders if the crest is missing (the
+  // card just keeps its gradient).
+  if (kind === 'club') {
+    if (!crestUrl || imgFailed) return null;
+    return (
+      <div className="absolute inset-0 overflow-hidden flex items-center justify-center">
+        <img
+          src={crestUrl}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          onError={() => setImgFailed(true)}
+          className="h-[140%] w-auto max-w-none object-contain opacity-[0.08] dark:opacity-[0.12]"
+        />
+      </div>
+    );
+  }
 
   // The 60% wash lives on the CONTAINER, not the layers. When each
   // layer carried its own opacity-60, the PNG was 40% see-through and

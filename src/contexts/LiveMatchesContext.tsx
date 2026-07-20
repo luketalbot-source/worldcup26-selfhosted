@@ -25,6 +25,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api, ApiError } from '@/lib/apiClient';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 
 export interface MatchGoal {
   id: string;
@@ -67,6 +68,10 @@ export interface LiveMatch {
   city: string | null;
   stage: string;
   group_name: string | null;
+  // Multi-competition columns. Optional because SSE events emitted by a
+  // not-yet-redeployed API (or cached rows) may lack them.
+  competition_id?: string | null;
+  matchday?: number | null;
   status: string;
   last_updated: string;
   // Optional because legacy SSE events from before the goals-aware emit
@@ -106,6 +111,9 @@ const FALLBACK_CHECK_MS = 60_000;
 
 interface ContextValue {
   matches: LiveMatch[];
+  // Every fetched competition's rows (profile stats aggregate across
+  // competitions). Best-effort: contains only lazily-fetched buckets.
+  allMatches: LiveMatch[];
   loading: boolean;
   lastSync: Date | null;
   syncing: boolean;
@@ -151,13 +159,30 @@ const Ctx = createContext<ContextValue | null>(null);
 
 const LIVE_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'LIVE']);
 
+// Bucket key for rows whose competition we can't identify (legacy SSE
+// events from a pre-multi-competition API, rows missing competition_id).
+const UNSCOPED = '__all__';
+
 export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
-  const [matches, setMatches] = useState<LiveMatch[]>([]);
+  // Matches are stored per competition and fetched lazily when a
+  // competition becomes active — BL1 (306) + CL (~203) + WC (104) rows
+  // with embedded goals/bookings arrays are too heavy to fetch eagerly.
+  // `matches` (the public field every consumer reads) is the ACTIVE
+  // competition's bucket, so downstream hooks keep working unchanged.
+  const [buckets, setBuckets] = useState<Record<string, LiveMatch[]>>({});
+  const fetchedCompsRef = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [goalQueue, setGoalQueue] = useState<GoalEvent[]>([]);
+
+  // Tolerant: null on surfaces without a CompetitionProvider — behaves
+  // like the single-competition era (one unscoped bucket).
+  const competitionCtx = useCompetitionsSafe();
+  const activeComp = competitionCtx?.activeCompetition ?? null;
+  const activeBucketKey = activeComp?.id ?? UNSCOPED;
+  const matches = buckets[activeBucketKey] ?? [];
 
   // Per-match score snapshot updated SYNCHRONOUSLY inside the SSE handler,
   // independent of React state. Two reasons:
@@ -177,9 +202,15 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     setGoalQueue((q) => q.filter((g) => g.id !== id));
   }, []);
 
+  // Fetch one competition's matches into its bucket (or everything into
+  // the unscoped bucket when no competition context is available).
   const fetchLiveMatches = useCallback(async (): Promise<Date | null> => {
+    const slug = activeComp?.slug ?? null;
+    const bucketKey = activeComp?.id ?? UNSCOPED;
     try {
-      const data = await api.get<LiveMatch[]>('/matches');
+      const data = await api.get<LiveMatch[]>(
+        slug ? `/matches?competition=${encodeURIComponent(slug)}` : '/matches',
+      );
       if (data) {
         const sorted = [...data].sort(
           (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime(),
@@ -193,7 +224,8 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
             away: m.away_score,
           });
         }
-        setMatches(sorted);
+        fetchedCompsRef.current.add(bucketKey);
+        setBuckets((prev) => ({ ...prev, [bucketKey]: sorted }));
         if (sorted.length > 0) {
           const mostRecent = sorted.reduce((latest, m) => {
             const d = new Date(m.last_updated);
@@ -209,7 +241,20 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     }
     return null;
-  }, []);
+  }, [activeComp?.slug, activeComp?.id]);
+
+  // Lazy per-competition fetch: when the active competition changes to one
+  // we haven't loaded yet, pull its bucket. Surfaces without a
+  // CompetitionProvider get the legacy fetch-everything behavior once.
+  useEffect(() => {
+    if (activeComp) {
+      if (fetchedCompsRef.current.has(activeComp.id)) return;
+      setLoading(true);
+      void fetchLiveMatches();
+    } else if (competitionCtx === null && !fetchedCompsRef.current.has(UNSCOPED)) {
+      void fetchLiveMatches();
+    }
+  }, [activeComp, competitionCtx, fetchLiveMatches]);
 
   const canSync = useCallback(() => {
     if (!lastSync) return true;
@@ -243,9 +288,13 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
         await fetchLiveMatches();
         return { success: true, data };
       } catch (err) {
-        const isForbidden = err instanceof ApiError && err.status === 403;
-        if (isForbidden) {
+        const status = err instanceof ApiError ? err.status : null;
+        if (status === 403) {
           console.debug('[sync-matches] forbidden — skipping (likely unauthenticated)');
+        } else if (status === 409) {
+          // No active competitions to sync (e.g. archive-only period
+          // between seasons) — expected, not an error.
+          console.debug('[sync-matches] no active competitions — skipping');
         } else {
           console.error('Failed to sync:', err);
         }
@@ -289,25 +338,17 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     return () => clearInterval(id);
   }, [fetchLiveMatches]);
 
-  // Initial fetch + auto-sync once per session
+  // Auto-sync once per session, after the first bucket has loaded and only
+  // when the data looks stale. (The server runs its own sync scheduler —
+  // this just freshens a tenant whose data went stale between deploys.)
   useEffect(() => {
-    const init = async () => {
-      const lastSyncTime = await fetchLiveMatches();
-      setLoading(false);
-      if (hasAutoSynced.current) return;
-      hasAutoSynced.current = true;
-      if (!lastSyncTime) {
-        await syncMatches(true);
-      } else {
-        const elapsed = (Date.now() - lastSyncTime.getTime()) / 1000;
-        if (elapsed >= SYNC_COOLDOWN_SECONDS) {
-          await syncMatches(true);
-        }
-      }
-    };
-    void init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (loading || hasAutoSynced.current) return;
+    if (competitionCtx !== null && !activeComp) return; // competitions still resolving
+    hasAutoSynced.current = true;
+    const stale =
+      !lastSync || (Date.now() - lastSync.getTime()) / 1000 >= SYNC_COOLDOWN_SECONDS;
+    if (stale) void syncMatches(true);
+  }, [loading, lastSync, activeComp, competitionCtx, syncMatches]);
 
   // SSE stream — single connection per browser tab. All consumers downstream
   // see the same updates, and goal detection has a single comparison point.
@@ -383,18 +424,30 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
           setGoalQueue((q) => [...q, ...newGoals]);
         }
 
-        setMatches((rows) => {
+        // Route the row to its competition's bucket. Legacy events without
+        // competition_id (API mid-deploy) fall back to whichever bucket
+        // already holds the match, else the unscoped bucket.
+        setBuckets((prev) => {
+          let key = incoming.competition_id ?? null;
+          if (!key) {
+            key =
+              Object.keys(prev).find((k) =>
+                prev[k]!.some((r) => r.match_id === incoming.match_id),
+              ) ?? UNSCOPED;
+          }
+          const rows = prev[key] ?? [];
           const idx = rows.findIndex((r) => r.match_id === incoming.match_id);
+          let next: LiveMatch[];
           if (idx === -1) {
-            const next = [...rows, incoming];
+            next = [...rows, incoming];
             next.sort(
               (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime(),
             );
-            return next;
+          } else {
+            next = [...rows];
+            next[idx] = incoming;
           }
-          const next = [...rows];
-          next[idx] = incoming;
-          return next;
+          return { ...prev, [key]: next };
         });
         setLastSync(new Date(incoming.last_updated));
       } catch (err) {
@@ -419,19 +472,29 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Deadline for boost-style predictions = kickoff of the first knockout
-  // match. Falls in the natural window between "last group game ended"
-  // and "knockout stage starts", which is what the product wants. Memoised
-  // so we don't re-derive on every render — recomputes only when the
-  // matches array reference changes (i.e. on a new sync).
+  // Boost-prediction deadline for the ACTIVE competition, mirroring the
+  // server's boostDeadline.ts exactly:
+  //   1. competitions.boost_lock_at wins when set (WC archive is pinned).
+  //   2. league format: first kickoff of the season (a pure league has no
+  //      knockout stage — the old "first non-group kickoff" rule returned
+  //      null and boosts never locked).
+  //   3. tournament/hybrid: first knockout kickoff, where 'group',
+  //      'regular' and 'league' all count as the regular phase.
+  const NON_KNOCKOUT_STAGES = ['group', 'regular', 'league'];
   const boostsDeadline = useMemo<Date | null>(() => {
-    const koDates = matches
-      .filter((m) => m.stage && m.stage !== 'group' && m.match_date)
+    if (activeComp?.boost_lock_at) {
+      const d = new Date(activeComp.boost_lock_at);
+      if (Number.isFinite(d.getTime())) return d;
+    }
+    const isLeague = activeComp?.format === 'league';
+    const dates = matches
+      .filter((m) => m.match_date && (isLeague || (m.stage && !NON_KNOCKOUT_STAGES.includes(m.stage))))
       .map((m) => new Date(m.match_date).getTime())
       .filter((t) => Number.isFinite(t));
-    if (koDates.length === 0) return null;
-    return new Date(Math.min(...koDates));
-  }, [matches]);
+    if (dates.length === 0) return null;
+    return new Date(Math.min(...dates));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, activeComp?.boost_lock_at, activeComp?.format]);
 
   // True once at least one fixture has been loaded. The earlier
   // "kickoff has actually happened" check made the Stats tab pop into
@@ -443,15 +506,20 @@ export const LiveMatchesProvider = ({ children }: { children: ReactNode }) => {
     [matches],
   );
 
+  // Liveness is GLOBAL (any bucket): a live Bundesliga match moves overall
+  // leaderboards even while the user is looking at another competition.
   const anyMatchLive = useMemo<boolean>(
-    () => matches.some((m) => LIVE_STATUSES.has(m.status)),
-    [matches],
+    () => Object.values(buckets).some((rows) => rows.some((m) => LIVE_STATUSES.has(m.status))),
+    [buckets],
   );
+
+  const allMatches = useMemo(() => Object.values(buckets).flat(), [buckets]);
 
   return (
     <Ctx.Provider
       value={{
         matches,
+        allMatches,
         loading,
         lastSync,
         syncing,

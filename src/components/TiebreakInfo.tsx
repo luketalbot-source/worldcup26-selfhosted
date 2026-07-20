@@ -47,6 +47,7 @@ export const TiebreakInfo = () => {
                 ))}
               </ol>
               <p className="italic pt-0.5">{t('leaderboard.tiebreakShared')}</p>
+              <p className="pt-0.5">{t('leaderboard.tiebreakScope')}</p>
             </div>
           </motion.div>
         )}

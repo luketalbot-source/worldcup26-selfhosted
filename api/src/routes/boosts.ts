@@ -6,10 +6,22 @@ import { requireAuth, requireAdmin, type AuthEnv } from "../auth/middleware";
 import { getBoostDeadlineMs, BOOSTS_LOCKED_ERROR } from "../lib/boostDeadline";
 import { isBoostLocked } from "../lib/predictionLock";
 import { normalizeWinners } from "../lib/resultsExport";
+import { getCompetitionBySlug } from "../lib/competitions";
 
 const router = new Hono<AuthEnv>();
 
 router.get("/awards", async (c) => {
+  // ?competition=<slug> scopes the list; without it, all awards (back-compat
+  // for deployed frontends — the WC archive is currently the only data).
+  const slug = c.req.query("competition");
+  if (slug) {
+    const comp = await getCompetitionBySlug(slug);
+    if (!comp) return c.json({ error: `Unknown competition '${slug}'` }, 404);
+    const rows = await sql`
+      SELECT * FROM boost_awards WHERE competition_id = ${comp.id} ORDER BY display_order ASC
+    `;
+    return c.json(rows);
+  }
   const rows = await sql`SELECT * FROM boost_awards ORDER BY display_order ASC`;
   return c.json(rows);
 });
@@ -44,8 +56,13 @@ router.post(
     const user = c.get("user");
     const body = c.req.valid("json");
 
-    // Server-side lock — see boostDeadline.ts / predictionLock.ts. Was UI-only.
-    if (isBoostLocked(await getBoostDeadlineMs(), Date.now())) {
+    // Server-side lock — see boostDeadline.ts / predictionLock.ts. The
+    // deadline is per-competition, resolved through the targeted award.
+    const award = await sql<{ competition_id: string }[]>`
+      SELECT competition_id FROM boost_awards WHERE id = ${body.award_id}
+    `;
+    if (award.length === 0) return c.json({ error: "Unknown award" }, 404);
+    if (isBoostLocked(await getBoostDeadlineMs(award[0].competition_id), Date.now())) {
       return c.json({ error: BOOSTS_LOCKED_ERROR }, 403);
     }
 

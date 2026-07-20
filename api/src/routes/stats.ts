@@ -16,6 +16,7 @@
 import { Hono } from "hono";
 import { sql } from "../db";
 import type { AuthEnv } from "../auth/middleware";
+import { getCompetitionBySlug } from "../lib/competitions";
 
 const router = new Hono<AuthEnv>();
 
@@ -78,22 +79,34 @@ interface WorstDiscipline {
   score: number;
 }
 
-// 30s in-memory response cache. The Stats tab refetches on every goal
-// SSE event, so a goal with N connected clients used to mean N×8
-// aggregate queries inside a second — during the June 11 login surge
-// that (together with the unindexed tenant user_count scan) exhausted
-// the DB pool and 503'd the endpoint. Single API instance, so a module
-// var is correct (same documented constraint as the SSE pub/sub).
-// 30s staleness on a stats roll-up is invisible to users.
-let statsCache: { body: unknown; expires: number } | null = null;
+// 30s in-memory response cache, keyed per competition scope ('' = all).
+// The Stats tab refetches on every goal SSE event, so a goal with N
+// connected clients used to mean N×8 aggregate queries inside a second —
+// during the June 11 login surge that (together with the unindexed tenant
+// user_count scan) exhausted the DB pool and 503'd the endpoint. Single
+// API instance, so a module var is correct (same documented constraint as
+// the SSE pub/sub). 30s staleness on a stats roll-up is invisible to users.
+const statsCache = new Map<string, { body: unknown; expires: number }>();
 const STATS_TTL_MS = 30_000;
 
 // Public — same auth posture as /api/matches. Anyone with a tenant page
-// open should see tournament-wide stats.
+// open should see tournament-wide stats. ?competition=<slug> scopes every
+// aggregate to one competition; without it the roll-up spans all data
+// (back-compat for deployed frontends — WC is currently the only data).
 router.get("/tournament", async (c) => {
-  if (statsCache && statsCache.expires > Date.now()) {
-    return c.json(statsCache.body as Record<string, unknown>);
+  const compSlug = c.req.query("competition") ?? "";
+  let competitionId: string | null = null;
+  if (compSlug) {
+    const comp = await getCompetitionBySlug(compSlug);
+    if (!comp) return c.json({ error: `Unknown competition '${compSlug}'` }, 404);
+    competitionId = comp.id;
   }
+  const cached = statsCache.get(compSlug);
+  if (cached && cached.expires > Date.now()) {
+    return c.json(cached.body as Record<string, unknown>);
+  }
+  // NULL competitionId falls through every filter below (no scoping).
+  const lmScope = sql`(${competitionId}::uuid IS NULL OR lm.competition_id = ${competitionId})`;
   // 1) Totals — counted only from matches with a finalised score so a
   //    not-yet-played row with NULL scores doesn't pollute averages.
   //    Status is set to FINISHED/AET/PEN by FD's sync; we accept any
@@ -107,7 +120,8 @@ router.get("/tournament", async (c) => {
         WHERE home_score IS NOT NULL AND away_score IS NOT NULL
       )::int AS matches_played,
       COUNT(*)::int AS matches_scheduled
-    FROM public.live_matches
+    FROM public.live_matches lm
+    WHERE ${lmScope}
   `;
   const totals = totalsRows[0]!;
 
@@ -125,7 +139,7 @@ router.get("/tournament", async (c) => {
            COUNT(*)::int AS goals
       FROM public.match_goals mg
       JOIN public.live_matches lm ON lm.match_id = mg.match_id
-     WHERE mg.player_name IS NOT NULL AND mg.player_name <> ''
+     WHERE mg.player_name IS NOT NULL AND mg.player_name <> '' AND ${lmScope}
      GROUP BY mg.player_name, team_code, team_name
      ORDER BY goals DESC, mg.player_name ASC
      LIMIT 10
@@ -143,6 +157,7 @@ router.get("/tournament", async (c) => {
                END AS team_name
           FROM public.match_goals mg
           JOIN public.live_matches lm ON lm.match_id = mg.match_id
+         WHERE ${lmScope}
       ) g
      GROUP BY team_code, team_name
      ORDER BY goals DESC, team_code ASC
@@ -155,12 +170,12 @@ router.get("/tournament", async (c) => {
     SELECT team_code, team_name, COUNT(*)::int AS count
       FROM (
         SELECT home_team_code AS team_code, home_team_name AS team_name
-          FROM public.live_matches
-         WHERE home_score IS NOT NULL AND away_score = 0
+          FROM public.live_matches lm
+         WHERE home_score IS NOT NULL AND away_score = 0 AND ${lmScope}
         UNION ALL
         SELECT away_team_code, away_team_name
-          FROM public.live_matches
-         WHERE away_score IS NOT NULL AND home_score = 0
+          FROM public.live_matches lm
+         WHERE away_score IS NOT NULL AND home_score = 0 AND ${lmScope}
       ) s
      GROUP BY team_code, team_name
      ORDER BY count DESC, team_code ASC
@@ -176,8 +191,8 @@ router.get("/tournament", async (c) => {
            home_score, away_score,
            ABS(home_score - away_score)::int AS margin,
            stage, group_name
-      FROM public.live_matches
-     WHERE home_score IS NOT NULL AND away_score IS NOT NULL
+      FROM public.live_matches lm
+     WHERE home_score IS NOT NULL AND away_score IS NOT NULL AND ${lmScope}
      ORDER BY ABS(home_score - away_score) DESC,
               (home_score + away_score) DESC,
               match_date DESC
@@ -215,7 +230,7 @@ router.get("/tournament", async (c) => {
       -- pin); add minute to the key if per-goal precision is ever needed.
       LEFT JOIN public.goal_time_overrides o
         ON o.match_id = mg.match_id AND o.player_name = mg.player_name
-     WHERE mg.player_name IS NOT NULL AND mg.player_name <> ''
+     WHERE mg.player_name IS NOT NULL AND mg.player_name <> '' AND ${lmScope}
      ORDER BY COALESCE(o.total_seconds, mg.minute * 60) ASC, lm.match_date ASC
      LIMIT 1
   `;
@@ -235,7 +250,9 @@ router.get("/tournament", async (c) => {
       COUNT(*) FILTER (
         WHERE card_type IN ('red', 'second_yellow')
       )::int AS red
-    FROM public.match_bookings
+    FROM public.match_bookings mb
+    JOIN public.live_matches lm ON lm.match_id = mb.match_id
+    WHERE ${lmScope}
   `;
   const cardTotals = cardTotalsRows[0] ?? { yellow: 0, red: 0 };
 
@@ -268,6 +285,7 @@ router.get("/tournament", async (c) => {
                END AS team_name
           FROM public.match_bookings mb
           JOIN public.live_matches lm ON lm.match_id = mb.match_id
+         WHERE ${lmScope}
       ) per_team
      GROUP BY team_code, team_name
      ORDER BY score DESC, team_code ASC
@@ -305,7 +323,7 @@ router.get("/tournament", async (c) => {
     fastest_goal: fastestGoal,
     worst_discipline: worstDiscipline,
   };
-  statsCache = { body, expires: Date.now() + STATS_TTL_MS };
+  statsCache.set(compSlug, { body, expires: Date.now() + STATS_TTL_MS });
   return c.json(body);
 });
 

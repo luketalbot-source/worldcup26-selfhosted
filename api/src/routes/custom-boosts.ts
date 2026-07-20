@@ -6,6 +6,7 @@ import { requireAuth, requireAdmin, type AuthEnv } from "../auth/middleware";
 import { getBoostDeadlineMs, BOOSTS_LOCKED_ERROR } from "../lib/boostDeadline";
 import { isBoostLocked } from "../lib/predictionLock";
 import { normalizeWinners } from "../lib/resultsExport";
+import { WC_COMPETITION_ID } from "../lib/competitions";
 
 const router = new Hono<AuthEnv>();
 
@@ -108,9 +109,16 @@ router.post(
     const user = c.get("user");
     const body = c.req.valid("json");
 
-    // Server-side lock, matching the UI (same global KO-kickoff deadline
-    // the standard boosts use — see boostDeadline.ts). Was UI-only.
-    if (isBoostLocked(await getBoostDeadlineMs(), Date.now())) {
+    // Server-side lock, matching the UI. A custom boost may be scoped to a
+    // competition (its deadline applies) or tenant-wide (competition_id
+    // NULL → falls back to the WC2026 archive's pinned deadline so legacy
+    // custom boosts stay locked exactly as before).
+    const boost = await sql<{ competition_id: string | null }[]>`
+      SELECT competition_id FROM tenant_custom_boosts WHERE id = ${body.custom_boost_id}
+    `;
+    if (boost.length === 0) return c.json({ error: "Unknown custom boost" }, 404);
+    const deadlineCompId = boost[0].competition_id ?? WC_COMPETITION_ID;
+    if (isBoostLocked(await getBoostDeadlineMs(deadlineCompId), Date.now())) {
       return c.json({ error: BOOSTS_LOCKED_ERROR }, 403);
     }
 

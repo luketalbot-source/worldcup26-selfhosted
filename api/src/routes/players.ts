@@ -14,6 +14,8 @@ import { z } from "zod";
 import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 import { normaliseForSearch } from "../lib/normalise";
+import { fdClient } from "../lib/fdClient";
+import { getCompetitionBySlug } from "../lib/competitions";
 
 const router = new Hono<AuthEnv>();
 
@@ -70,21 +72,44 @@ router.post(
   zValidator("json", importBodySchema),
   async (c) => {
     const { team_code, replace, players } = c.req.valid("json");
+    // Manual imports target one competition's roster; defaults to the WC
+    // archive slug so the existing admin editor keeps working unchanged.
+    const comp = await getCompetitionBySlug(c.req.query("competition") ?? "wc-2026");
+    if (!comp) return c.json({ error: "Unknown competition" }, 404);
 
     if (replace) {
-      await sql`DELETE FROM public.live_players WHERE team_code = ${team_code}`;
+      await sql`
+        DELETE FROM public.live_players
+         WHERE team_code = ${team_code} AND competition_id = ${comp.id}
+      `;
     }
 
-    // Insert each row with ON CONFLICT-DO-UPDATE so a non-replace import
-    // updates position/shirt_number/dob if the admin re-paste corrects
-    // those, without duplicating the name row.
+    // UPDATE-then-INSERT rather than ON CONFLICT: the unique constraint
+    // migrates from (team_code, full_name) to (competition_id, team_code,
+    // full_name) during the Phase B→C window, and a hardcoded conflict
+    // target for either regime errors under the other. Admin imports are
+    // serial, so check-then-insert has no realistic race.
     let inserted = 0;
     let updated = 0;
     for (const p of players) {
       const searchable = normaliseForSearch(p.full_name);
-      const result = await sql<{ inserted: boolean }[]>`
+      const upd = await sql<{ id: string }[]>`
+        UPDATE public.live_players SET
+          searchable    = ${searchable},
+          position      = ${p.position ?? null},
+          shirt_number  = ${p.shirt_number ?? null},
+          date_of_birth = ${p.date_of_birth ?? null},
+          updated_at    = NOW()
+        WHERE team_code = ${team_code}
+          AND full_name = ${p.full_name}
+          AND competition_id = ${comp.id}
+        RETURNING id
+      `;
+      const result = upd.length > 0
+        ? [{ inserted: false }]
+        : await sql<{ inserted: boolean }[]>`
         INSERT INTO public.live_players
-          (team_code, full_name, searchable, position, shirt_number, date_of_birth, updated_at)
+          (team_code, full_name, searchable, position, shirt_number, date_of_birth, competition_id, updated_at)
         VALUES
           (${team_code},
            ${p.full_name},
@@ -92,14 +117,9 @@ router.post(
            ${p.position ?? null},
            ${p.shirt_number ?? null},
            ${p.date_of_birth ?? null},
+           ${comp.id},
            NOW())
-        ON CONFLICT (team_code, full_name) DO UPDATE SET
-          searchable    = EXCLUDED.searchable,
-          position      = EXCLUDED.position,
-          shirt_number  = EXCLUDED.shirt_number,
-          date_of_birth = EXCLUDED.date_of_birth,
-          updated_at    = NOW()
-        RETURNING (xmax = 0) AS inserted
+        RETURNING true AS inserted
       `;
       if (result[0]?.inserted) inserted++;
       else updated++;
@@ -108,10 +128,11 @@ router.post(
     const counts = await sql<{ total: bigint }[]>`
       SELECT COUNT(*)::bigint AS total
       FROM public.live_players
-      WHERE team_code = ${team_code}
+      WHERE team_code = ${team_code} AND competition_id = ${comp.id}
     `;
     return c.json({
       team_code,
+      competition: comp.slug,
       inserted,
       updated,
       total: Number(counts[0]?.total ?? 0),
@@ -166,11 +187,15 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
     return c.json({ error: "FOOTBALL_DATA_API_KEY not configured on this server" }, 500);
   }
 
+  // ?competition=<slug>; defaults to the WC archive slug for back-compat
+  // with the existing admin button.
+  const comp = await getCompetitionBySlug(c.req.query("competition") ?? "wc-2026");
+  if (!comp) return c.json({ error: "Unknown competition" }, 404);
+  const seasonParam = comp.fd_season != null ? `?season=${comp.fd_season}` : "";
+
   let fdResp: Response;
   try {
-    fdResp = await fetch("https://api.football-data.org/v4/competitions/WC/teams", {
-      headers: { "X-Auth-Token": apiKey },
-    });
+    fdResp = await fdClient.fdFetch(`/competitions/${comp.fd_code}/teams${seasonParam}`, apiKey);
   } catch (err) {
     return c.json(
       { error: `Could not reach football-data.org: ${err instanceof Error ? err.message : String(err)}` },
@@ -222,23 +247,33 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
       // the old loop issued up to ~1,300 sequential queries across a full
       // 48-team sync, hogging pool connections. ON CONFLICT DO NOTHING
       // still dedupes (including duplicates within the same batch).
-      const rows = squad.map((p) => {
-        const fullName = p.name!.trim();
-        return {
-          team_code: team.tla!,
-          full_name: fullName,
-          searchable: normaliseForSearch(fullName),
-          position: normalisePosition(p.position),
-          shirt_number: typeof p.shirtNumber === "number" ? p.shirtNumber : null,
-          date_of_birth: p.dateOfBirth ?? null,
-          updated_at: new Date(),
-        };
-      });
+      // Dedupe by name in JS (FD occasionally repeats a player in a squad
+      // payload). No ON CONFLICT on the INSERT: the unique constraint
+      // migrates from (team_code, full_name) to (competition_id, …) during
+      // the Phase B→C window, and a hardcoded conflict target for either
+      // regime errors under the other — the DELETE below already guarantees
+      // a clean slate for this (team, competition).
+      const byName = new Map<string, (typeof squad)[number]>();
+      for (const p of squad) byName.set(p.name!.trim(), p);
+      const rows = [...byName.entries()].map(([fullName, p]) => ({
+        team_code: team.tla!,
+        full_name: fullName,
+        searchable: normaliseForSearch(fullName),
+        position: normalisePosition(p.position),
+        shirt_number: typeof p.shirtNumber === "number" ? p.shirtNumber : null,
+        date_of_birth: p.dateOfBirth ?? null,
+        competition_id: comp.id,
+        updated_at: new Date(),
+      }));
       await sql.begin(async (tx) => {
-        await tx`DELETE FROM public.live_players WHERE team_code = ${team.tla!}`;
+        // Scope the rebuild to this competition — a club playing in both
+        // CL and BL1 has distinct squad registrations per competition.
         await tx`
-          INSERT INTO public.live_players ${tx(rows, 'team_code', 'full_name', 'searchable', 'position', 'shirt_number', 'date_of_birth', 'updated_at')}
-          ON CONFLICT (team_code, full_name) DO NOTHING
+          DELETE FROM public.live_players
+           WHERE team_code = ${team.tla!} AND competition_id = ${comp.id}
+        `;
+        await tx`
+          INSERT INTO public.live_players ${tx(rows, 'team_code', 'full_name', 'searchable', 'position', 'shirt_number', 'date_of_birth', 'competition_id', 'updated_at')}
         `;
       });
       teamsTouched++;

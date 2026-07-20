@@ -5,6 +5,7 @@ import { sql } from "../db";
 import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 import { emitMatchEvent, type MatchGoal } from "../lib/matchEvents";
 import { fetchMatchWithGoals, runSync, syncState, resyncPlayedMatchEvents } from "../lib/matchSync";
+import { getActiveCompetitions, getCompetitionBySlug, invalidateCompetitionsCache } from "../lib/competitions";
 import { invalidateLeaderboardCache } from "./leaderboard";
 
 const router = new Hono<AuthEnv>();
@@ -87,14 +88,38 @@ router.post("/sync-matches", requireAuth, async (c) => {
     return c.json({ status: "running", startedAt: syncState.startedAt }, 202);
   }
 
+  // ?competition=<slug> targets one competition (admin bootstrap of a new
+  // season, forced teams refresh). Without it: every active competition,
+  // sequentially — the multi-competition equivalent of the old behavior.
+  const slug = c.req.query("competition");
+  let comps;
+  if (slug) {
+    const comp = await getCompetitionBySlug(slug);
+    if (!comp) return c.json({ error: `Unknown competition '${slug}'` }, 404);
+    comps = [comp];
+  } else {
+    comps = await getActiveCompetitions();
+    if (comps.length === 0) {
+      return c.json({ error: "No active competitions to sync" }, 409);
+    }
+  }
+
   // Fire and forget via setTimeout — decouples from the request handler's
   // microtask queue so the work survives the response being sent. Envoy's
   // 10s upstream timeout is irrelevant because we've already responded.
-  setTimeout(() => {
-    runSync(apiKey).catch((err) => console.error("[sync-matches] unhandled:", err));
+  setTimeout(async () => {
+    for (const comp of comps) {
+      // Explicit trigger implies "refresh everything", including rosters.
+      await runSync(apiKey, comp, { forceTeams: true }).catch((err) =>
+        console.error(`[sync-matches] ${comp.slug} unhandled:`, err),
+      );
+    }
   }, 0);
 
-  return c.json({ status: "started", startedAt: new Date().toISOString() }, 202);
+  return c.json(
+    { status: "started", competitions: comps.map((x) => x.slug), startedAt: new Date().toISOString() },
+    202,
+  );
 });
 
 // Sync status is also useful for the admin to see progress, but no reason
@@ -111,8 +136,16 @@ router.get("/sync-status", requireAuth, async (c) => {
 router.post("/resync-events", requireAdmin, async (c) => {
   const apiKey = process.env.FOOTBALL_DATA_API_KEY;
   if (!apiKey) return c.json({ error: "FOOTBALL_DATA_API_KEY not configured" }, 500);
+  // Optional ?competition=<slug> scopes the (FD-budget-hungry) re-pull.
+  const slug = c.req.query("competition");
+  let competitionId: string | undefined;
+  if (slug) {
+    const comp = await getCompetitionBySlug(slug);
+    if (!comp) return c.json({ error: `Unknown competition '${slug}'` }, 404);
+    competitionId = comp.id;
+  }
   setTimeout(() => {
-    resyncPlayedMatchEvents(apiKey).catch((err) =>
+    resyncPlayedMatchEvents(apiKey, competitionId).catch((err) =>
       console.error("[resync-events] unhandled:", err)
     );
   }, 0);

@@ -10,6 +10,8 @@ import { GoalCelebration } from '@/components/GoalCelebration';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
+import { CompetitionProvider } from '@/contexts/CompetitionContext';
+import { CompetitionSwitcher } from '@/components/CompetitionSwitcher';
 import { useIframeAuth } from '@/hooks/useIframeAuth';
 import { api } from '@/lib/apiClient';
 import { Loader2 } from 'lucide-react';
@@ -45,7 +47,7 @@ const TenantApp = () => {
 
   // Set document title
   useEffect(() => {
-    document.title = 'WC2026 Predictor';
+    document.title = 'Football Predictor';
   }, []);
 
   // Check if user belongs to this tenant, if not sign them out
@@ -130,23 +132,32 @@ const TenantApp = () => {
     }
   };
 
+  // The competition switcher only renders on competition-scoped tabs —
+  // Leagues and Profile aggregate across competitions and stay unscoped.
+  const competitionScopedTabs = ['matches', 'boost', 'stats'];
+
   return (
-    // LiveMatchesProvider wraps the whole tenant shell so every view (Today,
-    // Groups, Knockout, plus the global GoalCelebration overlay) shares a
-    // single SSE connection and a single source of match-state truth.
-    <LiveMatchesProvider>
-      <div className="min-h-screen bg-background pb-24">
-        <main className="container py-4">
-          {renderContent()}
-        </main>
+    // CompetitionProvider resolves which competitions this tenant has
+    // enabled (feature flags) + which one is active; LiveMatchesProvider
+    // consumes it to lazily fetch that competition's matches. Every view
+    // (plus the global GoalCelebration overlay) shares a single SSE
+    // connection and a single source of match-state truth.
+    <CompetitionProvider>
+      <LiveMatchesProvider>
+        <div className="min-h-screen bg-background pb-24">
+          <main className="container py-4 space-y-4">
+            {competitionScopedTabs.includes(activeTab) && <CompetitionSwitcher />}
+            {renderContent()}
+          </main>
 
-        <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+          <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {/* Global goal celebration overlay — pointer-events: none so it
-            never blocks interaction. Renders only while a goal is active. */}
-        <GoalCelebration />
-      </div>
-    </LiveMatchesProvider>
+          {/* Global goal celebration overlay — pointer-events: none so it
+              never blocks interaction. Renders only while a goal is active. */}
+          <GoalCelebration />
+        </div>
+      </LiveMatchesProvider>
+    </CompetitionProvider>
   );
 };
 

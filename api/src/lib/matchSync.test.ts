@@ -9,7 +9,7 @@ import { describe, expect, test } from "bun:test";
 // time. openPlayScore is pure (no DB), and the postgres client is lazy (never
 // connects without a query), so a dummy URL is enough to load the module.
 process.env.DATABASE_URL ||= "postgres://test:test@localhost:5432/test";
-const { openPlayScore } = await import("./matchSync");
+const { openPlayScore, mapStage, NON_KNOCKOUT_STAGES } = await import("./matchSync");
 
 describe("openPlayScore — de-inflate FD's pens-in-fullTime", () => {
   test("PSO with pens folded into fullTime → recovers the AET draw", () => {
@@ -36,5 +36,34 @@ describe("openPlayScore — de-inflate FD's pens-in-fullTime", () => {
 
   test("unplayed match (null scores) passes through", () => {
     expect(openPlayScore(null, null, null, null, null)).toEqual({ home: null, away: null });
+  });
+});
+
+// Multi-competition stage taxonomy: domestic leagues are all REGULAR_SEASON;
+// the Swiss-format CL has LEAGUE_STAGE + a PLAYOFFS round before LAST_16.
+// The boost deadline + matches route's group/knockout split both build on
+// these mappings, so pin them.
+describe("mapStage — club-competition additions", () => {
+  test("Bundesliga fixtures map to 'regular'", () => {
+    expect(mapStage("REGULAR_SEASON")).toBe("regular");
+  });
+  test("CL league phase + playoff round", () => {
+    expect(mapStage("LEAGUE_STAGE")).toBe("league");
+    expect(mapStage("PLAYOFFS")).toBe("playoff");
+  });
+  test("WC mappings unchanged", () => {
+    expect(mapStage("GROUP_STAGE")).toBe("group");
+    expect(mapStage("LAST_32")).toBe("round32");
+    expect(mapStage("FINAL")).toBe("final");
+  });
+  test("unknown labels fall back to lowercase, never 'group'", () => {
+    expect(mapStage("SOME_NEW_THING")).toBe("some_new_thing");
+  });
+  test("non-knockout set covers all three regular-phase stages", () => {
+    expect(NON_KNOCKOUT_STAGES).toEqual(["group", "regular", "league"]);
+    // and knockout stages are NOT in it
+    for (const s of ["playoff", "round32", "round16", "quarter", "semi", "third", "final"]) {
+      expect(NON_KNOCKOUT_STAGES).not.toContain(s);
+    }
   });
 });

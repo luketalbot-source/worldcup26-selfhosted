@@ -29,9 +29,21 @@ router.get("/", async (c) => {
 
   if (!tenantId) return c.json({ error: "tenant_id is required" }, 400);
 
-  // tenant_id + league_id are the only inputs the queries below read, so
-  // together they fully determine the response.
-  const cacheKey = `${tenantId}:${leagueId ?? ""}`;
+  // Competition scoping. Explicit ?competition_id= wins; otherwise a
+  // competition-scoped league (leagues.competition_id set) applies its own
+  // scope automatically — that IS the sub-league feature: only that
+  // competition's match + boost points count. NULL = overall (combined),
+  // which is byte-identical to the pre-multi-competition behavior.
+  let competitionId: string | null = c.req.query("competition_id") ?? null;
+  if (!competitionId && leagueId) {
+    const leagueRows = await sql<{ competition_id: string | null }[]>`
+      SELECT competition_id FROM leagues WHERE id = ${leagueId}
+    `;
+    competitionId = leagueRows[0]?.competition_id ?? null;
+  }
+
+  // tenant_id + league_id + competition scope fully determine the response.
+  const cacheKey = `${tenantId}:${leagueId ?? ""}:${competitionId ?? ""}`;
   const cached = leaderboardCache.get(cacheKey);
   if (cached) return c.json(cached as Record<string, unknown>[]);
 
@@ -123,6 +135,7 @@ router.get("/", async (c) => {
                ) AS goal_diff_sum
         FROM all_preds ap
         INNER JOIN live_matches lm2 ON lm2.match_id = ap.match_id
+          AND (${competitionId}::uuid IS NULL OR lm2.competition_id = ${competitionId})
         GROUP BY ap.user_id
       ),
       all_boost_preds AS (
@@ -143,6 +156,7 @@ router.get("/", async (c) => {
                COUNT(*) AS pred_count
         FROM all_boost_preds abp
         INNER JOIN boost_awards ba ON ba.id = abp.award_id
+          AND (${competitionId}::uuid IS NULL OR ba.competition_id = ${competitionId})
         LEFT JOIN boost_results br ON br.award_id = abp.award_id
         GROUP BY abp.user_id
       ),
@@ -151,6 +165,7 @@ router.get("/", async (c) => {
         FROM tenant_custom_boost_predictions cbp
         INNER JOIN league_users lu ON lu.user_id = cbp.user_id
         INNER JOIN tenant_custom_boosts cb ON cb.id = cbp.custom_boost_id
+          AND (${competitionId}::uuid IS NULL OR cb.competition_id = ${competitionId})
         WHERE cb.tenant_id = ${tenantId}
       ),
       custom_pts AS (
@@ -165,6 +180,7 @@ router.get("/", async (c) => {
                COUNT(*) AS pred_count
         FROM all_custom_preds acp
         INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
+          AND (${competitionId}::uuid IS NULL OR cb2.competition_id = ${competitionId})
         LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
         GROUP BY acp.user_id
       )
@@ -295,6 +311,7 @@ router.get("/", async (c) => {
              ) AS goal_diff_sum
       FROM all_preds ap
       INNER JOIN live_matches lm ON lm.match_id = ap.match_id
+        AND (${competitionId}::uuid IS NULL OR lm.competition_id = ${competitionId})
       GROUP BY ap.user_id
     ),
     all_boost_preds AS (
@@ -315,6 +332,7 @@ router.get("/", async (c) => {
              COUNT(*) AS pred_count
       FROM all_boost_preds abp
       INNER JOIN boost_awards ba ON ba.id = abp.award_id
+          AND (${competitionId}::uuid IS NULL OR ba.competition_id = ${competitionId})
       LEFT JOIN boost_results br ON br.award_id = abp.award_id
       GROUP BY abp.user_id
     ),
@@ -323,6 +341,7 @@ router.get("/", async (c) => {
       FROM tenant_custom_boost_predictions cbp
       INNER JOIN tenant_users tu ON tu.user_id = cbp.user_id
       INNER JOIN tenant_custom_boosts cb ON cb.id = cbp.custom_boost_id
+          AND (${competitionId}::uuid IS NULL OR cb.competition_id = ${competitionId})
       WHERE cb.tenant_id = ${tenantId}
     ),
     custom_pts AS (
@@ -337,6 +356,7 @@ router.get("/", async (c) => {
              COUNT(*) AS pred_count
       FROM all_custom_preds acp
       INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
+          AND (${competitionId}::uuid IS NULL OR cb2.competition_id = ${competitionId})
       LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
       GROUP BY acp.user_id
     )

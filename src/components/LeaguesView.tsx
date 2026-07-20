@@ -8,6 +8,7 @@ import { useLeagues, League } from '@/hooks/useLeagues';
 import { useLeagueLeaderboard } from '@/hooks/useLeagueLeaderboard';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useLiveMatchesOptional } from '@/contexts/LiveMatchesContext';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { useLoadTestLeaderboard } from '@/hooks/useLoadTestLeaderboard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -171,8 +172,16 @@ const ExpandableLeagueCard = ({
   const [editName, setEditName] = useState(league.name);
   const [editEmoji, setEditEmoji] = useState(league.avatar_emoji || '🏆');
   const [saving, setSaving] = useState(false);
-  
+
   const isCreator = user?.id === league.creator_id;
+
+  // Competition-scoped sub-league badge ("⚽ Bundesliga"). Copy always says
+  // "scope"/"points from", never "league" — the social-league naming
+  // collision is real. Overall leagues (competition_id null) show nothing.
+  const competitionCtx = useCompetitionsSafe();
+  const scopeName = league.competition_id
+    ? competitionCtx?.competitions.find((c) => c.id === league.competition_id)?.short_name ?? null
+    : null;
   
   const handleCopyCode = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -296,6 +305,11 @@ const ExpandableLeagueCard = ({
                   Dev
                 </span>
               )}
+              {scopeName && (
+                <span className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
+                  ⚽ {scopeName}
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {isEveryone
@@ -337,6 +351,12 @@ const ExpandableLeagueCard = ({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-4 border-t border-border/50 pt-4">
+              {/* Scoped sub-league: say exactly which points count here */}
+              {scopeName && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {t('leagues.scopedTo', { competition: scopeName })}
+                </p>
+              )}
               {/* Join code - hide for Everyone league */}
               {!isEveryone && (
                 <div className="flex items-center justify-between bg-muted rounded-xl p-3">
@@ -707,8 +727,15 @@ export const LeaguesView = () => {
   // Create form state
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🏆');
+  // Scoring scope: null = all competitions combined (the default mental
+  // model); a competition id = only that competition's points count.
+  const [newScope, setNewScope] = useState<string | null>(null);
   const [createdLeague, setCreatedLeague] = useState<League | null>(null);
   const [copied, setCopied] = useState(false);
+  // Scope options: only ACTIVE competitions the tenant has enabled —
+  // scoping a new league to a finished archive makes no sense.
+  const competitionCtxTop = useCompetitionsSafe();
+  const scopeOptions = (competitionCtxTop?.competitions ?? []).filter((c) => c.is_active);
   
   // Join form state
   const [joinCode, setJoinCode] = useState('');
@@ -716,8 +743,8 @@ export const LeaguesView = () => {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    
-    const league = await createLeague(newName.trim(), newEmoji);
+
+    const league = await createLeague(newName.trim(), newEmoji, newScope);
     if (league) {
       setCreatedLeague(league);
     }
@@ -778,6 +805,7 @@ export const LeaguesView = () => {
   const resetCreate = () => {
     setNewName('');
     setNewEmoji('🏆');
+    setNewScope(null);
     setCreatedLeague(null);
     setShowCreateDialog(false);
   };
@@ -947,7 +975,50 @@ export const LeaguesView = () => {
                   maxLength={30}
                 />
               </div>
-              
+
+              {/* Scoring scope — only rendered when the tenant has active
+                  competitions to scope to (during an archive-only period
+                  every league is implicitly "all competitions"). */}
+              {scopeOptions.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">{t('leagues.scopeLabel')}</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewScope(null)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                        newScope === null
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {t('leagues.scopeAll')}
+                    </button>
+                    {scopeOptions.map((comp) => (
+                      <button
+                        key={comp.id}
+                        type="button"
+                        onClick={() => setNewScope(comp.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                          newScope === comp.id
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {comp.short_name}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {newScope === null
+                      ? t('leagues.scopeAllHint')
+                      : t('leagues.scopedTo', {
+                          competition: scopeOptions.find((c) => c.id === newScope)?.short_name ?? '',
+                        })}
+                  </p>
+                </div>
+              )}
+
               <Button
                 className="w-full"
                 onClick={handleCreate}

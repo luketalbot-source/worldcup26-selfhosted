@@ -4,6 +4,12 @@ export interface Team {
   code: string;
   flag: string;
   group: string;
+  // Club competitions only: crest image URL from the teams table (FD).
+  // Countries render bundled flag SVGs instead — see <Flag kind>.
+  crestUrl?: string | null;
+  // API short_name (club abbreviations like "Bayern"); optional because
+  // the static WC data predates it.
+  shortName?: string | null;
 }
 
 export interface MatchGoal {
@@ -41,7 +47,22 @@ export interface Match {
   dateIso?: string;
   venue: string;
   city: string;
-  stage: 'group' | 'round32' | 'round16' | 'quarter' | 'semi' | 'third' | 'final';
+  // 'group'..'final' = WC taxonomy; 'regular' = domestic-league matchday
+  // (Bundesliga), 'league' = CL Swiss league phase, 'playoff' = CL
+  // knockout playoff round before the last 16.
+  stage:
+    | 'group'
+    | 'regular'
+    | 'league'
+    | 'playoff'
+    | 'round32'
+    | 'round16'
+    | 'quarter'
+    | 'semi'
+    | 'third'
+    | 'final';
+  /** FD matchday (club competitions); undefined for WC fixtures. */
+  matchday?: number | null;
   group?: string;
   homeScore?: number;
   awayScore?: number;

@@ -3,15 +3,28 @@ import { streamSSE } from "hono/streaming";
 import { sql } from "../db";
 import { requireAuth, type AuthEnv } from "../auth/middleware";
 import { subscribeMatchEvents } from "../lib/matchEvents";
+import { NON_KNOCKOUT_STAGES } from "../lib/matchSync";
+import { getCompetitionBySlug } from "../lib/competitions";
 
 const router = new Hono<AuthEnv>();
 
-// GET /api/matches?stage=group|knockout
-// Stage filter uses the normalised values sync-matches writes: 'group' for
-// group-stage fixtures, anything else ('round16', 'quarter', 'semi', etc.)
-// is considered knockout.
+// GET /api/matches?stage=group|knockout&competition=<slug>&matchday=<n>
+// Stage filter uses the normalised values sync-matches writes. 'group' means
+// "regular phase" across formats ('group'/'regular'/'league' — see
+// NON_KNOCKOUT_STAGES); anything else is knockout. No competition param =
+// all competitions (back-compat for deployed frontends).
 router.get("/", async (c) => {
   const stage = c.req.query("stage");
+  const compSlug = c.req.query("competition");
+  const matchdayRaw = c.req.query("matchday");
+
+  let competitionId: string | null = null;
+  if (compSlug) {
+    const comp = await getCompetitionBySlug(compSlug);
+    if (!comp) return c.json({ error: `Unknown competition '${compSlug}'` }, 404);
+    competitionId = comp.id;
+  }
+  const matchday = matchdayRaw != null && /^\d+$/.test(matchdayRaw) ? Number(matchdayRaw) : null;
   // Goals as a correlated subquery in SELECT — avoids the GROUP BY trap
   // where Postgres demands every non-aggregate live_matches column appear
   // in the GROUP BY (live_matches.id is the PK, match_id is just unique,
@@ -46,25 +59,33 @@ router.get("/", async (c) => {
     WHERE mb.match_id = lm.match_id
   ), '[]'::json)`;
 
+  // Shared scoping predicate: NULL params fall through (no filter), so the
+  // legacy no-param call returns every row exactly as before.
+  const scope = sql`
+    (${competitionId}::uuid IS NULL OR lm.competition_id = ${competitionId})
+    AND (${matchday}::int IS NULL OR lm.matchday = ${matchday})
+  `;
+
   let rows;
   if (stage === "group") {
     rows = await sql`
       SELECT lm.*, ${goalsSubquery} AS goals, ${bookingsSubquery} AS bookings
       FROM public.live_matches lm
-      WHERE lm.stage = 'group'
+      WHERE lm.stage = ANY(${NON_KNOCKOUT_STAGES}) AND ${scope}
       ORDER BY lm.match_date ASC
     `;
   } else if (stage === "knockout") {
     rows = await sql`
       SELECT lm.*, ${goalsSubquery} AS goals, ${bookingsSubquery} AS bookings
       FROM public.live_matches lm
-      WHERE lm.stage <> 'group'
+      WHERE lm.stage <> ALL(${NON_KNOCKOUT_STAGES}) AND ${scope}
       ORDER BY lm.match_date ASC
     `;
   } else {
     rows = await sql`
       SELECT lm.*, ${goalsSubquery} AS goals, ${bookingsSubquery} AS bookings
       FROM public.live_matches lm
+      WHERE ${scope}
       ORDER BY lm.match_date ASC
     `;
   }

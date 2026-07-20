@@ -32,8 +32,11 @@ interface OIDCConfigResponse {
 // Production base URL for the user-facing app. Used as the default value
 // for the redirect URI helper text + the "share with Flip" card so the
 // values an admin copies match what's deployed at Flip — not the code.run
-// preview URL their browser happens to be on right now.
-const PRODUCTION_BASE_URL = 'https://wc2026.rnd.team.getflip.gg';
+// preview URL their browser happens to be on right now. Overridable per
+// deployment via VITE_PUBLIC_BASE_URL (the domain outlives the wc2026 name).
+const PRODUCTION_BASE_URL =
+  (import.meta.env.VITE_PUBLIC_BASE_URL as string | undefined) ??
+  'https://wc2026.rnd.team.getflip.gg';
 
 // Strip the standard /auth/callback suffix to get the base tenant URL —
 // what the Flip Admin and Menu tile actually need (the OIDC layer adds the

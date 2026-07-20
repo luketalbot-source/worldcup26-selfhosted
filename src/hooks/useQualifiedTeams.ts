@@ -22,6 +22,8 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
+import { useTeams } from '@/hooks/useTeams';
 import { teams as staticTeams } from '@/data/teams';
 import type { Team } from '@/types/match';
 
@@ -70,6 +72,13 @@ const FLAGS_BY_CODE: Record<string, string> = (() => {
  */
 export function useQualifiedTeams(): Team[] {
   const { matches } = useLiveMatchesContext();
+  const ctx = useCompetitionsSafe();
+  const isClubCompetition = ctx?.profile.teamKind === 'club';
+  // Club competitions: the full participant list is known from day one
+  // (18 Bundesliga clubs, 36 CL clubs) — no qualification dance, so the
+  // teams roster IS the picker list, crests included. The group-stage
+  // derivation below only makes sense for the WC's qualify-as-you-go flow.
+  const { teams: rosterTeams } = useTeams();
   // We sort by the *localised* team name so the visible order matches
   // the visible labels. Without this, the picker displays "Kanada" /
   // "Kap Verde" / "Kolumbien" mid-list because they sort by the
@@ -79,6 +88,13 @@ export function useQualifiedTeams(): Team[] {
   // without each consumer having to re-sort.
   const { t, i18n } = useTranslation();
   return useMemo(() => {
+    if (isClubCompetition) {
+      // Club names come from the API verbatim (never the teams.* i18n —
+      // Porto's TLA 'POR' would translate to "Portugal").
+      return [...rosterTeams]
+        .filter((team) => !PLACEHOLDER_CODES.has(team.code))
+        .sort((a, b) => a.name.localeCompare(b.name, i18n.language));
+    }
     const byCode = new Map<string, Team>();
 
     for (const m of matches) {
@@ -123,5 +139,5 @@ export function useQualifiedTeams(): Team[] {
     // `t` and `i18n.language` in deps so we resort when the user changes
     // language at runtime — the picker reflows alphabetically immediately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches, i18n.language]);
+  }, [matches, i18n.language, isClubCompetition, rosterTeams]);
 }

@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/apiClient';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { Flag } from './Flag';
 
 interface TopScorer {
@@ -107,6 +108,9 @@ interface TournamentStats {
 // MUST mirror them 1:1.
 const STAGE_ORDER = [
   'group',
+  'regular',
+  'league',
+  'playoff',
   'round32',
   'round16',
   'quarter',
@@ -126,6 +130,8 @@ const RANK_STYLES = [
 export const StatsView = () => {
   const { t } = useTranslation();
   const { matches, goalQueue } = useLiveMatchesContext();
+  const competitionCtx = useCompetitionsSafe();
+  const activeSlug = competitionCtx?.activeCompetition?.slug ?? null;
   const [stats, setStats] = useState<TournamentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +146,7 @@ export const StatsView = () => {
   // connected client.
   const goalTick = goalQueue.length;
   const hasFetchedRef = useRef(false);
+  const lastSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +154,11 @@ export const StatsView = () => {
     const load = async () => {
       try {
         setError(null);
-        const data = await api.get<TournamentStats>('/stats/tournament');
+        const data = await api.get<TournamentStats>(
+          activeSlug
+            ? `/stats/tournament?competition=${encodeURIComponent(activeSlug)}`
+            : '/stats/tournament',
+        );
         if (!cancelled) setStats(data);
       } catch (e) {
         if (!cancelled) {
@@ -160,9 +171,11 @@ export const StatsView = () => {
         if (!cancelled) setLoading(false);
       }
     };
-    if (!hasFetchedRef.current) {
-      // First load on mount — fetch immediately.
+    if (!hasFetchedRef.current || activeSlug !== lastSlugRef.current) {
+      // First load on mount, or the user switched competitions —
+      // fetch immediately (scoped to the new competition).
       hasFetchedRef.current = true;
+      lastSlugRef.current = activeSlug;
       void load();
     } else {
       // Goal-driven refetch — wait out the burst, then fetch once. A new
@@ -173,7 +186,7 @@ export const StatsView = () => {
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [goalTick]);
+  }, [goalTick, activeSlug]);
 
   // Tick `now` once a minute so kick-off-time-based derivations (which
   // stage are we in, has anything started yet) advance on their own
@@ -192,6 +205,20 @@ export const StatsView = () => {
     () => matches.some((m) => new Date(m.match_date).getTime() <= now),
     [matches, now],
   );
+
+  // Club formats: "Matchday N" for the hero — the highest matchday with
+  // a started match, else the first scheduled one.
+  const currentMatchdayLabel = useMemo(() => {
+    const days = matches
+      .map((m) => m.matchday)
+      .filter((d): d is number => d != null);
+    if (days.length === 0) return null;
+    const started = matches
+      .filter((m) => m.matchday != null && new Date(m.match_date).getTime() <= now)
+      .map((m) => m.matchday as number);
+    const day = started.length > 0 ? Math.max(...started) : Math.min(...days);
+    return t('matchday.title', { n: day });
+  }, [matches, now, t]);
 
   // Headline tournament stage. We can't just take the furthest stage
   // that appears in `matches` — every fixture is in the table from day
@@ -268,7 +295,13 @@ export const StatsView = () => {
           <div className="text-[11px] uppercase tracking-widest text-white/70 font-semibold mb-1">
             ⚡ {t('stats.title')}
             <span className="text-white/30 mx-2">·</span>
-            <span className="text-white/80">{t(`stats.stage.${currentStage}`)}</span>
+            {/* League formats headline the current matchday, not a stage
+                name (a 34-matchday season has no group/knockout arc). */}
+            <span className="text-white/80">
+              {competitionCtx?.profile.subViews.includes('matchday') && currentMatchdayLabel
+                ? currentMatchdayLabel
+                : t(`stats.stage.${currentStage}`, currentStage)}
+            </span>
           </div>
           <h2 className="text-2xl font-extrabold text-white">
             {t(`stats.hero.${heroState}.title`)}

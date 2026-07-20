@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { cachedGet } from '@/lib/requestCache';
 import { boostResultIncludes } from '@/lib/boostMatch';
 import { calculateUserStats, UserStats } from '@/lib/scoringCalculator';
-import { groupStageMatches } from '@/data/matches';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 
 interface ApiPrediction {
@@ -69,10 +68,12 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
 
   // Matches come from LiveMatchesContext (already fetched once per tab and
   // kept fresh over SSE) — no GET /matches of our own. Read through a ref
-  // so SSE updates don't re-trigger the fetch effect below.
-  const { matches, loading: matchesLoading } = useLiveMatchesContext();
-  const matchesRef = useRef(matches);
-  matchesRef.current = matches;
+  // so SSE updates don't re-trigger the fetch effect below. Profile stats
+  // span ALL competitions (predictions do too), so read allMatches, not the
+  // active competition's bucket.
+  const { allMatches, loading: matchesLoading } = useLiveMatchesContext();
+  const matchesRef = useRef(allMatches);
+  matchesRef.current = allMatches;
 
   useEffect(() => {
     if (matchesLoading) return; // wait for the context's initial load
@@ -177,23 +178,16 @@ export const useUserStats = (userId: string | undefined, tenantId?: string | nul
     // Create a map of finished matches
     const matchResults = new Map<string, { home_score: number | null; away_score: number | null }>();
 
-    // Add matches from the live-matches context
+    // Add matches from the live-matches context. (A static-fixture merge
+    // used to sit here for legacy test matches — removed with the
+    // multi-competition work: WC static data must not leak into every
+    // competition's stats, and all real results live in the API rows.)
     finishedMatches.forEach(match => {
       matchResults.set(match.match_id, {
         home_score: match.home_score,
         away_score: match.away_score,
       });
     });
-
-    // Also add finished matches from static data (for test matches)
-    groupStageMatches
-      .filter(m => m.status === 'finished' && m.homeScore !== undefined && m.awayScore !== undefined)
-      .forEach(match => {
-        matchResults.set(match.id, {
-          home_score: match.homeScore ?? null,
-          away_score: match.awayScore ?? null,
-        });
-      });
 
     // Calculate stats with boost points and total predictions
     const calculatedStats = calculateUserStats(predictions, matchResults, boostPoints, totalPredictionCount);

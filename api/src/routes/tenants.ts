@@ -119,6 +119,50 @@ router.patch(
   },
 );
 
+// ── Per-tenant competition feature flags ────────────────────────────────
+// A tenant only sees competitions with a tenant_competitions row (see
+// GET /api/competitions). These two endpoints power the admin page's
+// "Competitions" toggle section. New competitions default OFF everywhere,
+// enabling a staged rollout (dogfood tenant first, then customers).
+
+router.get("/:id/competitions", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const rows = await sql`
+    SELECT comp.id, comp.slug, comp.name, comp.short_name, comp.season,
+           comp.format, comp.is_active, comp.display_order,
+           (tc.tenant_id IS NOT NULL) AS enabled
+      FROM public.competitions comp
+      LEFT JOIN public.tenant_competitions tc
+        ON tc.competition_id = comp.id AND tc.tenant_id = ${id}
+     ORDER BY comp.display_order ASC, comp.slug ASC
+  `;
+  return c.json(rows);
+});
+
+router.put(
+  "/:id/competitions/:competitionId",
+  requireAdmin,
+  zValidator("json", z.object({ enabled: z.boolean() })),
+  async (c) => {
+    const tenantId = c.req.param("id");
+    const competitionId = c.req.param("competitionId");
+    const { enabled } = c.req.valid("json");
+    if (enabled) {
+      await sql`
+        INSERT INTO public.tenant_competitions (tenant_id, competition_id)
+        VALUES (${tenantId}, ${competitionId})
+        ON CONFLICT (tenant_id, competition_id) DO NOTHING
+      `;
+    } else {
+      await sql`
+        DELETE FROM public.tenant_competitions
+         WHERE tenant_id = ${tenantId} AND competition_id = ${competitionId}
+      `;
+    }
+    return c.json({ ok: true, enabled });
+  },
+);
+
 // 60s in-memory cache for the by-uid tenant resolve. It runs on EVERY
 // app mount, and its user_count subquery was seq-scanning 726K
 // prediction rows per call until idx_predictions_tenant_id landed

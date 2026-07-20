@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { withUser } from "../db";
+import { sql, withUser } from "../db";
 import { requireAuth, type AuthEnv } from "../auth/middleware";
+import { getCompetitionById } from "../lib/competitions";
 
 const router = new Hono<AuthEnv>();
 
@@ -44,11 +45,31 @@ router.post(
       // avatar — persist it so the success card and league list both render
       // it. Optional with a sensible default trophy.
       avatar_emoji: z.string().min(1).max(16).optional(),
+      // Scoring scope: NULL/absent = overall (points from every competition
+      // combined — the default mental model); a competition id = sub-league
+      // where only that competition's points count. The leaderboard route
+      // derives its filter from this column automatically.
+      competition_id: z.string().uuid().nullable().optional(),
     })
   ),
   async (c) => {
     const user = c.get("user");
-    const { name, tenant_id, avatar_emoji } = c.req.valid("json");
+    const { name, tenant_id, avatar_emoji, competition_id } = c.req.valid("json");
+
+    if (competition_id != null) {
+      const comp = await getCompetitionById(competition_id);
+      if (!comp) return c.json({ error: "Unknown competition" }, 400);
+      if (!comp.is_active) {
+        return c.json({ error: "Cannot scope a league to an archived competition" }, 400);
+      }
+      const enabled = await sql`
+        SELECT 1 FROM public.tenant_competitions
+         WHERE tenant_id = ${tenant_id} AND competition_id = ${competition_id}
+      `;
+      if (enabled.length === 0) {
+        return c.json({ error: "Competition is not enabled for this tenant" }, 400);
+      }
+    }
 
     const league = await withUser(user.sub, async (tx) => {
       let joinCode = generateJoinCode();
@@ -60,8 +81,8 @@ router.post(
       }
 
       const [created] = await tx`
-        INSERT INTO leagues (id, name, avatar_emoji, join_code, creator_id, tenant_id, created_at)
-        VALUES (gen_random_uuid(), ${name}, ${avatar_emoji ?? "🏆"}, ${joinCode}, ${user.sub}, ${tenant_id}, NOW())
+        INSERT INTO leagues (id, name, avatar_emoji, join_code, creator_id, tenant_id, competition_id, created_at)
+        VALUES (gen_random_uuid(), ${name}, ${avatar_emoji ?? "🏆"}, ${joinCode}, ${user.sub}, ${tenant_id}, ${competition_id ?? null}, NOW())
         RETURNING *
       `;
 

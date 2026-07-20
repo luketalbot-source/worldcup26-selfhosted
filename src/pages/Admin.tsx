@@ -19,6 +19,7 @@ import { AdminMatchesEditor } from '@/components/AdminMatchesEditor';
 import { AdminPlayersEditor } from '@/components/AdminPlayersEditor';
 import { TenantCustomBoosts } from '@/components/TenantCustomBoosts';
 import { TenantTermsOfUseEditor } from '@/components/TenantTermsOfUseEditor';
+import { TenantCompetitions } from '@/components/TenantCompetitions';
 import { LiveMatchesProvider } from '@/contexts/LiveMatchesContext';
 import {
   Dialog,
@@ -123,7 +124,7 @@ const Admin = () => {
 
   // Set document title
   useEffect(() => {
-    document.title = 'WC2026 Admin';
+    document.title = 'Football Predictor Admin';
   }, []);
 
   // Check admin status
@@ -808,6 +809,11 @@ const Admin = () => {
                 </CardContent>
               </Card>
 
+              <TenantCompetitions
+                tenantId={selectedTenant.id}
+                tenantName={selectedTenant.name}
+              />
+
               <TenantTermsOfUseEditor
                 tenantId={selectedTenant.id}
                 tenantName={selectedTenant.name}
@@ -886,7 +892,7 @@ const Admin = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Admin Portal</h1>
-            <p className="text-muted-foreground">Manage tenants for the World Cup Predictor</p>
+            <p className="text-muted-foreground">Manage tenants for the Football Predictor</p>
           </div>
         </div>
 

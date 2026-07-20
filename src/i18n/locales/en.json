@@ -89,7 +89,19 @@
     "lost": "L",
     "goalDifference": "GD",
     "points": "Pts",
-    "group": "Group"
+    "group": "Group",
+    "tab": "Table",
+    "form": "Form",
+    "noFixtures": "Fixtures haven't been published yet."
+  },
+  "matchday": {
+    "tab": "Matchday",
+    "title": "Matchday {{n}}",
+    "current": "Now",
+    "previous": "Previous matchday",
+    "next": "Next matchday",
+    "predictedCount": "{{predicted}}/{{total}} predicted",
+    "noFixtures": "Fixtures haven't been published yet."
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -114,7 +126,8 @@
     "tiebreak2": "Most correct winners (1 point each)",
     "tiebreak3": "Closest goal difference — smallest total gap to the real scores",
     "tiebreak4": "Most predictions made (matches + bonuses)",
-    "tiebreakShared": "If players are still level, they share the position."
+    "tiebreakShared": "If players are still level, they share the position.",
+    "tiebreakScope": "Overall leagues count points from every competition combined. A league with a competition badge counts only that competition’s points."
   },
   "auth": {
     "title": "Welcome",
@@ -203,7 +216,9 @@
     "groupsCompleteDesc": "Knockout teams have been determined. Make your predictions!",
     "groupsIncompleteDesc": "{{qualified}}/{{total}} groups decided. Teams update automatically when group stages finish.",
     "theFinal": "🏆 The Final",
-    "thirdPlace": "🥉 Third Place"
+    "thirdPlace": "🥉 Third Place",
+    "playoff": "Playoff Round",
+    "notDrawnYet": "The knockout draw hasn't been made yet — pairings appear here once they're official."
   },
   "theme": {
     "light": "Light",
@@ -336,7 +351,11 @@
       "description": "Leave {{name}}? You can rejoin later with the invite code.",
       "cancel": "No",
       "confirm": "Yes, leave"
-    }
+    },
+    "scopeLabel": "Scoring scope",
+    "scopeAll": "All competitions",
+    "scopeAllHint": "Points from every competition count in this league.",
+    "scopedTo": "Points from {{competition}} only"
   },
   "teams": {
     "TBD": "TBD",

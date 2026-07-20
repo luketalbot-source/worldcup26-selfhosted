@@ -11,9 +11,12 @@
 
 import { sql } from "../db";
 import { emitMatchEvent, type LiveMatchEvent } from "./matchEvents";
-
-const FOOTBALL_API_BASE = "https://api.football-data.org/v4";
-const COMPETITION_CODE = "WC";
+import { fdClient } from "./fdClient";
+import {
+  getActiveCompetitions,
+  getCompetitionById,
+  type Competition,
+} from "./competitions";
 
 // Re-fetch the full live_matches row + its goals for SSE emission. Used
 // from any code path that mutates either the match itself OR its goal
@@ -195,12 +198,20 @@ function generateMatchId(match: FootballDataMatch): string {
   return `fd-${match.id}`;
 }
 
-function mapStage(apiStage: string): string {
+export function mapStage(apiStage: string): string {
   // WC 2026 adds a round of 32 because 48 teams qualify. Earlier tournaments
   // went straight to round of 16. Default-casing to 'group' used to silently
   // miscategorise LAST_32 fixtures.
+  //
+  // Club competitions: domestic leagues are all REGULAR_SEASON ('regular');
+  // the Swiss-format Champions League has LEAGUE_STAGE ('league') plus a
+  // PLAYOFFS round ('playoff') before the LAST_16. The lowercase fallback
+  // protects against FD introducing labels we haven't mapped yet.
   const m: Record<string, string> = {
     GROUP_STAGE: "group",
+    REGULAR_SEASON: "regular",
+    LEAGUE_STAGE: "league",
+    PLAYOFFS: "playoff",
     LAST_32: "round32",
     LAST_16: "round16",
     QUARTER_FINALS: "quarter",
@@ -210,6 +221,10 @@ function mapStage(apiStage: string): string {
   };
   return m[apiStage] ?? apiStage.toLowerCase();
 }
+
+/** Stages that count as "regular phase" (not knockout) across formats.
+ *  Used by the boost deadline + the matches route's group/knockout split. */
+export const NON_KNOCKOUT_STAGES = ["group", "regular", "league"];
 
 // football-data.org folds the shootout tally into `score.fullTime` for
 // penalty-decided matches — a 1-1 AET won 4-3 on pens arrives as fullTime
@@ -269,8 +284,12 @@ function computeTeamGroups(matches: FootballDataMatch[]): Map<string, string> {
 
 // Simple in-memory sync job state. Enough for the singleton-admin use case.
 // If we ever need per-tenant sync or multiple instances, replace with a DB row.
+// Runs are strictly sequential (scheduler + admin trigger both respect
+// status==='running'), so one global state with a `competition` tag is
+// enough for the admin page to show what's happening.
 export interface SyncState {
   status: "idle" | "running" | "success" | "failed";
+  competition: string | null; // competition slug of the current/last run
   startedAt: string | null;
   finishedAt: string | null;
   matchesUpdated: number;
@@ -280,6 +299,7 @@ export interface SyncState {
 }
 export const syncState: SyncState = {
   status: "idle",
+  competition: null,
   startedAt: null,
   finishedAt: null,
   matchesUpdated: 0,
@@ -288,8 +308,27 @@ export const syncState: SyncState = {
   error: null,
 };
 
-export async function runSync(apiKey: string): Promise<void> {
+// Teams change rarely (renames, crest swaps); matches change constantly
+// while live. Splitting the teams list call out of the per-tick match sync
+// halves FD list-call spend during live windows.
+const TEAMS_RESYNC_AFTER_MS = 24 * 60 * 60 * 1000;
+
+async function teamsAreStale(comp: Competition): Promise<boolean> {
+  const rows = await sql<{ newest: string | null }[]>`
+    SELECT MAX(updated_at)::text AS newest FROM public.teams
+     WHERE competition_id = ${comp.id}
+  `;
+  const newest = rows[0]?.newest ? new Date(rows[0].newest).getTime() : null;
+  return newest === null || Date.now() - newest > TEAMS_RESYNC_AFTER_MS;
+}
+
+export async function runSync(
+  apiKey: string,
+  comp: Competition,
+  opts: { forceTeams?: boolean } = {},
+): Promise<void> {
   syncState.status = "running";
+  syncState.competition = comp.slug;
   syncState.startedAt = new Date().toISOString();
   syncState.finishedAt = null;
   syncState.matchesUpdated = 0;
@@ -298,18 +337,15 @@ export async function runSync(apiKey: string): Promise<void> {
   syncState.error = null;
 
   try {
-    const [matchesRes, teamsRes] = await Promise.all([
-      fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
-        headers: { "X-Auth-Token": apiKey },
-      }),
-      fetch(`${FOOTBALL_API_BASE}/competitions/${COMPETITION_CODE}/teams`, {
-        headers: { "X-Auth-Token": apiKey },
-      }),
-    ]);
+    const seasonParam = comp.fd_season != null ? `?season=${comp.fd_season}` : "";
+    const matchesRes = await fdClient.fdFetch(
+      `/competitions/${comp.fd_code}/matches${seasonParam}`,
+      apiKey,
+    );
 
     if (matchesRes.status === 404) {
       syncState.status = "success";
-      syncState.error = "World Cup 2026 data not yet available in football-data.org";
+      syncState.error = `${comp.name} ${comp.season} data not yet available in football-data.org`;
       syncState.finishedAt = new Date().toISOString();
       return;
     }
@@ -330,10 +366,11 @@ export async function runSync(apiKey: string): Promise<void> {
     //
     // Per-run cap on single-match detail fetches (goals/bookings live
     // only on /v4/matches/{id} on our tier — see the event-sync block
-    // below). Group stage peaks at ~6 matches inside the 12 h window,
-    // so 10 leaves headroom without risking FD's per-minute rate limit
-    // on top of the 2 list calls.
-    let detailFetchBudget = 10;
+    // below). fdClient's shared token bucket enforces the actual FD
+    // rate limit across all competitions; this cap just bounds how long
+    // one tick can run (a 9-match Bundesliga Saturday would otherwise
+    // hold the scheduler for over a minute of bucket waits).
+    let detailFetchBudget = 8;
     for (const match of matches) {
       try {
         // postgres.js rejects `undefined` parameters — FD omits fields like
@@ -363,13 +400,16 @@ export async function runSync(apiKey: string): Promise<void> {
         );
         const upserted = await sql`
           INSERT INTO public.live_matches (
-            match_id, api_match_id, home_team_name, home_team_code,
+            match_id, api_match_id, competition_id, matchday,
+            home_team_name, home_team_code,
             away_team_name, away_team_code, home_score, away_score,
             penalty_home_score, penalty_away_score, duration,
             match_date, venue, city, stage, group_name, status, last_updated
           ) VALUES (
             ${generateMatchId(match)},
             ${match.id ?? null},
+            ${comp.id},
+            ${match.matchday ?? null},
             ${match.homeTeam?.name ?? "TBD"},
             ${homeCode},
             ${match.awayTeam?.name ?? "TBD"},
@@ -389,6 +429,8 @@ export async function runSync(apiKey: string): Promise<void> {
           )
           ON CONFLICT (match_id) DO UPDATE SET
             api_match_id   = EXCLUDED.api_match_id,
+            competition_id = EXCLUDED.competition_id,
+            matchday       = EXCLUDED.matchday,
             -- Team fields: knockout rounds start as "TBD" and get filled in
             -- once the bracket resolves, so update these on every sync.
             home_team_name = EXCLUDED.home_team_name,
@@ -455,9 +497,7 @@ export async function runSync(apiKey: string): Promise<void> {
           } else if (startedRecently && detailFetchBudget > 0) {
             detailFetchBudget--;
             try {
-              const dRes = await fetch(`${FOOTBALL_API_BASE}/matches/${match.id}`, {
-                headers: { "X-Auth-Token": apiKey },
-              });
+              const dRes = await fdClient.fdFetch(`/matches/${match.id}`, apiKey);
               if (dRes.ok) {
                 const detail = (await dRes.json()) as FootballDataMatch;
                 await syncGoalsFromFD(upMatchId, detail);
@@ -480,68 +520,11 @@ export async function runSync(apiKey: string): Promise<void> {
     }
     console.log(`[sync-matches] matches done: ${syncState.matchesUpdated}/${matches.length}`);
 
-    // Upsert teams.
-    if (teamsRes.ok) {
-      const teamsData = (await teamsRes.json()) as { teams?: FootballDataTeam[] };
-      const teams = teamsData.teams ?? [];
-      const groupMap = computeTeamGroups(matches);
-      console.log(`[sync-matches] got ${teams.length} teams, inserting…`);
-
-      for (const team of teams) {
-        if (!team.tla) continue;
-        const group = groupMap.get(team.tla) ?? null;
-        try {
-          // FD's numeric team id is the STABLE key; the TLA is not — FD
-          // renamed Uruguay URU→URY and Curaçao CUR→CUW mid-tournament
-          // (June 2026). The old tla-keyed upsert missed the conflict on
-          // the renamed TLA and slammed into the fd_team_id unique
-          // instead, erroring on every sync (~1/min of Postgres log
-          // noise) and leaving the teams row permanently stale. So:
-          // update by fd_team_id first; only fall back to the tla upsert
-          // for rows that predate fd_team_id backfill (or teams FD sends
-          // without an id).
-          let updated: readonly unknown[] = [];
-          if (team.id != null) {
-            updated = await sql`
-              UPDATE public.teams SET
-                tla         = ${team.tla},
-                name        = ${team.name ?? team.tla},
-                short_name  = ${team.shortName ?? team.name ?? team.tla},
-                crest_url   = ${team.crest ?? null},
-                group_name  = ${group},
-                updated_at  = NOW()
-              WHERE fd_team_id = ${team.id}
-              RETURNING id
-            `;
-          }
-          if (updated.length === 0) {
-            await sql`
-              INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, updated_at)
-              VALUES (
-                gen_random_uuid(),
-                ${team.tla},
-                ${team.name ?? team.tla},
-                ${team.shortName ?? team.name ?? team.tla},
-                ${team.crest ?? null},
-                ${group},
-                ${team.id ?? null},
-                NOW()
-              )
-              ON CONFLICT (tla) DO UPDATE SET
-                name        = EXCLUDED.name,
-                short_name  = EXCLUDED.short_name,
-                crest_url   = EXCLUDED.crest_url,
-                group_name  = EXCLUDED.group_name,
-                fd_team_id  = EXCLUDED.fd_team_id,
-                updated_at  = NOW()
-            `;
-          }
-          syncState.teamsUpdated++;
-        } catch (err) {
-          console.error(`[sync-matches] team ${team.tla} failed:`, err);
-        }
-      }
-      console.log(`[sync-matches] teams done: ${syncState.teamsUpdated}/${teams.length}`);
+    // Teams: only when stale (>24h) or explicitly forced — team names and
+    // crests barely change, and skipping the list call during live windows
+    // frees FD budget for match detail fetches.
+    if (opts.forceTeams || (await teamsAreStale(comp))) {
+      await syncTeams(apiKey, comp, matches);
     }
 
     syncState.status = "success";
@@ -552,6 +535,90 @@ export async function runSync(apiKey: string): Promise<void> {
     syncState.finishedAt = new Date().toISOString();
     console.error("[sync-matches] failed:", err);
   }
+}
+
+async function syncTeams(
+  apiKey: string,
+  comp: Competition,
+  matches: FootballDataMatch[],
+): Promise<void> {
+  const seasonParam = comp.fd_season != null ? `?season=${comp.fd_season}` : "";
+  const teamsRes = await fdClient.fdFetch(
+    `/competitions/${comp.fd_code}/teams${seasonParam}`,
+    apiKey,
+  );
+  if (!teamsRes.ok) {
+    console.warn(`[sync-matches] ${comp.slug} teams list returned ${teamsRes.status}`);
+    return;
+  }
+  const teamsData = (await teamsRes.json()) as { teams?: FootballDataTeam[] };
+  const teams = teamsData.teams ?? [];
+  const groupMap = computeTeamGroups(matches);
+  console.log(`[sync-matches] ${comp.slug}: got ${teams.length} teams, inserting…`);
+
+  for (const team of teams) {
+    if (!team.tla) continue;
+    const group = groupMap.get(team.tla) ?? null;
+    try {
+      // FD's numeric team id is the STABLE key within a competition; the
+      // TLA is not — FD renamed Uruguay URU→URY and Curaçao CUR→CUW
+      // mid-tournament (June 2026). Update by (fd_team_id, competition)
+      // first, then by (tla, competition), then plain INSERT.
+      //
+      // Deliberately NO ON CONFLICT target: during the Phase B→C deploy
+      // window the teams unique constraints migrate from global (tla) to
+      // composite (competition_id, tla), and a hardcoded conflict target
+      // for either regime errors under the other. Runs are serialized
+      // (syncState 'running' guard), so check-then-insert has no race.
+      let updated: readonly unknown[] = [];
+      if (team.id != null) {
+        updated = await sql`
+          UPDATE public.teams SET
+            tla         = ${team.tla},
+            name        = ${team.name ?? team.tla},
+            short_name  = ${team.shortName ?? team.name ?? team.tla},
+            crest_url   = ${team.crest ?? null},
+            group_name  = ${group},
+            updated_at  = NOW()
+          WHERE fd_team_id = ${team.id} AND competition_id = ${comp.id}
+          RETURNING id
+        `;
+      }
+      if (updated.length === 0) {
+        updated = await sql`
+          UPDATE public.teams SET
+            name        = ${team.name ?? team.tla},
+            short_name  = ${team.shortName ?? team.name ?? team.tla},
+            crest_url   = ${team.crest ?? null},
+            group_name  = ${group},
+            fd_team_id  = ${team.id ?? null},
+            updated_at  = NOW()
+          WHERE tla = ${team.tla} AND competition_id = ${comp.id}
+          RETURNING id
+        `;
+      }
+      if (updated.length === 0) {
+        await sql`
+          INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, competition_id, updated_at)
+          VALUES (
+            gen_random_uuid(),
+            ${team.tla},
+            ${team.name ?? team.tla},
+            ${team.shortName ?? team.name ?? team.tla},
+            ${team.crest ?? null},
+            ${group},
+            ${team.id ?? null},
+            ${comp.id},
+            NOW()
+          )
+        `;
+      }
+      syncState.teamsUpdated++;
+    } catch (err) {
+      console.error(`[sync-matches] team ${team.tla} (${comp.slug}) failed:`, err);
+    }
+  }
+  console.log(`[sync-matches] ${comp.slug} teams done: ${syncState.teamsUpdated}/${teams.length}`);
 }
 
 // One-off: re-pull goals + bookings for every already-played match,
@@ -566,11 +633,15 @@ export async function runSync(apiKey: string): Promise<void> {
 // 10-req/min limit; with a handful of played matches that's well under a
 // minute, and it's fire-and-forget from the route. Re-runnable safely
 // (each match's events are DELETE+INSERT).
-export async function resyncPlayedMatchEvents(apiKey: string): Promise<void> {
+export async function resyncPlayedMatchEvents(
+  apiKey: string,
+  competitionId?: string,
+): Promise<void> {
   const played = await sql<{ match_id: string }[]>`
     SELECT match_id FROM public.live_matches
      WHERE home_score IS NOT NULL AND away_score IS NOT NULL
        AND NOT manual_override
+       AND (${competitionId ?? null}::uuid IS NULL OR competition_id = ${competitionId ?? null})
      ORDER BY match_date ASC
   `;
   console.log(`[resync-events] starting for ${played.length} played matches`);
@@ -578,9 +649,9 @@ export async function resyncPlayedMatchEvents(apiKey: string): Promise<void> {
   for (const { match_id } of played) {
     const apiId = match_id.replace(/^fd-/, "");
     try {
-      const res = await fetch(`${FOOTBALL_API_BASE}/matches/${apiId}`, {
-        headers: { "X-Auth-Token": apiKey },
-      });
+      // fdClient's token bucket paces these (~7.5s apart at 8 req/min) —
+      // the old manual 7s sleep is redundant now.
+      const res = await fdClient.fdFetch(`/matches/${apiId}`, apiKey);
       if (res.ok) {
         const detail = (await res.json()) as FootballDataMatch;
         await syncGoalsFromFD(match_id, detail);
@@ -594,7 +665,6 @@ export async function resyncPlayedMatchEvents(apiKey: string): Promise<void> {
     } catch (err) {
       console.error(`[resync-events] ${match_id} failed:`, err);
     }
-    await new Promise((r) => setTimeout(r, 7000));
   }
   console.log(`[resync-events] done: ${ok}/${played.length} resynced`);
 }
@@ -607,10 +677,15 @@ export async function resyncPlayedMatchEvents(apiKey: string): Promise<void> {
 const STALE_AFTER_MS = 6 * 60 * 60 * 1000;  // 6 hours
 
 export async function maybeTriggerBackgroundSync(
-  rows: Array<{ updated_at: string | Date }>
+  rows: Array<{ updated_at: string | Date }>,
+  competitionId: string,
 ): Promise<void> {
   if (syncState.status === "running") return;
   if (!process.env.FOOTBALL_DATA_API_KEY) return;
+
+  const comp = await getCompetitionById(competitionId);
+  // Archived competitions never self-heal — their data is final.
+  if (!comp || !comp.is_active) return;
 
   const newest = rows
     .map((r) => new Date(r.updated_at).getTime())
@@ -623,10 +698,10 @@ export async function maybeTriggerBackgroundSync(
   if (!isEmpty && !isStale) return;
 
   console.log(
-    `[sync-matches] auto-triggering (isEmpty=${isEmpty}, isStale=${isStale})`
+    `[sync-matches] auto-triggering ${comp.slug} (isEmpty=${isEmpty}, isStale=${isStale})`
   );
   setTimeout(() => {
-    runSync(process.env.FOOTBALL_DATA_API_KEY!).catch((err) =>
+    runSync(process.env.FOOTBALL_DATA_API_KEY!, comp, { forceTeams: true }).catch((err) =>
       console.error("[sync-matches] auto-trigger failed:", err)
     );
   }, 0);
@@ -662,19 +737,25 @@ const LIVE_STATUSES = ["IN_PLAY", "PAUSED", "LIVE"];
 let schedulerTickInFlight = false;
 let schedulerTimer: ReturnType<typeof setInterval> | null = null;
 
-async function syncIsWarranted(): Promise<boolean> {
-  const rows = await sql`
-    SELECT 1
+// Which ACTIVE competitions have a live or kicking-off match right now?
+// The per-competition version of the old boolean check: same predicate,
+// grouped by competition and intersected with the active registry so an
+// archived competition can never trigger FD traffic again.
+async function warrantedCompetitionIds(): Promise<Set<string>> {
+  const rows = await sql<{ competition_id: string }[]>`
+    SELECT DISTINCT competition_id
     FROM public.live_matches
-    WHERE status IN ${sql(LIVE_STATUSES)}
-       OR (
-         status NOT IN ('FINISHED', 'AWARDED', 'CANCELLED', 'POSTPONED', 'SUSPENDED')
-         AND match_date BETWEEN NOW() - INTERVAL '20 minutes'
-                            AND NOW() + INTERVAL '5 minutes'
-       )
-    LIMIT 1
+    WHERE competition_id IS NOT NULL
+      AND (
+        status IN ${sql(LIVE_STATUSES)}
+        OR (
+          status NOT IN ('FINISHED', 'AWARDED', 'CANCELLED', 'POSTPONED', 'SUSPENDED')
+          AND match_date BETWEEN NOW() - INTERVAL '20 minutes'
+                             AND NOW() + INTERVAL '5 minutes'
+        )
+      )
   `;
-  return rows.length > 0;
+  return new Set(rows.map((r) => r.competition_id));
 }
 
 async function schedulerTick(): Promise<void> {
@@ -686,12 +767,17 @@ async function schedulerTick(): Promise<void> {
 
   schedulerTickInFlight = true;
   try {
-    if (await syncIsWarranted()) {
-      console.log("[sync-scheduler] live/kickoff-window match found — running sync");
+    const warranted = await warrantedCompetitionIds();
+    if (warranted.size === 0) return;
+    // Sequential per competition — runs share fdClient's token bucket, and
+    // in practice CL (Tue/Wed) and BL1 (Fri–Sun) rarely overlap anyway.
+    for (const comp of await getActiveCompetitions()) {
+      if (!warranted.has(comp.id)) continue;
+      console.log(`[sync-scheduler] ${comp.slug}: live/kickoff-window match — running sync`);
       // runSync never throws (it catches internally into syncState), but
       // belt-and-braces: the outer catch below guarantees the scheduler
       // survives anyway.
-      await runSync(apiKey);
+      await runSync(apiKey, comp);
     }
   } catch (err) {
     console.error("[sync-scheduler] tick failed:", err);
