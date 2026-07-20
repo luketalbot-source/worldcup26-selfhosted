@@ -47,11 +47,19 @@ router.get("/", async (c) => {
     const visible = all
       .filter((comp) => enabledIds.has(comp.id) || comp.is_active)
       .map((comp) => ({ ...comp, enabled: enabledIds.has(comp.id) }));
-    c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
+    // Tenant-scoped: the `enabled` flags reflect per-tenant feature toggles an
+    // admin changes and expects to see reflected quickly. Must be PRIVATE (no
+    // shared/CDN caching of one tenant's flags) and short-lived — the old
+    // `public, max-age=300, stale-while-revalidate=900` let a just-enabled
+    // competition keep showing "coming soon" for up to ~20 min.
+    c.header("Cache-Control", "private, max-age=30");
     return c.json(visible);
   }
 
-  c.header("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
+  // Global registry (admin listing) — not tenant-specific; safe to cache
+  // publicly, but keep it short so newly added/activated competitions surface
+  // promptly.
+  c.header("Cache-Control", "public, max-age=30");
   return c.json(all.map((comp) => ({ ...comp, enabled: true })));
 });
 
