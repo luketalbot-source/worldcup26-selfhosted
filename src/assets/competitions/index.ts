@@ -5,9 +5,15 @@
 import bl1 from './bl1.jpg';
 import cl from './cl.jpg';
 import wc from './wc.jpg';
+import pl from './pl.jpg';
+import pd from './pd.jpg';
+import el from './el.jpg';
 
 export const competitionBanners: Record<string, string> = {
   BL1: bl1,
   CL: cl,
   WC: wc,
+  PL: pl,
+  PD: pd,
+  EL: el,
 };
