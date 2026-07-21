@@ -85,8 +85,8 @@ export const AdminBoostResults = () => {
   const uniqueTeams = useMemo(
     () =>
       rosterTeams
-        .filter((t) => t.tla && t.tla !== 'TBD' && t.tla !== '???')
-        .map((t) => ({ id: t.id, code: t.tla, name: t.name, crestUrl: t.crest_url }))
+        .filter((t) => t.code && t.code !== 'TBD' && t.code !== '???')
+        .map((t) => ({ id: t.id, code: t.code, name: t.name, crestUrl: t.crestUrl }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [rosterTeams],
   );

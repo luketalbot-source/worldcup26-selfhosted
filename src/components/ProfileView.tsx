@@ -5,7 +5,8 @@ import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useProfile } from '@/hooks/useProfile';
-import { useUserStats } from '@/hooks/useUserStats';
+import { useLifetimeStats } from '@/hooks/useLifetimeStats';
+import { competitionLabel } from '@/contexts/CompetitionContext';
 import { useFlipBridge } from '@/hooks/useFlipBridge';
 import { useNavigate, useParams } from 'react-router-dom';
 import { EmojiPicker } from '@/components/EmojiPicker';
@@ -25,7 +26,10 @@ export const ProfileView = () => {
   const { tenantId } = useTenant();
   const { tenantUid } = useParams();
   const { profile, loading: profileLoading, error: profileError, refetch, updateAvatar } = useProfile(user?.id);
-  const { stats } = useUserStats(user?.id, tenantId);
+  // Lifetime, across every game the tenant has — accurate regardless of which
+  // games have been opened (unlike the per-competition match buckets). Aliased
+  // to `stats` so the existing header/stats rendering is unchanged.
+  const { lifetime: stats, byCompetition } = useLifetimeStats(user?.id, tenantId);
   const navigate = useNavigate();
   const { isEmbedded, diag, bridgeReady } = useFlipBridge();
 
@@ -169,6 +173,9 @@ export const ProfileView = () => {
         </div>
 
         <div className="p-4">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-3">
+            {t('profile.allGames', 'Across all games')}
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-muted rounded-xl p-4 text-center">
               <Target className="w-6 h-6 text-primary mx-auto mb-2" />
@@ -239,6 +246,35 @@ export const ProfileView = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Per-game breakdown — only when there's more than one game to break
+          down (for a single-game tenant it just repeats the lifetime totals). */}
+      {byCompetition.length > 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
+        >
+          <h3 className="font-semibold text-foreground mb-4">{t('profile.byGame', 'By game')}</h3>
+          <div className="space-y-1">
+            {byCompetition.map(({ competition, stats: cs }) => (
+              <div
+                key={competition.id}
+                className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
+              >
+                <span className="text-sm text-foreground truncate pr-3">{competitionLabel(competition)}</span>
+                <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+                  {cs.totalPredictions} {t('profile.predictionsShort', 'preds')} ·{' '}
+                  <span className="font-semibold text-foreground">
+                    {cs.totalPoints} {t('profile.pointsShort', 'pts')}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Settings Card */}
       <motion.div

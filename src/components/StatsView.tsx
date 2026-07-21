@@ -21,6 +21,7 @@ import { Loader2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/apiClient';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
+import { CompetitionWinnersCard } from '@/components/CompetitionWinnersCard';
 import { Flag } from './Flag';
 import { useTeams } from '@/hooks/useTeams';
 
@@ -297,6 +298,10 @@ export const StatsView = () => {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4 max-w-[700px] mx-auto"
     >
+      {/* Champions capstone — only renders for a completed competition with
+          a recorded winner. Sits above the stats header. */}
+      <CompetitionWinnersCard />
+
       {/* Header card — same gradient feel as the Profile header so
           the user gets a consistent "this is a destination" cue across
           tabs that aren't pure lists. */}

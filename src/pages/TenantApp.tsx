@@ -183,17 +183,21 @@ const TenantShell = ({
           <CompetitionHub />
         ) : (
           <>
-            {/* Switch chip on every tab. "Switch game" resets to the matches
-                tab AND clears the active competition, so the hub shows even
-                when tapped from Leagues/Profile (which the hub itself skips).
-                Landing on matches after picking the next game is the natural
-                default. Self-hides for single-competition tenants. */}
-            <CompetitionSwitchChip
-              onSwitchGame={() => {
-                onTabChange('matches');
-                clearActiveCompetition();
-              }}
-            />
+            {/* Switch chip on the game-scoped tabs (and Leagues, whose
+                Everyone board follows the active game). NOT on the Me tab —
+                that's your global/lifetime page, so a "you're in Bundesliga"
+                chip there is contradictory. "Switch game" resets to the
+                matches tab AND clears the active competition, so the hub
+                shows even when tapped from Leagues. Self-hides for
+                single-competition tenants. */}
+            {activeTab !== 'profile' && (
+              <CompetitionSwitchChip
+                onSwitchGame={() => {
+                  onTabChange('matches');
+                  clearActiveCompetition();
+                }}
+              />
+            )}
             {renderContent()}
           </>
         )}

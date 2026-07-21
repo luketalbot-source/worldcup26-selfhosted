@@ -222,6 +222,10 @@
     "predictor": "Tipper",
     "predictions": "Tipps",
     "points": "Punkte",
+    "allGames": "Über alle Spiele",
+    "byGame": "Nach Spiel",
+    "predictionsShort": "Tipps",
+    "pointsShort": "Pkt",
     "yourStats": "Deine Statistiken",
     "exactScores": "Exakte Ergebnisse",
     "correctResults": "Richtige Ergebnisse",
@@ -464,6 +468,10 @@
   },
   "stats": {
     "title": "Spieltag-Update",
+    "winners": {
+      "title": "Sieger",
+      "topScorer": "Torschützenkönig"
+    },
     "hero": {
       "preKickoff": {
         "title": "Das Turnier beginnt bald",

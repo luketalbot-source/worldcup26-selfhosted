@@ -171,6 +171,10 @@
     "predictor": "Predictor",
     "predictions": "Predictions",
     "points": "Points",
+    "allGames": "Across all games",
+    "byGame": "By game",
+    "predictionsShort": "preds",
+    "pointsShort": "pts",
     "yourStats": "Your Stats",
     "exactScores": "Exact Scores",
     "correctResults": "Correct Results",
@@ -435,6 +439,10 @@
   },
   "stats": {
     "title": "Matchday Update",
+    "winners": {
+      "title": "Champions",
+      "topScorer": "Top scorer"
+    },
     "hero": {
       "preKickoff": {
         "title": "The tournament starts soon",
