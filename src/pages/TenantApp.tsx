@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Navigation } from '@/components/Navigation';
 import { MatchesView } from '@/components/MatchesView';
@@ -161,6 +161,25 @@ const TenantShell = ({
 }) => {
   const { competitions, activeCompetition, loading, clearActiveCompetition } = useCompetitions();
 
+  // Landing tab per game: entering a COMPLETED game lands on Stats (the
+  // champions/top-predictors recap — there are no fixtures left to predict);
+  // a running game keeps the Matches default. Fires only when the active
+  // competition actually changes (hub pick, switch chip, or the initial
+  // auto-select for single-game tenants) so manual tab taps are never
+  // overridden afterwards.
+  const prevCompIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = activeCompetition?.id ?? null;
+    if (id === prevCompIdRef.current) return;
+    prevCompIdRef.current = id;
+    // Never for the synthesized outage-fallback row — a live-game tenant
+    // mid-API-blip must keep its Matches default, not get yanked to a
+    // phantom archive's stats.
+    if (activeCompetition && activeCompetition.is_active === false && !activeCompetition.isFallback) {
+      onTabChange('stats');
+    }
+  }, [activeCompetition, onTabChange]);
+
   // The hub only shows on competition-scoped tabs — Leagues and Profile
   // aggregate across competitions. The switch chip, though, shows on EVERY
   // tab so the "back to game selector" affordance is always reachable.
@@ -179,7 +198,15 @@ const TenantShell = ({
     // No bottom padding when the nav is hidden — there's nothing to clear.
     <div className={`min-h-screen bg-background ${hideNav ? '' : 'pb-24'}`}>
       <main className="container py-4 space-y-4">
-        {showHub ? (
+        {loading ? (
+          // Competition registry still resolving: the landing tab isn't
+          // decided yet (completed games land on Stats), so don't mount a
+          // tab's content only to yank it — a beat of spinner instead of a
+          // Matches flash + discarded fetches.
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : showHub ? (
           <CompetitionHub />
         ) : (
           <>

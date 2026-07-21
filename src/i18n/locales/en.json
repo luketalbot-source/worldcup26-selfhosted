@@ -443,6 +443,13 @@
       "title": "Champions",
       "topScorer": "Top scorer"
     },
+    "topPredictors": {
+      "title": "Top 3 Predictors",
+      "exact": "{{n}} exact",
+      "results": "{{n}} results",
+      "pens": "{{n}} pens pts",
+      "boosts": "{{n}} boost pts"
+    },
     "hero": {
       "preKickoff": {
         "title": "The tournament starts soon",
@@ -455,6 +462,11 @@
       "underway": {
         "title": "The tournament so far",
         "subtitle": "{{played}} matches played · {{remaining}} remaining"
+      },
+      "completed": {
+        "title": "The final numbers",
+        "subtitle": "Season complete · {{played}} matches played",
+        "subtitleNoData": "Season complete"
       }
     },
     "goals": "Goals",

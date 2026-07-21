@@ -132,7 +132,35 @@ router.get("/", async (c) => {
                    ELSE ABS(ap.predicted_home_score - lm2.home_score)
                       + ABS(ap.predicted_away_score - lm2.away_score)
                  END
-               ) AS goal_diff_sum
+               ) AS goal_diff_sum,
+               -- Detail (NOT a ranking input): points earned via the two
+               -- penalty-shootout branches of pts above — advance calls on
+               -- decisive picks + pen-score bonuses. Mirrors those branches
+               -- exactly (incl. the earlier-WHEN guards) so the identity
+               --   pts = 3*exact_count + correct_count + pens_pts
+               -- holds and UI detail lines always reconcile with the total.
+               SUM(
+                 (CASE
+                   WHEN lm2.home_score IS NULL OR lm2.away_score IS NULL THEN 0
+                   WHEN ap.predicted_home_score = lm2.home_score AND ap.predicted_away_score = lm2.away_score THEN 0
+                   WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm2.home_score - lm2.away_score) THEN 0
+                   WHEN lm2.duration = 'PENALTY_SHOOTOUT'
+                    AND lm2.penalty_home_score IS NOT NULL AND lm2.penalty_away_score IS NOT NULL
+                    AND ap.predicted_home_score <> ap.predicted_away_score
+                    AND SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm2.penalty_home_score - lm2.penalty_away_score) THEN 1
+                   ELSE 0
+                 END)
+                 + (CASE
+                      WHEN lm2.duration = 'PENALTY_SHOOTOUT'
+                       AND lm2.penalty_home_score IS NOT NULL AND lm2.penalty_away_score IS NOT NULL
+                       AND ap.pred_pen_home IS NOT NULL AND ap.pred_pen_away IS NOT NULL
+                       AND ap.pred_pen_home <> ap.pred_pen_away
+                       AND ap.predicted_home_score = ap.predicted_away_score
+                      THEN (CASE WHEN SIGN(ap.pred_pen_home - ap.pred_pen_away) = SIGN(lm2.penalty_home_score - lm2.penalty_away_score) THEN 1 ELSE 0 END)
+                         + (CASE WHEN ap.pred_pen_home = lm2.penalty_home_score AND ap.pred_pen_away = lm2.penalty_away_score THEN 1 ELSE 0 END)
+                      ELSE 0
+                    END)
+               ) AS pens_pts
         FROM all_preds ap
         INNER JOIN live_matches lm2 ON lm2.match_id = ap.match_id
           AND (${competitionId}::uuid IS NULL OR lm2.competition_id = ${competitionId})
@@ -197,6 +225,8 @@ router.get("/", async (c) => {
         COALESCE(mp.exact_count, 0)   AS exact_count,
         COALESCE(mp.correct_count, 0) AS correct_count,
         COALESCE(mp.goal_diff_sum, 0) AS goal_diff_sum,
+        COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) AS boost_points,
+        COALESCE(mp.pens_pts, 0) AS pens_points,
         COALESCE(mp.pred_count, 0)
           + COALESCE(bp.pred_count, 0)
           + COALESCE(cp.pred_count, 0) AS total_picks,
@@ -308,7 +338,31 @@ router.get("/", async (c) => {
                  ELSE ABS(ap.predicted_home_score - lm.home_score)
                     + ABS(ap.predicted_away_score - lm.away_score)
                END
-             ) AS goal_diff_sum
+             ) AS goal_diff_sum,
+             -- Detail (NOT a ranking input) — see the league query above:
+             -- pts = 3*exact_count + correct_count + pens_pts.
+             SUM(
+               (CASE
+                 WHEN lm.home_score IS NULL OR lm.away_score IS NULL THEN 0
+                 WHEN ap.predicted_home_score = lm.home_score AND ap.predicted_away_score = lm.away_score THEN 0
+                 WHEN SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm.home_score - lm.away_score) THEN 0
+                 WHEN lm.duration = 'PENALTY_SHOOTOUT'
+                  AND lm.penalty_home_score IS NOT NULL AND lm.penalty_away_score IS NOT NULL
+                  AND ap.predicted_home_score <> ap.predicted_away_score
+                  AND SIGN(ap.predicted_home_score - ap.predicted_away_score) = SIGN(lm.penalty_home_score - lm.penalty_away_score) THEN 1
+                 ELSE 0
+               END)
+               + (CASE
+                    WHEN lm.duration = 'PENALTY_SHOOTOUT'
+                     AND lm.penalty_home_score IS NOT NULL AND lm.penalty_away_score IS NOT NULL
+                     AND ap.pred_pen_home IS NOT NULL AND ap.pred_pen_away IS NOT NULL
+                     AND ap.pred_pen_home <> ap.pred_pen_away
+                     AND ap.predicted_home_score = ap.predicted_away_score
+                    THEN (CASE WHEN SIGN(ap.pred_pen_home - ap.pred_pen_away) = SIGN(lm.penalty_home_score - lm.penalty_away_score) THEN 1 ELSE 0 END)
+                       + (CASE WHEN ap.pred_pen_home = lm.penalty_home_score AND ap.pred_pen_away = lm.penalty_away_score THEN 1 ELSE 0 END)
+                    ELSE 0
+                  END)
+             ) AS pens_pts
       FROM all_preds ap
       INNER JOIN live_matches lm ON lm.match_id = ap.match_id
         AND (${competitionId}::uuid IS NULL OR lm.competition_id = ${competitionId})
@@ -371,6 +425,8 @@ router.get("/", async (c) => {
       COALESCE(mp.exact_count, 0)   AS exact_count,
       COALESCE(mp.correct_count, 0) AS correct_count,
       COALESCE(mp.goal_diff_sum, 0) AS goal_diff_sum,
+      COALESCE(bp.pts, 0) + COALESCE(cp.pts, 0) AS boost_points,
+      COALESCE(mp.pens_pts, 0) AS pens_points,
       COALESCE(mp.pred_count, 0)
         + COALESCE(bp.pred_count, 0)
         + COALESCE(cp.pred_count, 0) AS total_picks,

@@ -22,6 +22,7 @@ import { api, ApiError } from '@/lib/apiClient';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
 import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import { CompetitionWinnersCard } from '@/components/CompetitionWinnersCard';
+import { TopPredictorsCard } from '@/components/TopPredictorsCard';
 import { Flag } from './Flag';
 import { useTeams } from '@/hooks/useTeams';
 
@@ -280,17 +281,23 @@ export const StatsView = () => {
   const matchesPlayed = stats?.totals.matches_played ?? 0;
   const matchesScheduled = stats?.totals.matches_scheduled ?? matches.length;
 
-  // Three header states, ordered by how much data we have to show:
+  // Header states, ordered by how much data we have to show:
+  //   - 'completed' — the competition is archived; "so far" framing would
+  //     read wrong when nothing more is coming, so it gets its own copy
   //   - 'preKickoff' — fixtures loaded but no match has started yet
   //   - 'liveNoGoals' — at least one match has kicked off, no goals yet
   //   - 'underway' — we have goals, show the rolling summary
   // Each state has its own title + subtitle key so translators can
   // reword tone per locale (e.g. "Coming up" framing in German etc.).
-  const heroState: 'preKickoff' | 'liveNoGoals' | 'underway' = hasAnyGoals
-    ? 'underway'
-    : anyMatchStarted
-      ? 'liveNoGoals'
-      : 'preKickoff';
+  const isCompletedCompetition = competitionCtx?.activeCompetition?.is_active === false;
+  const heroState: 'preKickoff' | 'liveNoGoals' | 'underway' | 'completed' =
+    isCompletedCompetition
+      ? 'completed'
+      : hasAnyGoals
+        ? 'underway'
+        : anyMatchStarted
+          ? 'liveNoGoals'
+          : 'preKickoff';
 
   return (
     <motion.div
@@ -299,8 +306,10 @@ export const StatsView = () => {
       className="space-y-4 max-w-[700px] mx-auto"
     >
       {/* Champions capstone — only renders for a completed competition with
-          a recorded winner. Sits above the stats header. */}
+          a recorded winner. Sits above the stats header, with the top-3
+          predictor podium right under it. */}
       <CompetitionWinnersCard />
+      <TopPredictorsCard />
 
       {/* Header card — same gradient feel as the Profile header so
           the user gets a consistent "this is a destination" cue across
@@ -327,7 +336,13 @@ export const StatsView = () => {
                   played: matchesPlayed,
                   remaining: Math.max(matchesScheduled - matchesPlayed, 0),
                 })
-              : t(`stats.hero.${heroState}.subtitle`)}
+              : heroState === 'completed'
+                ? stats
+                  ? t('stats.hero.completed.subtitle', { played: matchesPlayed })
+                  : // Stats fetch failed/absent: don't assert "0 matches
+                    // played" about a season that certainly had matches.
+                    t('stats.hero.completed.subtitleNoData')
+                : t(`stats.hero.${heroState}.subtitle`)}
           </p>
         </div>
 

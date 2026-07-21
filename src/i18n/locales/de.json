@@ -472,6 +472,13 @@
       "title": "Sieger",
       "topScorer": "Torschützenkönig"
     },
+    "topPredictors": {
+      "title": "Top 3 Tipper",
+      "exact": "{{n}} exakt",
+      "results": "{{n}} Ergebnisse",
+      "pens": "{{n}} Elfm.-Pkt.",
+      "boosts": "{{n}} Boost-Pkt."
+    },
     "hero": {
       "preKickoff": {
         "title": "Das Turnier beginnt bald",
@@ -484,6 +491,11 @@
       "underway": {
         "title": "Das Turnier bisher",
         "subtitle": "{{played}} Spiele gespielt · {{remaining}} verbleibend"
+      },
+      "completed": {
+        "title": "Die Endbilanz",
+        "subtitle": "Saison beendet · {{played}} Spiele gespielt",
+        "subtitleNoData": "Saison beendet"
       }
     },
     "goals": "Tore",

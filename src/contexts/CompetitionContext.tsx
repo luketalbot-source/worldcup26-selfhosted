@@ -27,6 +27,12 @@ export interface Competition {
   // as a muted "coming soon" teaser in the game hub, never playable.
   // Optional for back-compat with older API responses (absent = enabled).
   enabled?: boolean;
+  // True only on the client-synthesized WC_FALLBACK row (deploy-skew /
+  // outage hardening). Behaviors keyed off real competition state — e.g.
+  // the completed-game Stats landing — must NOT fire for it: during an
+  // /api/competitions outage a live-game tenant would otherwise be yanked
+  // to a phantom archive's stats page.
+  isFallback?: boolean;
 }
 
 /** Season-qualified display label — "Bundesliga 2026/27". Use wherever a
@@ -71,6 +77,7 @@ const WC_FALLBACK: Competition = {
   boost_lock_at: null,
   is_active: false,
   display_order: 1,
+  isFallback: true,
 };
 
 export const CompetitionProvider = ({ children }: { children: ReactNode }) => {

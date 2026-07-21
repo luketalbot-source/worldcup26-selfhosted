@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTenant } from '@/contexts/TenantContext';
 import { useLiveMatchesContext } from '@/contexts/LiveMatchesContext';
+import { useCompetitionsSafe } from '@/contexts/CompetitionContext';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,11 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const { t } = useTranslation();
   const { tenant } = useTenant();
   const { tournamentStarted } = useLiveMatchesContext();
+  // An archived competition ALWAYS gets its Stats item: it's the landing tab
+  // for completed games (champions recap), and tournamentStarted only flips
+  // once that comp's matches finish loading — gating on it alone would strand
+  // a user who lands on Stats and taps away before the fetch resolves.
+  const isArchivedCompetition = useCompetitionsSafe()?.activeCompetition?.is_active === false;
   const [termsOpen, setTermsOpen] = useState(false);
 
   // Trim before deciding visibility — a whitespace-only ToU shouldn't
@@ -35,7 +41,7 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const tabs = [
     { id: 'matches', labelKey: 'nav.matches', icon: Calendar },
     { id: 'boost', labelKey: 'nav.boost', icon: Rocket },
-    ...(tournamentStarted
+    ...(tournamentStarted || isArchivedCompetition
       ? [{ id: 'stats', labelKey: 'nav.stats', icon: BarChart3 }]
       : []),
     { id: 'leagues', labelKey: 'nav.leagues', icon: Users },

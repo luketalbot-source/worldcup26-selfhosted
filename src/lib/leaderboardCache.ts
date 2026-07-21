@@ -12,6 +12,13 @@ export interface LeaderboardEntry {
   avatarEmoji: string;
   totalPredictions: number;
   points: number;
+  // Detail columns (Top-3-predictors card). Default 0 against an older API
+  // that doesn't send them yet (deploy skew). Identity:
+  // points = 3*exactCount + correctCount + pensPoints + boostPoints.
+  exactCount: number;
+  correctCount: number;
+  boostPoints: number;
+  pensPoints: number;
 }
 
 interface ApiLeaderboardEntry {
@@ -21,6 +28,10 @@ interface ApiLeaderboardEntry {
   points: number;
   total_predictions: number;
   rank: number;
+  exact_count?: number;
+  correct_count?: number;
+  boost_points?: number;
+  pens_points?: number;
 }
 
 const LEADERBOARD_TTL_MS = 15_000;
@@ -47,5 +58,9 @@ export async function fetchLeaderboard(
     avatarEmoji: entry.avatar_emoji || '👤',
     totalPredictions: entry.total_predictions,
     points: entry.points,
+    exactCount: entry.exact_count ?? 0,
+    correctCount: entry.correct_count ?? 0,
+    boostPoints: entry.boost_points ?? 0,
+    pensPoints: entry.pens_points ?? 0,
   }));
 }
