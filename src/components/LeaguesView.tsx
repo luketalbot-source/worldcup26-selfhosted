@@ -753,25 +753,42 @@ export const LeaguesView = () => {
   const [newEmoji, setNewEmoji] = useState('🏆');
   // Scoring scope: null = all competitions combined (the default mental
   // model); a competition id = only that competition's points count.
-  const [newScope, setNewScope] = useState<string | null>(null);
   const [createdLeague, setCreatedLeague] = useState<League | null>(null);
   const [copied, setCopied] = useState(false);
-  // Scope options: only ACTIVE competitions the tenant has ENABLED —
-  // scoping a new league to a finished archive or a coming-soon teaser
-  // makes no sense.
+  // Leagues are PER-GAME: a new league always belongs to the game the user
+  // is currently in (no cross-game leagues — maybe later), and the list
+  // below shows only the current game's leagues. Never-hide fallbacks — a
+  // league must always be reachable SOMEWHERE (it holds the member's data
+  // and the leave/delete controls):
+  //   - NULL competition_id (pre-multi-game rows, stale-client creates)
+  //     shows in every game;
+  //   - a league whose game isn't in this tenant's competition list any
+  //     more (e.g. archived + disabled by an admin) shows in every game;
+  //   - no active game at all (degenerate config) shows everything.
   const competitionCtxTop = useCompetitionsSafe();
-  const scopeOptions = (competitionCtxTop?.competitions ?? []).filter(
-    (c) => c.is_active && isEnabled(c),
-  );
+  const activeGame = competitionCtxTop?.activeCompetition ?? null;
+  const knownCompIds = new Set((competitionCtxTop?.competitions ?? []).map((c) => c.id));
+  const visibleLeagues = !activeGame
+    ? leagues
+    : leagues.filter(
+        (l) =>
+          l.competition_id == null ||
+          l.competition_id === activeGame.id ||
+          !knownCompIds.has(l.competition_id),
+      );
+  // Creating is only offered inside a running game — a finished season's
+  // standings are final, so a new league there could never score a point.
+  const canCreate = activeGame?.is_active === true;
   
   // Join form state
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
 
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !activeGame) return;
 
-    const league = await createLeague(newName.trim(), newEmoji, newScope);
+    // Always scoped to the game the user is in — leagues are per-game.
+    const league = await createLeague(newName.trim(), newEmoji, activeGame.id);
     if (league) {
       setCreatedLeague(league);
     }
@@ -819,20 +836,33 @@ export const LeaguesView = () => {
     if (normalizedJoinCode.length !== 6) return;
 
     setJoining(true);
-    const success = await joinLeague(normalizedJoinCode);
+    const joined = await joinLeague(normalizedJoinCode);
     setJoining(false);
 
-    if (success) {
+    if (joined) {
       setJoinCode('');
       setShowJoinDialog(false);
-      refetch();
+      // A join code can come from a colleague playing a DIFFERENT game —
+      // the league won't appear in this game's list, so say where it lives.
+      // Name the game only when it's one the user can actually switch to
+      // (enabled here); otherwise a generic "different game" note — pointing
+      // someone at a teaser they can't enter would be a dead instruction.
+      if (joined.competition_id && joined.competition_id !== activeGame?.id) {
+        const comp = competitionCtxTop?.competitions.find((c) => c.id === joined.competition_id);
+        if (comp && isEnabled(comp)) {
+          toast.info(
+            t('leagues.joinedOtherGame', { name: joined.name, competition: competitionLabel(comp) }),
+          );
+        } else {
+          toast.info(t('leagues.joinedDifferentGame', { name: joined.name }));
+        }
+      }
     }
   };
 
   const resetCreate = () => {
     setNewName('');
     setNewEmoji('🏆');
-    setNewScope(null);
     setCreatedLeague(null);
     setShowCreateDialog(false);
   };
@@ -892,20 +922,14 @@ export const LeaguesView = () => {
             to create or join — the buttons would just be dead weight. */}
         {customLeaguesEnabled && (
           <div className="p-4 flex gap-3">
-            <Button
-              className="flex-1"
-              onClick={() => {
-                // Default the scoring scope to the game the user is in —
-                // matches the per-game mental model; 'All competitions'
-                // stays one tap away.
-                const activeGame = competitionCtxTop?.activeCompetition;
-                setNewScope(activeGame && activeGame.is_active ? activeGame.id : null);
-                setShowCreateDialog(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {t('leagues.create')}
-            </Button>
+            {/* Create only inside a running game (new leagues are scoped to
+                it); Join works everywhere — the code decides the game. */}
+            {canCreate && (
+              <Button className="flex-1" onClick={() => setShowCreateDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                {t('leagues.create')}
+              </Button>
+            )}
             <Button
               variant="outline"
               className="flex-1"
@@ -936,9 +960,9 @@ export const LeaguesView = () => {
             isDevMode={isDevMode}
           />
 
-          {/* User's custom leagues — hidden entirely when custom leagues
-              are disabled at the tenant level. */}
-          {customLeaguesEnabled && leagues.map((league) => (
+          {/* The current game's custom leagues — hidden entirely when custom
+              leagues are disabled at the tenant level. */}
+          {customLeaguesEnabled && visibleLeagues.map((league) => (
             <ExpandableLeagueCard
               key={league.id}
               league={league}
@@ -1010,50 +1034,13 @@ export const LeaguesView = () => {
                 />
               </div>
 
-              {/* Scoring scope — only rendered when the tenant has active
-                  competitions to scope to (during an archive-only period
-                  every league is implicitly "all competitions"). */}
-              {scopeOptions.length > 0 && (
-                <div>
-                  <label className="text-sm font-medium mb-2 block">{t('leagues.scopeLabel')}</label>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewScope(null)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                        newScope === null
-                          ? 'bg-primary text-primary-foreground shadow-md'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {t('leagues.scopeAll')}
-                    </button>
-                    {scopeOptions.map((comp) => (
-                      <button
-                        key={comp.id}
-                        type="button"
-                        onClick={() => setNewScope(comp.id)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                          newScope === comp.id
-                            ? 'bg-primary text-primary-foreground shadow-md'
-                            : 'bg-muted text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {competitionLabel(comp)}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {newScope === null
-                      ? t('leagues.scopeAllHint')
-                      : t('leagues.scopedTo', {
-                          competition: (() => {
-                            const comp = scopeOptions.find((c) => c.id === newScope);
-                            return comp ? competitionLabel(comp) : '';
-                          })(),
-                        })}
-                  </p>
-                </div>
+              {/* Leagues are per-game (no cross-game leagues yet): the new
+                  league belongs to the game the user is in — stated, not
+                  chosen. */}
+              {activeGame && (
+                <p className="text-xs text-muted-foreground">
+                  {t('leagues.scopedTo', { competition: competitionLabel(activeGame) })}
+                </p>
               )}
 
               <Button

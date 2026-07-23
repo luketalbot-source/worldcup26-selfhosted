@@ -180,8 +180,9 @@ const TenantShell = ({
     }
   }, [activeCompetition, onTabChange]);
 
-  // The hub only shows on competition-scoped tabs — Leagues and Profile
-  // aggregate across competitions. The switch chip, though, shows on EVERY
+  // The hub only shows on competition-scoped tabs. Leagues filters itself to
+  // the active game (with never-hide fallbacks) and Profile aggregates across
+  // games, so neither needs the hub; the switch chip, though, shows on EVERY
   // tab so the "back to game selector" affordance is always reachable.
   const competitionScoped = ['matches', 'boost', 'stats'].includes(activeTab);
   const showHub = competitionScoped && !loading && competitions.length > 1 && !activeCompetition;

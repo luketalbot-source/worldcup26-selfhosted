@@ -12,9 +12,11 @@ export interface League {
   creator_id: string;
   created_at: string;
   member_count?: number;
-  // Scoring scope: null = overall (points from every competition
-  // combined); a competition id = only that competition's points count.
-  // The leaderboard endpoint applies the scope automatically.
+  // The game this league belongs to — leagues are per-game (shown only in
+  // their game, scoring only its points; the leaderboard endpoint applies
+  // the scope automatically). null = legacy/stale-client row with the old
+  // "all competitions combined" semantics; prod rows were backfilled to the
+  // WC, so nulls should only appear transiently during deploy skew.
   competition_id?: string | null;
 }
 
@@ -97,15 +99,18 @@ export const useLeagues = (tenantId?: string | null) => {
     }
   };
 
-  const joinLeague = async (joinCode: string): Promise<boolean> => {
-    if (!user) return false;
+  // Resolves to the joined league (null on failure) so callers can react to
+  // WHICH game it belongs to — a join code can come from a colleague playing
+  // a different game, and the league then won't appear in the current list.
+  const joinLeague = async (joinCode: string): Promise<League | null> => {
+    if (!user) return null;
 
     try {
       const leagueData = await api.get<League>(`/leagues/by-code/${joinCode.toUpperCase()}`);
 
       if (!leagueData) {
         toast.error(t('leagues.invalidCode'));
-        return false;
+        return null;
       }
 
       try {
@@ -115,18 +120,18 @@ export const useLeagues = (tenantId?: string | null) => {
       } catch (joinError) {
         if (joinError instanceof ApiError && joinError.message?.includes('already')) {
           toast.error(t('leagues.alreadyMember'));
-          return false;
+          return null;
         }
         throw joinError;
       }
 
       toast.success(t('leagues.joined', { name: leagueData.name }));
       await fetchLeagues();
-      return true;
+      return leagueData;
     } catch (error) {
       console.error('Error joining league:', error);
       toast.error(t('leagues.joinError'));
-      return false;
+      return null;
     }
   };
 

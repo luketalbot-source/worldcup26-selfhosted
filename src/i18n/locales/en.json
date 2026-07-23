@@ -363,7 +363,9 @@
     "scopeLabel": "Scoring scope",
     "scopeAll": "All competitions",
     "scopeAllHint": "Points from every competition count in this league.",
-    "scopedTo": "Points from {{competition}} only"
+    "scopedTo": "Points from {{competition}} only",
+    "joinedOtherGame": "{{name}} is part of {{competition}} — switch to that game to see it",
+    "joinedDifferentGame": "{{name}} belongs to a different game"
   },
   "teams": {
     "TBD": "TBD",

@@ -354,7 +354,9 @@
     "scopeLabel": "Punktewertung",
     "scopeAll": "Alle Wettbewerbe",
     "scopeAllHint": "In dieser Liga zählen die Punkte aus allen Wettbewerben.",
-    "scopedTo": "Nur Punkte aus {{competition}}"
+    "scopedTo": "Nur Punkte aus {{competition}}",
+    "joinedOtherGame": "{{name}} gehört zu {{competition}} — wechsle zu diesem Spiel, um sie zu sehen",
+    "joinedDifferentGame": "{{name}} gehört zu einem anderen Spiel"
   },
   "teams": {
     "TBD": "TBD",

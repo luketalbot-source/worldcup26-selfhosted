@@ -193,7 +193,7 @@ router.get("/", async (c) => {
         FROM tenant_custom_boost_predictions cbp
         INNER JOIN league_users lu ON lu.user_id = cbp.user_id
         INNER JOIN tenant_custom_boosts cb ON cb.id = cbp.custom_boost_id
-          AND (${competitionId}::uuid IS NULL OR cb.competition_id = ${competitionId})
+          AND (${competitionId}::uuid IS NULL OR cb.competition_id IS NULL OR cb.competition_id = ${competitionId})
         WHERE cb.tenant_id = ${tenantId}
       ),
       custom_pts AS (
@@ -208,7 +208,7 @@ router.get("/", async (c) => {
                COUNT(*) AS pred_count
         FROM all_custom_preds acp
         INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
-          AND (${competitionId}::uuid IS NULL OR cb2.competition_id = ${competitionId})
+          AND (${competitionId}::uuid IS NULL OR cb2.competition_id IS NULL OR cb2.competition_id = ${competitionId})
         LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
         GROUP BY acp.user_id
       )
@@ -395,7 +395,7 @@ router.get("/", async (c) => {
       FROM tenant_custom_boost_predictions cbp
       INNER JOIN tenant_users tu ON tu.user_id = cbp.user_id
       INNER JOIN tenant_custom_boosts cb ON cb.id = cbp.custom_boost_id
-          AND (${competitionId}::uuid IS NULL OR cb.competition_id = ${competitionId})
+          AND (${competitionId}::uuid IS NULL OR cb.competition_id IS NULL OR cb.competition_id = ${competitionId})
       WHERE cb.tenant_id = ${tenantId}
     ),
     custom_pts AS (
@@ -410,7 +410,7 @@ router.get("/", async (c) => {
              COUNT(*) AS pred_count
       FROM all_custom_preds acp
       INNER JOIN tenant_custom_boosts cb2 ON cb2.id = acp.custom_boost_id
-          AND (${competitionId}::uuid IS NULL OR cb2.competition_id = ${competitionId})
+          AND (${competitionId}::uuid IS NULL OR cb2.competition_id IS NULL OR cb2.competition_id = ${competitionId})
       LEFT JOIN tenant_custom_boost_results cbr ON cbr.custom_boost_id = acp.custom_boost_id
       GROUP BY acp.user_id
     )
