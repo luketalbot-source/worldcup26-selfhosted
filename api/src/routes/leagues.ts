@@ -62,9 +62,12 @@ router.post(
       if (!comp.is_active) {
         return c.json({ error: "Cannot scope a league to an archived competition" }, 400);
       }
+      // enabled_at <= now(): a scheduled (future) enablement is not enabled
+      // yet — users can't see the game, so they can't scope a league to it.
       const enabled = await sql`
         SELECT 1 FROM public.tenant_competitions
          WHERE tenant_id = ${tenant_id} AND competition_id = ${competition_id}
+           AND enabled_at <= now()
       `;
       if (enabled.length === 0) {
         return c.json({ error: "Competition is not enabled for this tenant" }, 400);

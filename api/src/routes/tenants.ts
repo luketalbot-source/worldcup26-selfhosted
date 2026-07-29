@@ -50,14 +50,33 @@ router.post(
       VALUES (gen_random_uuid(), ${body.name}, ${uid}, NOW())
       RETURNING *
     `;
-    // New tenants start with every ACTIVE competition enabled — a tenant
-    // with zero enabled competitions renders an empty app, and "created it,
-    // now it works" is the right default. Archives stay off (the new tenant
+    // New tenants start with active competitions enabled — a tenant with
+    // zero enabled competitions renders an empty app, and "created it, now
+    // it works" is the right default. Archives stay off (the new tenant
     // never played them); admins can still toggle everything afterwards.
+    // Two guards:
+    //   - fixtures must exist: an active-but-feedless game (Europa League
+    //     teaser, Champions League before its draw syncs) would render as a
+    //     playable card with zero matches;
+    //   - EMBARGO INHERITANCE: if a platform-wide scheduled go-live is
+    //     pending for a competition (future enabled_at rows on other
+    //     tenants), the new tenant inherits the earliest pending moment
+    //     instead of jumping the gun with an immediate enablement.
     const tenantId = (rows[0] as { id: string }).id;
     await sql`
-      INSERT INTO public.tenant_competitions (tenant_id, competition_id)
-      SELECT ${tenantId}, id FROM public.competitions WHERE is_active
+      INSERT INTO public.tenant_competitions (tenant_id, competition_id, enabled_at)
+      SELECT ${tenantId}, c.id,
+             GREATEST(
+               now(),
+               COALESCE(
+                 (SELECT MIN(tc2.enabled_at) FROM public.tenant_competitions tc2
+                   WHERE tc2.competition_id = c.id AND tc2.enabled_at > now()),
+                 now()
+               )
+             )
+        FROM public.competitions c
+       WHERE c.is_active
+         AND EXISTS (SELECT 1 FROM public.live_matches lm WHERE lm.competition_id = c.id)
       ON CONFLICT (tenant_id, competition_id) DO NOTHING
     `;
     return c.json(rows[0], 201);
@@ -137,10 +156,15 @@ router.patch(
 
 router.get("/:id/competitions", requireAdmin, async (c) => {
   const id = c.req.param("id");
+  // `enabled` mirrors what the TENANT actually sees (enabled_at <= now());
+  // a future enabled_at is a scheduled go-live, surfaced separately as
+  // `scheduled_at` so the admin UI can say "off, flips on <date>" instead
+  // of lying in either direction.
   const rows = await sql`
     SELECT comp.id, comp.slug, comp.name, comp.short_name, comp.season,
            comp.format, comp.is_active, comp.display_order,
-           (tc.tenant_id IS NOT NULL) AS enabled
+           (tc.tenant_id IS NOT NULL AND tc.enabled_at <= now()) AS enabled,
+           (CASE WHEN tc.enabled_at > now() THEN tc.enabled_at END) AS scheduled_at
       FROM public.competitions comp
       LEFT JOIN public.tenant_competitions tc
         ON tc.competition_id = comp.id AND tc.tenant_id = ${id}
@@ -158,12 +182,18 @@ router.put(
     const competitionId = c.req.param("competitionId");
     const { enabled } = c.req.valid("json");
     if (enabled) {
+      // "Enable now" must also override a SCHEDULED (future enabled_at) row
+      // — with DO NOTHING the admin's click would silently change nothing.
+      // LEAST() makes it live immediately while never postponing a row
+      // that's already live.
       await sql`
         INSERT INTO public.tenant_competitions (tenant_id, competition_id)
         VALUES (${tenantId}, ${competitionId})
-        ON CONFLICT (tenant_id, competition_id) DO NOTHING
+        ON CONFLICT (tenant_id, competition_id)
+        DO UPDATE SET enabled_at = LEAST(public.tenant_competitions.enabled_at, now())
       `;
     } else {
+      // Disabling also cancels a pending schedule (the row is the schedule).
       await sql`
         DELETE FROM public.tenant_competitions
          WHERE tenant_id = ${tenantId} AND competition_id = ${competitionId}

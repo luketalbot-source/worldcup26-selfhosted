@@ -21,6 +21,10 @@ interface TenantCompetitionRow {
   is_active: boolean;
   display_order: number;
   enabled: boolean;
+  // Set when an enablement is SCHEDULED (enabled_at in the future): the
+  // tenant doesn't see the game yet; it flips on automatically at this
+  // moment. Toggling the checkbox on makes it live immediately instead.
+  scheduled_at?: string | null;
 }
 
 export const TenantCompetitions = ({ tenantId, tenantName }: { tenantId: string; tenantName: string }) => {
@@ -45,11 +49,26 @@ export const TenantCompetitions = ({ tenantId, tenantName }: { tenantId: string;
   }, [tenantId]);
 
   const toggle = async (row: TenantCompetitionRow, enabled: boolean) => {
+    // A scheduled row is a loaded gun during an embargo week: enabling
+    // launches the game for this tenant NOW (overriding the schedule), and
+    // disabling silently drops the tenant from the scheduled go-live with
+    // no way to re-create the schedule from this UI. Confirm both.
+    if (row.scheduled_at) {
+      const when = new Date(row.scheduled_at).toLocaleString();
+      const ok = window.confirm(
+        enabled
+          ? `${row.short_name} is scheduled to go live ${when}. Enable it for ${tenantName} NOW instead?`
+          : `${row.short_name} is scheduled to go live ${when}. Disabling CANCELS that scheduled go-live for ${tenantName} — it will NOT flip on automatically. Continue?`,
+      );
+      if (!ok) return;
+    }
     setSavingId(row.id);
     try {
       await api.put(`/tenants/${tenantId}/competitions/${row.id}`, { enabled });
+      // Enabling makes a scheduled row live NOW (server uses LEAST(…, now())),
+      // and disabling cancels the schedule — either way it's gone.
       setRows((prev) =>
-        prev ? prev.map((r) => (r.id === row.id ? { ...r, enabled } : r)) : prev,
+        prev ? prev.map((r) => (r.id === row.id ? { ...r, enabled, scheduled_at: null } : r)) : prev,
       );
       toast.success(`${row.short_name} ${enabled ? 'enabled' : 'disabled'} for ${tenantName}`);
     } catch (err) {
@@ -107,6 +126,14 @@ export const TenantCompetitions = ({ tenantId, tenantName }: { tenantId: string;
                   {row.format} format
                 </p>
               </Label>
+              {/* OUTSIDE the Label on purpose: the label toggles the
+                  checkbox, and clicking a schedule announcement must never
+                  fire the launch it announces. */}
+              {row.scheduled_at && !row.enabled && (
+                <span className="ml-auto shrink-0 text-xs font-normal bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  goes live {new Date(row.scheduled_at).toLocaleString()}
+                </span>
+              )}
             </div>
           ))
         )}

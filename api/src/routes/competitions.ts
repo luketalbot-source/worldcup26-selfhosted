@@ -39,9 +39,14 @@ router.get("/", async (c) => {
   // muted with "coming soon" so customers know to ask for them; inactive
   // competitions (not launched platform-wide) never appear as teasers.
   if (tenantId) {
+    // enabled_at is "enabled FROM": a row with a future timestamp is a
+    // SCHEDULED enablement (coordinated go-live with nobody at the wheel)
+    // and stays invisible — the competition keeps rendering as a "coming
+    // soon" teaser until the moment passes. No scheduler involved; the
+    // flip happens right here on the first request after the timestamp.
     const enabledRows = await sql<{ competition_id: string }[]>`
       SELECT competition_id FROM public.tenant_competitions
-       WHERE tenant_id = ${tenantId}
+       WHERE tenant_id = ${tenantId} AND enabled_at <= now()
     `;
     const enabledIds = new Set(enabledRows.map((r) => r.competition_id));
     const visible = all
