@@ -239,7 +239,7 @@
     "loginPrompt": "to save your boost predictions!",
     "bonusPoints": "Boost Points",
     "fromCorrectPredictions": "from correct predictions",
-    "infoText": "Earn bonus points for each correct prediction. Results are set by admins at the end of the tournament.",
+    "infoText": "Earn bonus points for each correct prediction. Results are set by admins at the end of the competition.",
     "noExtraBoosts": "No Extra Boosts yet!",
     "noExtraBoostsDesc": "Ask your admins to be adventurous and create some custom boost predictions for your group!",
     "selectTeam": "Select a team...",
@@ -284,7 +284,12 @@
       "woodenSpoon": "Wooden Spoon",
       "woodenSpoonDesc": "Team with the worst performance",
       "winnersDesc_CL": "Which team will win the Champions League?",
-      "winnersDesc_BL1": "Which team will win the Bundesliga?"
+      "winnersDesc_BL1": "Which team will win the Bundesliga?",
+      "winnersDesc_PL": "Which team will win the Premier League?",
+      "winnersDesc_PD": "Which team will win La Liga?",
+      "goldenBootDesc_BL1": "The league's top scorer",
+      "goldenBootDesc_PL": "The league's top scorer",
+      "goldenBootDesc_PD": "The league's top scorer"
     },
     "custom": "Custom",
     "daysCount": "{{count}} days",
