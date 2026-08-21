@@ -48,6 +48,8 @@ interface Tenant {
   created_at: string;
   oidc_count: number;
   allow_custom_leagues?: boolean;
+  // False = users see ONLY enabled games; "coming soon" teasers hidden.
+  show_teaser_competitions?: boolean;
   terms_of_use?: string | null;
 }
 
@@ -803,6 +805,47 @@ const Admin = () => {
                         alongside the built-in <strong>Everyone</strong> league.
                         When disabled, only Everyone is shown — pre-expanded to
                         fill the viewport, no create/join buttons.
+                      </p>
+                    </Label>
+                  </div>
+
+                  {/* Same sibling structure as above (htmlFor, no wrapping
+                      label — see the double-fire note). */}
+                  <div className="flex items-start gap-3 mt-4">
+                    <Checkbox
+                      id="show-teaser-competitions"
+                      checked={selectedTenant.show_teaser_competitions !== false}
+                      onCheckedChange={async (checked) => {
+                        const next = checked === true;
+                        try {
+                          const updated = await api.patch<Tenant>(
+                            `/tenants/${selectedTenant.id}`,
+                            { show_teaser_competitions: next },
+                          );
+                          setTenants((ts) =>
+                            ts.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+                          );
+                          setSelectedTenant({ ...selectedTenant, ...updated });
+                          toast.success(
+                            next ? 'Upcoming games visible' : 'Upcoming games hidden',
+                          );
+                        } catch (err) {
+                          console.error(err);
+                          toast.error('Failed to update setting');
+                        }
+                      }}
+                      className="mt-0.5"
+                    />
+                    <Label htmlFor="show-teaser-competitions" className="space-y-1 cursor-pointer">
+                      <div className="text-sm font-medium leading-none">
+                        Show upcoming games ("coming soon")
+                      </div>
+                      <p className="text-xs font-normal text-muted-foreground">
+                        When enabled, games launched platform-wide but not yet
+                        enabled for this tenant appear as muted "coming soon"
+                        cards. When disabled, users see <strong>only</strong> the
+                        games enabled for this tenant — nothing else is
+                        advertised.
                       </p>
                     </Label>
                   </div>

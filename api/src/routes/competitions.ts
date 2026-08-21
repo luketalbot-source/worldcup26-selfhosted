@@ -49,8 +49,15 @@ router.get("/", async (c) => {
        WHERE tenant_id = ${tenantId} AND enabled_at <= now()
     `;
     const enabledIds = new Set(enabledRows.map((r) => r.competition_id));
+    // Per-tenant teaser opt-out: with show_teaser_competitions off, users
+    // see ONLY the games enabled for their tenant — no "coming soon" cards.
+    // Missing tenant row (bogus id) behaves like the default (teasers on).
+    const tenantRows = await sql<{ show_teaser_competitions: boolean }[]>`
+      SELECT show_teaser_competitions FROM public.tenants WHERE id = ${tenantId}
+    `;
+    const showTeasers = tenantRows[0]?.show_teaser_competitions !== false;
     const visible = all
-      .filter((comp) => enabledIds.has(comp.id) || comp.is_active)
+      .filter((comp) => enabledIds.has(comp.id) || (showTeasers && comp.is_active))
       .map((comp) => ({ ...comp, enabled: enabledIds.has(comp.id) }));
     // Tenant-scoped: the `enabled` flags reflect per-tenant feature toggles an
     // admin changes and expects to see reflected quickly. Must be PRIVATE (no

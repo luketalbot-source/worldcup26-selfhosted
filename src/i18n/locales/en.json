@@ -199,7 +199,8 @@
     "loadErrorTitle": "Couldn't load your profile",
     "loadErrorSubtitle": "Your session may have expired",
     "retry": "Try again",
-    "reLogin": "Log in again"
+    "reLogin": "Log in again",
+    "filterAllGames": "All games"
   },
   "language": {
     "label": "Language",

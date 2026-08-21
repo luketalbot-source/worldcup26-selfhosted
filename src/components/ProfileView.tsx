@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Target, CheckCircle, XCircle, TrendingUp, LogIn, Zap, Globe, Moon, Sun, Monitor, Rocket, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -27,9 +28,19 @@ export const ProfileView = () => {
   const { tenantUid } = useParams();
   const { profile, loading: profileLoading, error: profileError, refetch, updateAvatar } = useProfile(user?.id);
   // Lifetime, across every game the tenant has — accurate regardless of which
-  // games have been opened (unlike the per-competition match buckets). Aliased
-  // to `stats` so the existing header/stats rendering is unchanged.
-  const { lifetime: stats, byCompetition } = useLifetimeStats(user?.id, tenantId);
+  // games have been opened (unlike the per-competition match buckets).
+  const { lifetime, byCompetition, loading: statsLoading } = useLifetimeStats(user?.id, tenantId);
+  // Game filter for the numbers below: null = all games combined (lifetime),
+  // a competition id = that game only. The chips render only when there's
+  // more than one game to filter between. A selection that no longer maps
+  // to a known game (tenant switch, admin toggled the game off) degrades to
+  // "all games" for BOTH the highlight and the numbers — never a chip-less
+  // highlight over silently-lifetime figures.
+  const [statsScope, setStatsScope] = useState<string | null>(null);
+  const scope =
+    statsScope && byCompetition.some((c) => c.competition.id === statsScope) ? statsScope : null;
+  const stats =
+    (scope ? byCompetition.find((c) => c.competition.id === scope)?.stats : null) ?? lifetime;
   const navigate = useNavigate();
   const { isEmbedded, diag, bridgeReady } = useFlipBridge();
 
@@ -173,9 +184,46 @@ export const ProfileView = () => {
         </div>
 
         <div className="p-4">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-3">
-            {t('profile.allGames', 'Across all games')}
-          </p>
+          {/* Game filter — scopes every number below (header grid + Your
+              Stats) to one game, or all games combined. Single-game tenants
+              keep the plain caption; there's nothing to filter. */}
+          {statsLoading && byCompetition.length === 0 ? (
+            /* Roster still resolving — hold the slot so the header doesn't
+               flash caption-then-chips on every Profile open. */
+            <div className="h-7 mb-3" />
+          ) : byCompetition.length > 1 ? (
+            <div className="flex flex-wrap justify-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setStatsScope(null)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  scope === null
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t('profile.filterAllGames', 'All games')}
+              </button>
+              {byCompetition.map(({ competition }) => (
+                <button
+                  key={competition.id}
+                  type="button"
+                  onClick={() => setStatsScope(competition.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    scope === competition.id
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {competitionLabel(competition)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-3">
+              {t('profile.allGames', 'Across all games')}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-muted rounded-xl p-4 text-center">
               <Target className="w-6 h-6 text-primary mx-auto mb-2" />
@@ -247,34 +295,8 @@ export const ProfileView = () => {
         </div>
       </motion.div>
 
-      {/* Per-game breakdown — only when there's more than one game to break
-          down (for a single-game tenant it just repeats the lifetime totals). */}
-      {byCompetition.length > 1 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-card rounded-2xl shadow-card border border-border/50 p-4"
-        >
-          <h3 className="font-semibold text-foreground mb-4">{t('profile.byGame', 'By game')}</h3>
-          <div className="space-y-1">
-            {byCompetition.map(({ competition, stats: cs }) => (
-              <div
-                key={competition.id}
-                className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
-              >
-                <span className="text-sm text-foreground truncate pr-3">{competitionLabel(competition)}</span>
-                <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
-                  {cs.totalPredictions} {t('profile.predictionsShort', 'preds')} ·{' '}
-                  <span className="font-semibold text-foreground">
-                    {cs.totalPoints} {t('profile.pointsShort', 'pts')}
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
+      {/* The old "By game" summary card is gone — the game filter above the
+          numbers replaced it (select a game to see its full breakdown). */}
 
       {/* Settings Card */}
       <motion.div

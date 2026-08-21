@@ -259,7 +259,8 @@
     "retry": "Erneut versuchen",
     "reLogin": "Erneut anmelden",
     "phoneNumber": "Telefonnummer",
-    "noPhone": "Nicht festgelegt"
+    "noPhone": "Nicht festgelegt",
+    "filterAllGames": "Alle Spiele"
   },
   "language": {
     "label": "Sprache",

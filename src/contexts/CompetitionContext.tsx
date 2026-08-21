@@ -40,7 +40,9 @@ export interface Competition {
  *  pickers), so this season's and next season's games stay distinguishable
  *  as history accumulates. */
 export const competitionLabel = (comp: Pick<Competition, 'short_name' | 'season'>): string =>
-  `${comp.short_name} ${comp.season}`;
+  // Skip the season when the name already carries it — "World Cup 2026"
+  // must not render as "World Cup 2026 2026".
+  comp.short_name.includes(comp.season) ? comp.short_name : `${comp.short_name} ${comp.season}`;
 
 export const isEnabled = (comp: Competition): boolean => comp.enabled !== false;
 

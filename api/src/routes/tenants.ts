@@ -99,6 +99,9 @@ router.patch(
     z.object({
       name: z.string().min(1).max(120).optional(),
       allow_custom_leagues: z.boolean().optional(),
+      // False = hide "coming soon" teaser competitions from this tenant's
+      // users entirely; they see only the games enabled for them.
+      show_teaser_competitions: z.boolean().optional(),
       // Free-form Terms of Use. Nullable so the admin can clear an
       // existing value by sending null; max 20k chars is plenty for
       // typical legal copy without inviting abuse.
@@ -123,6 +126,14 @@ router.patch(
       await sql`
         UPDATE tenants
            SET allow_custom_leagues = ${body.allow_custom_leagues},
+               updated_at = NOW()
+         WHERE id = ${id}
+      `;
+    }
+    if (body.show_teaser_competitions !== undefined) {
+      await sql`
+        UPDATE tenants
+           SET show_teaser_competitions = ${body.show_teaser_competitions},
                updated_at = NOW()
          WHERE id = ${id}
       `;
