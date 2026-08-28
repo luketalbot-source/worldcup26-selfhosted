@@ -112,10 +112,20 @@ const ExpandableLeagueCard = ({
   const scopedComp = league.competition_id
     ? competitionCtx?.competitions.find((c) => c.id === league.competition_id) ?? null
     : null;
+  // Expanded-card explainer ("Points from X only") — worth stating once a
+  // card is open, for every scoped league and the per-game Everyone board.
   const scopeName = scopedComp
     ? competitionLabel(scopedComp)
     : isEveryone && hasMultipleGames && everyoneScopeComp
       ? competitionLabel(everyoneScopeComp)
+      : null;
+  // Collapsed badge: ONLY when the league belongs to a DIFFERENT game than
+  // the one the user is in (the never-hide fallbacks). The list is per-game,
+  // so a same-game badge just repeats the switch chip in the header and
+  // truncates the league's own name — customer feedback (WFF).
+  const badgeName =
+    scopedComp && scopedComp.id !== (competitionCtx?.activeCompetition?.id ?? null)
+      ? competitionLabel(scopedComp)
       : null;
 
   const { leaderboard: leagueLeaderboard, loading: leaderboardLoading, refetch: refetchLeaderboard } = useLeagueLeaderboard(
@@ -329,9 +339,9 @@ const ExpandableLeagueCard = ({
                   Dev
                 </span>
               )}
-              {scopeName && (
+              {badgeName && (
                 <span className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
-                  ⚽ {scopeName}
+                  ⚽ {badgeName}
                 </span>
               )}
             </div>
