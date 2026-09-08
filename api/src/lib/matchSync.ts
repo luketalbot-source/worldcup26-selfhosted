@@ -12,6 +12,7 @@
 import { sql } from "../db";
 import { emitMatchEvent, type LiveMatchEvent } from "./matchEvents";
 import { fdClient } from "./fdClient";
+import { buildTeamCodes } from "./teamCodes";
 import {
   getActiveCompetitions,
   getCompetitionById,
@@ -355,6 +356,13 @@ export async function runSync(
 
     const matchesData = (await matchesRes.json()) as { matches?: FootballDataMatch[] };
     const matches = matchesData.matches ?? [];
+    // FD TLAs can collide WITHIN a competition (CL 2026/27: Bayern and
+    // Barcelona are both "FCB") — resolve every participant to a unique,
+    // deterministic per-competition code and use it for match rows and the
+    // roster alike. See teamCodes.ts.
+    const teamCodes = buildTeamCodes(
+      matches.flatMap((m) => [m.homeTeam, m.awayTeam]).filter((t) => t && t.id != null),
+    );
     syncState.totalMatches = matches.length;
     console.log(`[sync-matches] got ${matches.length} matches from football-data.org, inserting…`);
 
@@ -377,10 +385,12 @@ export async function runSync(
         // `group` for knockout matches and `score.fullTime.home` for unplayed
         // fixtures, so every `?? null` below matters.
         const homeCode =
+          (match.homeTeam?.id != null ? teamCodes.get(match.homeTeam.id) : undefined) ||
           match.homeTeam?.tla ||
           match.homeTeam?.shortName?.substring(0, 3).toUpperCase() ||
           "TBD";
         const awayCode =
+          (match.awayTeam?.id != null ? teamCodes.get(match.awayTeam.id) : undefined) ||
           match.awayTeam?.tla ||
           match.awayTeam?.shortName?.substring(0, 3).toUpperCase() ||
           "TBD";
@@ -556,8 +566,21 @@ async function syncTeams(
   const groupMap = computeTeamGroups(matches);
   console.log(`[sync-matches] ${comp.slug}: got ${teams.length} teams, inserting…`);
 
+  // Same collision-free code resolution as the match upserts (teamCodes.ts).
+  // Registering the MATCH participants alongside the roster keeps this map
+  // identical to the one used for match rows — both sort by FD id, so the
+  // same club wins a contested TLA in both places.
+  const codes = buildTeamCodes([
+    ...matches.flatMap((m) => [m.homeTeam, m.awayTeam]).filter((t) => t && t.id != null),
+    ...teams.filter((t) => t.id != null).map((t) => ({ id: t.id!, tla: t.tla, shortName: t.shortName, name: t.name })),
+  ]);
+
   for (const team of teams) {
     if (!team.tla) continue;
+    // Resolved, collision-free code — everything below writes THIS, never
+    // the raw FD TLA (group lookup stays on the raw TLA: groups only exist
+    // for the WC, which has no collisions).
+    const code = (team.id != null ? codes.get(team.id) : undefined) ?? team.tla;
     const group = groupMap.get(team.tla) ?? null;
     try {
       // FD's numeric team id is the STABLE key within a competition; the
@@ -574,7 +597,7 @@ async function syncTeams(
       if (team.id != null) {
         updated = await sql`
           UPDATE public.teams SET
-            tla         = ${team.tla},
+            tla         = ${code},
             name        = ${team.name ?? team.tla},
             short_name  = ${team.shortName ?? team.name ?? team.tla},
             crest_url   = ${team.crest ?? null},
@@ -587,13 +610,14 @@ async function syncTeams(
       if (updated.length === 0) {
         updated = await sql`
           UPDATE public.teams SET
+            tla         = ${code},
             name        = ${team.name ?? team.tla},
             short_name  = ${team.shortName ?? team.name ?? team.tla},
             crest_url   = ${team.crest ?? null},
             group_name  = ${group},
             fd_team_id  = ${team.id ?? null},
             updated_at  = NOW()
-          WHERE tla = ${team.tla} AND competition_id = ${comp.id}
+          WHERE tla = ${code} AND competition_id = ${comp.id}
           RETURNING id
         `;
       }
@@ -602,7 +626,7 @@ async function syncTeams(
           INSERT INTO public.teams (id, tla, name, short_name, crest_url, group_name, fd_team_id, competition_id, updated_at)
           VALUES (
             gen_random_uuid(),
-            ${team.tla},
+            ${code},
             ${team.name ?? team.tla},
             ${team.shortName ?? team.name ?? team.tla},
             ${team.crest ?? null},

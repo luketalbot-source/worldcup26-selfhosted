@@ -16,6 +16,7 @@ import { requireAdmin, requireAuth, type AuthEnv } from "../auth/middleware";
 import { normaliseForSearch } from "../lib/normalise";
 import { fdClient } from "../lib/fdClient";
 import { getCompetitionBySlug } from "../lib/competitions";
+import { buildTeamCodes } from "../lib/teamCodes";
 
 const router = new Hono<AuthEnv>();
 
@@ -225,7 +226,10 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
 
   const data = (await fdResp.json()) as {
     teams?: Array<{
+      id?: number;
       tla?: string;
+      shortName?: string;
+      name?: string;
       squad?: Array<{
         name?: string;
         position?: string;
@@ -235,6 +239,13 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
     }>;
   };
   const teams = data.teams ?? [];
+  // Collision-free per-competition codes (CL: Bayern + Barcelona are both
+  // FD-TLA "FCB"). Must match the codes the match/teams sync writes — both
+  // resolve via buildTeamCodes over the same participants (sorted by FD id),
+  // so squads land under the same team_code the roster and fixtures use.
+  const codes = buildTeamCodes(
+    teams.filter((t) => t.id != null).map((t) => ({ id: t.id!, tla: t.tla, shortName: t.shortName, name: t.name })),
+  );
 
   let teamsTouched = 0;
   let rowsInserted = 0;
@@ -270,7 +281,7 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
       const byName = new Map<string, (typeof squad)[number]>();
       for (const p of squad) byName.set(p.name!.trim(), p);
       const rows = [...byName.entries()].map(([fullName, p]) => ({
-        team_code: team.tla!,
+        team_code: (team.id != null ? codes.get(team.id) : undefined) ?? team.tla!,
         full_name: fullName,
         searchable: normaliseForSearch(fullName),
         position: normalisePosition(p.position),
@@ -284,7 +295,7 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
         // CL and BL1 has distinct squad registrations per competition.
         await tx`
           DELETE FROM public.live_players
-           WHERE team_code = ${team.tla!} AND competition_id = ${comp.id}
+           WHERE team_code = ${(team.id != null ? codes.get(team.id) : undefined) ?? team.tla!} AND competition_id = ${comp.id}
         `;
         await tx`
           INSERT INTO public.live_players ${tx(rows, 'team_code', 'full_name', 'searchable', 'position', 'shirt_number', 'date_of_birth', 'competition_id', 'updated_at')}
@@ -298,10 +309,31 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
     }
   }
 
+  // Sweep rows stranded under a code no longer in this competition's
+  // resolved set — e.g. squads imported before a TLA collision was
+  // resolved (CL "FCB" pre-dating the Bayern/Barcelona split), or after
+  // an FD rename shifts a team's code. The known set includes skipped
+  // and failed teams (codes come from the payload, not from import
+  // success), so their existing rows are never treated as orphans.
+  let rowsSwept = 0;
+  if (teams.length > 0) {
+    const knownCodes = teams
+      .filter((t) => t.tla)
+      .map((t) => (t.id != null ? codes.get(t.id) : undefined) ?? t.tla!);
+    const swept = await sql`
+      DELETE FROM public.live_players
+       WHERE competition_id = ${comp.id}
+         AND NOT (team_code = ANY(${knownCodes}))
+      RETURNING id
+    `;
+    rowsSwept = swept.length;
+  }
+
   return c.json({
     teams_in_response: teams.length,
     teams_synced: teamsTouched,
     rows_inserted: rowsInserted,
+    rows_swept: rowsSwept, // orphans under codes not in this comp's resolved set
     skipped, // TLAs we didn't touch (empty squad from FD, or per-team error)
   });
 });
