@@ -20,6 +20,10 @@ import { buildTeamCodes } from "../lib/teamCodes";
 
 const router = new Hono<AuthEnv>();
 
+// Competitions with a squad backfill loop currently in flight (see
+// sync-from-fd) — guards against concurrent duplicate backfills.
+const squadBackfillRunning = new Set<string>();
+
 interface PlayerRow {
   id: string;
   team_code: string;
@@ -183,6 +187,55 @@ function normalisePosition(s: string | null | undefined): string | null {
   return FD_POSITION_TO_CODE[s] ?? s;
 }
 
+type FdSquadPlayer = {
+  name?: string;
+  position?: string;
+  shirtNumber?: number | null;
+  dateOfBirth?: string;
+};
+
+// Atomic per-(team, competition) roster rebuild. Per-team transaction:
+// a DELETE-then-INSERT outside a transaction would briefly show an empty
+// roster to anyone hitting GET /players during the gap — sql.begin()
+// guarantees readers see either the old set or the new set, never an
+// intermediate state. Single bulk INSERT per team (the old loop issued
+// up to ~1,300 sequential queries across a full 48-team sync). Dedupe by
+// name in JS (FD occasionally repeats a player in a squad payload). No
+// ON CONFLICT on the INSERT: the unique constraint migrates from
+// (team_code, full_name) to (competition_id, …) during the Phase B→C
+// window, and a hardcoded conflict target for either regime errors under
+// the other — the DELETE already guarantees a clean slate. The DELETE is
+// scoped to the competition: a club playing in both CL and BL1 has
+// distinct squad registrations per competition.
+async function rebuildSquad(
+  competitionId: string,
+  teamCode: string,
+  squad: FdSquadPlayer[],
+): Promise<number> {
+  const byName = new Map<string, FdSquadPlayer>();
+  for (const p of squad) byName.set(p.name!.trim(), p);
+  const rows = [...byName.entries()].map(([fullName, p]) => ({
+    team_code: teamCode,
+    full_name: fullName,
+    searchable: normaliseForSearch(fullName),
+    position: normalisePosition(p.position),
+    shirt_number: typeof p.shirtNumber === "number" ? p.shirtNumber : null,
+    date_of_birth: p.dateOfBirth ?? null,
+    competition_id: competitionId,
+    updated_at: new Date(),
+  }));
+  await sql.begin(async (tx) => {
+    await tx`
+      DELETE FROM public.live_players
+       WHERE team_code = ${teamCode} AND competition_id = ${competitionId}
+    `;
+    await tx`
+      INSERT INTO public.live_players ${tx(rows, 'team_code', 'full_name', 'searchable', 'position', 'shirt_number', 'date_of_birth', 'competition_id', 'updated_at')}
+    `;
+  });
+  return rows.length;
+}
+
 // Admin: one-button sync of every team's roster from football-data.org.
 // FD's /competitions/WC/teams payload now (May 2026 onwards) ships
 // inline `squad` arrays for every team — verified 48/48 populated,
@@ -250,59 +303,28 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
   let teamsTouched = 0;
   let rowsInserted = 0;
   const skipped: string[] = [];
+  const deferred: Array<{ id: number; code: string; tla: string }> = [];
 
   for (const team of teams) {
     if (!team.tla) continue;
-    // Defensive: a 0-row squad from FD almost always indicates a
-    // transient glitch, not "team disbanded" — keep yesterday's data
-    // rather than wiping a usable roster. Surfaced in `skipped` so
-    // the admin can see why a team's count didn't change.
+    const code = (team.id != null ? codes.get(team.id) : undefined) ?? team.tla;
     const squad = (team.squad ?? []).filter((p) => p?.name && p.name.trim().length > 0);
     if (squad.length === 0) {
-      skipped.push(team.tla);
+      // FD omits squads entirely from some competitions' bulk payloads
+      // (CL 2026/27 returned all 36 teams squadless) — the per-team
+      // /teams/<id> endpoint always carries the squad, so fall back to
+      // it below. Deferred to a background loop: 36 calls through the
+      // 8/min token bucket is ~5 minutes, far past the proxy's request
+      // timeout. A squadless team WITHOUT an fd id stays skipped —
+      // keeping yesterday's data beats wiping a usable roster on an FD
+      // glitch, and `skipped` shows the admin why a count didn't change.
+      if (team.id != null) deferred.push({ id: team.id, code, tla: team.tla });
+      else skipped.push(team.tla);
       continue;
     }
     try {
-      // Per-team transaction: a DELETE-then-INSERT outside a
-      // transaction would briefly show an empty roster to anyone
-      // hitting GET /players during the gap. sql.begin() guarantees
-      // the rebuild is atomic — readers see either the old set or
-      // the new set, never an intermediate state.
-      // Single bulk INSERT per team instead of one round-trip per player —
-      // the old loop issued up to ~1,300 sequential queries across a full
-      // 48-team sync, hogging pool connections. ON CONFLICT DO NOTHING
-      // still dedupes (including duplicates within the same batch).
-      // Dedupe by name in JS (FD occasionally repeats a player in a squad
-      // payload). No ON CONFLICT on the INSERT: the unique constraint
-      // migrates from (team_code, full_name) to (competition_id, …) during
-      // the Phase B→C window, and a hardcoded conflict target for either
-      // regime errors under the other — the DELETE below already guarantees
-      // a clean slate for this (team, competition).
-      const byName = new Map<string, (typeof squad)[number]>();
-      for (const p of squad) byName.set(p.name!.trim(), p);
-      const rows = [...byName.entries()].map(([fullName, p]) => ({
-        team_code: (team.id != null ? codes.get(team.id) : undefined) ?? team.tla!,
-        full_name: fullName,
-        searchable: normaliseForSearch(fullName),
-        position: normalisePosition(p.position),
-        shirt_number: typeof p.shirtNumber === "number" ? p.shirtNumber : null,
-        date_of_birth: p.dateOfBirth ?? null,
-        competition_id: comp.id,
-        updated_at: new Date(),
-      }));
-      await sql.begin(async (tx) => {
-        // Scope the rebuild to this competition — a club playing in both
-        // CL and BL1 has distinct squad registrations per competition.
-        await tx`
-          DELETE FROM public.live_players
-           WHERE team_code = ${(team.id != null ? codes.get(team.id) : undefined) ?? team.tla!} AND competition_id = ${comp.id}
-        `;
-        await tx`
-          INSERT INTO public.live_players ${tx(rows, 'team_code', 'full_name', 'searchable', 'position', 'shirt_number', 'date_of_birth', 'competition_id', 'updated_at')}
-        `;
-      });
+      rowsInserted += await rebuildSquad(comp.id, code, squad);
       teamsTouched++;
-      rowsInserted += squad.length;
     } catch (err) {
       console.error(`[players/sync-from-fd] squad for ${team.tla} failed:`, err);
       skipped.push(team.tla);
@@ -329,12 +351,54 @@ router.post("/admin/sync-from-fd", requireAdmin, async (c) => {
     rowsSwept = swept.length;
   }
 
+  // Fire-and-forget (same pattern as admin sync-matches): the FD token
+  // bucket paces these to ~8/min, so a 36-team backfill outlives any
+  // request timeout. Progress lands in the service log; the admin
+  // Players panel counts show the result. One backfill per competition
+  // at a time — a re-click mid-run would double every FD call through
+  // the shared token bucket and rebuild each team twice for nothing.
+  const backfillStarted = deferred.length > 0 && !squadBackfillRunning.has(comp.id);
+  if (deferred.length > 0 && !backfillStarted) {
+    console.warn(`[players/sync-from-fd] ${comp.slug}: squad backfill already running, not queuing another`);
+  }
+  if (backfillStarted) {
+    squadBackfillRunning.add(comp.id);
+    setTimeout(async () => {
+      let ok = 0;
+      try {
+        for (const d of deferred) {
+          try {
+            const res = await fdClient.fdFetch(`/teams/${d.id}`, apiKey);
+            if (!res.ok) {
+              console.warn(`[players/sync-from-fd] /teams/${d.id} (${d.tla}) returned ${res.status}`);
+              continue;
+            }
+            const t = (await res.json()) as { squad?: FdSquadPlayer[] };
+            const squad = (t.squad ?? []).filter((p) => p?.name && p.name.trim().length > 0);
+            if (squad.length === 0) {
+              console.warn(`[players/sync-from-fd] /teams/${d.id} (${d.tla}) has no squad either`);
+              continue;
+            }
+            await rebuildSquad(comp.id, d.code, squad);
+            ok++;
+          } catch (err) {
+            console.error(`[players/sync-from-fd] deferred squad for ${d.tla} failed:`, err);
+          }
+        }
+      } finally {
+        squadBackfillRunning.delete(comp.id);
+      }
+      console.log(`[players/sync-from-fd] ${comp.slug}: deferred squad fetches done: ${ok}/${deferred.length}`);
+    }, 0);
+  }
+
   return c.json({
     teams_in_response: teams.length,
     teams_synced: teamsTouched,
     rows_inserted: rowsInserted,
     rows_swept: rowsSwept, // orphans under codes not in this comp's resolved set
-    skipped, // TLAs we didn't touch (empty squad from FD, or per-team error)
+    queued_team_fetches: backfillStarted ? deferred.length : 0, // squadless in bulk payload; fetching per-team in background
+    skipped, // TLAs we didn't touch (no fd id and empty squad, or per-team error)
   });
 });
 
